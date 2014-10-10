@@ -4,7 +4,7 @@ set objdir = $OBJROOT/ocn/obj
 set srcdir = $OBJROOT/ocn/src
 mkdir -p $srcdir
 mkdir -p $objdir
-cd $srcdir
+#cd $srcdir
 #cp -p -r $CODEROOT/ocn/hycom .
 #cd ./hycom/sorc
 cd $CODEROOT/ocn/hycom/sorc
