@@ -1,0 +1,49 @@
+***************************************************************************
+  Instructions for running the test case from another account on Zeus:
+***************************************************************************
+
+step 1. copy the code and run scripts to your directory:
+mkdir -p /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_last_name/hycom
+cd  /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_last_name/hycom
+cp -r /scratch2/portfolios/NCEPDEV/marine/save/Bin.Li/hycom/GLBa0.24 .
+
+step 2. Get ALL and put ALL/bin in the path:
+
+cd  /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_last_name/hycom
+cp -r /scratch2/portfolios/NCEPDEV/marine/save/Bin.Li/hycom/ALL .
+cd /home/Your_first_name.Your_last_name
+vi .cshrc and put /home/Your_first_name.Your_last_name/hycom/ALL/bin in the path.
+
+source .cshrc
+
+step 3. copy forcing files to your noscrub directory:
+mkdir -p /scratch2/portfolios/NCEPDEV/marine/noscrub/Your_first_name.Your_last_name/hycom
+cd /scratch2/portfolios/NCEPDEV/marine/noscrub/Your_first_name.Your_last_name/hycom
+cp -r /scratch2/portfolios/NCEPDEV/marine/noscrub/Bin.Li/hycom/GLBa0.24 .
+
+step 4. move existing output files to archive:
+cd /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_last_name/hycom/GLBa0.24/expt_02.5/data/SCRATCH5
+mv out2009_l1 OLD
+
+cd   /scratch2/portfolios/NCEPDEV/marine/noscrub/Your_first_name.Your_last_name/hycom/GLBa0.24/expt_02.5/data
+mv tar* OLD
+mv ovrtn* OLD
+mv restart_out.*  OLD
+mv summary* OLD
+
+step 5. modify line 6 and line 7 of 025y109l.com: 
+cd  /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_last_name/hycom/GLBa0.24/expt_02.5
+edit 025y109l.com to change line 6 to the following:
+#PBS -e /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_last_name/hycom/GLBa0.24/expt_02.5/data/SCRATCH5/out2009_l1
+
+edit 025y109l.com to change line 7 to the following:
+#PBS -o /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_last_name/hycom/GLBa0.24/expt_02.5/data/SCRATCH5/out2009_l1
+
+step 6. run the model for 8 days:
+cd  /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_last_name/hycom/GLBa0.24/expt_02.5
+qsub 025y109l.com
+
+step 7. check the results in the following locations:
+a.  The log file is at /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_last_name/hycom/GLBa0.24/expt_02.5/data/SCRATCH5.
+
+b.  The model output files are at /scratch2/portfolios/NCEPDEV/marine/noscrub/Your_first_name.Your_last_name/hycom/GLBa0.24/expt_02.5/data.

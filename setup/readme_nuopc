@@ -1,0 +1,26 @@
+===================================================
+Building HYCOM with a NUOPC compliant component cap
+===================================================
+
+1) Make sure to have access to the Intel compilers,
+and MPI. Also ensure that the ESMFMKFILE environment
+variable is correctly set. On systems like Zeus there
+may be modules available that help with this setup.
+
+E.g. on Zeus you can do this:
+
+module load intel mpt esmf/6.3.0r
+
+2) Change into the "sorc" subdirectory.
+
+3) Build HYCOM and the NUOPC compliant component cap
+by using this command:
+
+gmake ARCH=AintelIFC TYPE=nuopc nuopc
+
+4) To clean the source distribution and start over use
+the following command:
+
+gmake ARCH=AintelIFC TYPE=nuopc clean
+
+*gjt*

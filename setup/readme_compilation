@@ -1,0 +1,19 @@
+Steps to compile the 1/4-degree HYCOM:
+
+1. cd /scratch2/portfolios/NCEPDEV/marine/save/Your_first_name.Your_latst_name/hycom/GLBa0.24/src_2.2.35_32_mpi
+
+2. Get necessary modules:
+module remove pgi
+module add intel
+module add intel mpt
+
+3. Remove old files:
+rm -f *.o
+rm -f *mod
+rm Make.log
+rm Make_log_new
+
+4. Compile the code:
+csh Make.com > & Make.log
+
+5. Check Make.log to make sure there are no problems.

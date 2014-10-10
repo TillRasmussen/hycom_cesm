@@ -1,0 +1,3017 @@
+Start Prologue v2.6-ad-2013.03.21 Tue Apr 23 20:15:46 UTC 2013 
+Node Access Status = SINGLEJOB
+Clearing lustre locks
+Checking memory after freeing memory
+MemTotal:       24631956 kB
+MemFree:        23082980 kB
+End Prologue v2.6-ad-2013.03.21 Tue Apr 23 20:15:47 UTC 2013 
+_______________________________________________________________
+
+Welcome to Zeus
+  This system is an SGI ICE 8400EX Enhanced Hypercube
+
+Update History:
+
+  Version: v2.6-ad-2013.03.21
+    -- Added clearing of lustre locks
+  Version: v2.6-ad-2012.11.06
+    -- Added timeout value of 120 sec to mdiag 
+  Version: v2.6-ad-2012.05.18
+    -- Using kindler, gentler leftover job process killing mechanism
+    -- Inserted additional job logging mechanisms
+    -- Using mdiag -j to detect SHARED vs SINGLEJOB node access state
+  Version: v2.5-ad-2012.05.01
+    -- Improved algorithm to detect Shared vs Dedicated nodes
+
+type:
+  module avail
+  for various Available Modules
+
+_______________________________________________________
+Warning: no access to tty (Bad file descriptor).
+Thus no job control in this shell.
+Please put the command hycom/ALL/bin/C in your path
+set time = 1
+set timestamp
+C
+C --- Experiment GLBa0.24 - 01.X series
+C --- 32 layer sig2star HYCOM for fully global region.
+C
+C --- 02.0 - As 01.1 but CFSR forcing
+C --- KPP, variable kapref, cfsr winds,thermal,precip forcing
+C --- cfsr 2001-2002 6-hrly wind anomalies,
+C --- QSCAT lin. regr. correction to wind speed and stresses,
+C --- no correction for lwflux and shwflx
+C --- no correction for precip
+C --- Initialize from Jan GDEM3 but then use PHC3.0,levtop=2 for
+C --- SSS relaxation.
+C --- 02.1 - As 02.0 but rerun from year 001 b with flux offset obtained from 020 years 5,6
+C --- 02.2 - Interannual run with cfsr forcing 1993-2009. Initialized from expt 02.1 restart at end of 006 l.
+C
+C --- Preamble, script keys on O/S name.
+C
+C --- Set parallel configuration, see ../README/README.expt_parallel.
+C --- NOMP = number of OpenMP threads, 0 for no OpenMP, 1 for inactive OpenMP
+C --- NMPI = number of MPI tasks, 0 for no MPI
+C
+setenv OS `uname`
+uname
+switch ( Linux )
+which yod
+yod: Command not found.
+if ( ! 1 ) then
+which aprun
+aprun: Command not found.
+if ( ! 1 ) then
+breaksw
+switch ( Linux )
+setenv NOMP 0
+setenv NMPI 146
+breaksw
+C
+C --- modify NOMP and NMPI based on batch limits
+C
+if ( 0 ) then
+if ( 0 ) then
+if ( 0 ) then
+echo NOMP is  0  and NMPI is  146
+NOMP is  0  and NMPI is  146
+C
+C --- R is region name.
+C --- V is source code version number.
+C --- T is topography number.
+C --- K is number of layers.
+C --- E is expt number.
+C --- P is primary path.
+C --- D is permanent directory.
+C --- S is scratch directory, must not be the permanent directory.
+C
+setenv R GLBa0.24
+setenv V 2.2.35
+setenv T 13
+setenv K 32
+setenv E 025
+setenv P hycom/GLBa0.24/expt_02.5/data
+setenv D ~/hycom/GLBa0.24/expt_02.5/data
+C
+switch ( Linux )
+if ( -e /export/a/Avichal.Mehra ) then
+if ( -e /ptmp ) then
+setenv S /ptmp/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data
+setenv H /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra
+setenv D /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data
+setenv HT /NCEPDEV/hpssuser/g01/wx21zdg
+else if ( -e /scr ) then
+breaksw
+C
+mkdir -p /ptmp/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data
+cd /ptmp/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data
+C
+C --- For whole year runs.
+C --- Y01 initial model year of this run.
+C --- YXX is the last model year of this run, and the first of the next run.
+C --- A and B are identical, typically blank.
+C --- For part year runs.
+C --- A is this part of the year, B is next part of the year.
+C --- Y01 is the start model year of this run.
+C --- YXX is the end model year of this run, usually Y01.
+C --- For a few hour/day run
+C --- A is the start day and hour, of form dDDDhHH.
+C --- B is the end day and hour, of form dXXXhYY.
+C --- Y01 is the start model year of this run.
+C --- YXX is the end model year of this run, usually Y01.
+C --- Note that these variables are set by the .awk generating script.
+C
+setenv A l
+setenv B l
+setenv Y01 109
+setenv YXX 109
+C
+echo Y01 = 109 YXX =  109 A = l B = l
+Y01 = 109 YXX =  109 A = l B = l
+C
+C --- local input files.
+C
+if ( -e /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../025y109l.limits ) then
+/bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../025y109l.limits limits
+else
+cat limits
+    39782.00000    39790.00000
+C
+if ( -e /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../ports.input_109l ) then
+/bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../ports.input ports.input
+/bin/cp: cannot stat `/scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../ports.input': No such file or directory
+endif
+C
+if ( -e /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../tracer.input_109l ) then
+/bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../tracer.input tracer.input
+/bin/cp: cannot stat `/scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../tracer.input': No such file or directory
+endif
+C
+if ( -e /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../blkdat.input_109l ) then
+/bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../blkdat.input blkdat.input
+endif
+if ( -e ./cice ) then
+if ( 146 != 0 ) then
+setenv NPATCH `echo $NMPI | awk '{printf("%04d", $1)}'`
+awk {printf("%04d", $1)}
+echo 146
+/bin/rm -f patch.input
+/bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../../topo/partit/depth_GLBa0.24_13.0146 patch.input
+C
+/bin/rm -f archt.input
+if ( -e /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../archt.input_109l ) then
+if ( -e /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../archt.input ) then
+touch archt.input
+endif
+if ( ! -z archt.input ) then
+endif
+C
+C --- check that iexpt from blkdat.input agrees with E from this script.
+C
+setenv EB `grep "'iexpt ' =" blk* | awk '{printf("%03d", $1)}'`
+awk {printf("%03d", $1)}
+grep 'iexpt ' = blkdat.input
+if ( 025 != 025 ) then
+C
+C --- pget, pput copy files between scratch and permanent storage.
+C --- Can both be cp if the permanent filesystem is mounted locally.
+C
+switch ( Linux )
+setenv pget /bin/cp
+setenv pput /bin/cp
+endsw
+C
+C --- input files from file server.
+C
+touch regional.depth.a regional.depth.b
+if ( -z regional.depth.a ) then
+if ( -z regional.depth.b ) then
+C
+touch regional.grid.a regional.grid.b
+if ( -z regional.grid.a ) then
+if ( -z regional.grid.b ) then
+if ( -e ./cice ) then
+C
+if ( ! -e ./wind ) then
+C
+C --- time-invarent heat flux offset
+C
+setenv OF _010i
+if ( _010i !=  ) then
+touch forcing.offlux.a
+touch forcing.offlux.b
+if ( -z forcing.offlux.a ) then
+if ( -z forcing.offlux.b ) then
+endif
+C
+touch forcing.rivers.a
+touch forcing.rivers.b
+if ( -z forcing.rivers.a ) then
+if ( -z forcing.rivers.b ) then
+C
+touch forcing.kpar.a
+touch forcing.kpar.b
+if ( -z forcing.kpar.a ) then
+if ( -z forcing.kpar.b ) then
+C
+touch relax.rmu.a relax.saln.a relax.temp.a relax.intf.a
+touch relax.rmu.b relax.saln.b relax.temp.b relax.intf.b
+if ( -z relax.rmu.a ) then
+[1] 5481
+endif
+if ( -z relax.rmu.b ) then
+/bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../../relax/025/relax_rmu.a relax.rmu.a
+[2] 5482
+endif
+if ( -z relax.saln.a ) then
+/bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../../relax/025/relax_rmu.b relax.rmu.b
+if ( -z relax.saln.b ) then
+if ( -z relax.temp.a ) then
+if ( -z relax.temp.b ) then
+if ( -z relax.intf.a ) then
+if ( -z relax.intf.b ) then
+C
+/bin/cp: cannot stat `/scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../../relax/025/relax_rmu.a': No such file or directory
+
+[1]    Exit 1                        /bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../../relax/025/relax_rmu.a relax.rmu.a
+/bin/cp: cannot stat `/scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../../relax/025/relax_rmu.b': No such file or directory
+
+[2]    Exit 1                        /bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../../relax/025/relax_rmu.b relax.rmu.b
+touch tbaric.a
+touch tbaric.b
+if ( -z tbaric.a ) then
+if ( -z tbaric.b ) then
+C
+setenv XS 
+if ( !=  ) then
+C
+touch iso.sigma.a
+touch iso.sigma.b
+if ( -z iso.sigma.a ) then
+if ( -z iso.sigma.b ) then
+C
+C --- restart input
+C
+touch restart_in.a restart_in.b restart_out.a restart_out.b restart_out1.a restart_out1.b
+if ( -z restart_in.b ) then
+setenv RI `head -2 restart_in.b | tail -1 | awk  '{printf("%11.2f\n", $5)}'`
+awk {printf("%11.2f\n", $5)}
+head -2 restart_in.b
+tail -1
+endif
+if ( -z restart_out.b ) then
+setenv RO        0.00
+else
+if ( -z restart_out1.b ) then
+setenv R1        0.00
+else
+setenv LI `awk  '{printf("%11.2f\n", $1)}' limits`
+awk {printf("%11.2f\n", $1)} limits
+C
+if ( `echo $LI | awk '{if ($1 <= 0.0) print 1; else print 0}'` ) then
+awk {if ($1 <= 0.0) print 1; else print 0}
+echo 39782.00
+if ( `echo $LI $RI | awk '{if ($1-0.1 < $2 && $1+0.1 > $2) print 1; else print 0}'` ) then
+awk {if ($1-0.1 < $2 && $1+0.1 > $2) print 1; else print 0}
+echo 39782.00 39782.00
+C --- restart is already in restart_in
+/bin/rm restart_out.a restart_out.b
+/bin/rm restart_out1.a restart_out1.b
+else if ( `echo $LI $RO | awk '{if ($1-0.1 < $2 && $1+0.1 > $2) print 1; else print 0}'` ) then
+if ( -e ./cice ) then
+C
+C --- model executable
+C
+if ( 146 == 0 && 0 == 0 ) then
+if ( 146 == 0 ) then
+if ( 0 == 0 ) then
+if ( ! 0 ) then
+setenv TYPE mpi
+endif
+else
+if ( -e ./cice ) then
+setenv HEXE hycom
+endif
+[1] 5520
+/bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../../src_2.2.35_32_mpi/hycom .
+C
+C --- summary printout
+C
+touch summary_out
+/bin/mv summary_out summary_old
+C
+C --- heat transport output
+
+[1]    Done                          /bin/cp /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../../src_2.2.35_32_mpi/hycom .
+C
+touch flxdp_out.a flxdp_out.b
+/bin/mv flxdp_out.a flxdp_old.a
+/bin/mv flxdp_out.b flxdp_old.b
+C
+touch ovrtn_out
+/bin/mv ovrtn_out ovrtn_old
+C
+C --- clean up old archive files, typically from batch system rerun.
+C
+mkdir KEEP
+mkdir: cannot create directory `KEEP': File exists
+touch archv.dummy.b
+foreach f ( arch* )
+/bin/mv archt.input KEEP/archt.input
+end
+/bin/mv archv.dummy.b KEEP/archv.dummy.b
+end
+C
+C --- Nesting input archive files.
+C
+if ( -e ./nest ) then
+C
+C --- let all file copies complete.
+C
+wait
+C
+C --- zero file length means no rivers.
+C
+if ( -z forcing.rivers.a ) then
+C
+C --- Just in time atmospheric forcing.
+C
+if ( -e ./wind ) then
+if ( ! -e ./flux ) then
+C
+C --- Check to see if wind and flux files exist, if not make them and wait.
+C
+/bin/rm -f forcing.tauewd.a forcing.taunwd.a forcing.wndspd.a
+/bin/rm -f forcing.tauewd.b forcing.taunwd.b forcing.wndspd.b
+/bin/rm -f ./wind/025w109l
+if ( -e ./wind/tauewd_109l.a && -e ./wind/tauewd_109l.b && -e ./wind/taunwd_109l.a && -e ./wind/taunwd_109l.b ) then
+/bin/ln ./wind/tauewd_109l.a forcing.tauewd.a
+/bin/ln ./wind/taunwd_109l.a forcing.taunwd.a
+/bin/ln ./wind/tauewd_109l.b forcing.tauewd.b
+/bin/ln ./wind/taunwd_109l.b forcing.taunwd.b
+if ( -e ./wind/wndspd_109l.a && -e ./wind/wndspd_109l.b ) then
+else
+if ( -e ./wspd ) then
+/bin/rm -f forcing.wndspd.a
+/bin/rm -f forcing.wndspd.b
+/bin/rm -f ./wspd/025s109l
+if ( -e ./wspd/wndspd_109l.a && -e ./wspd/wndspd_109l.b ) then
+/bin/ln ./wspd/wndspd_109l.a forcing.wndspd.a
+/bin/ln ./wspd/wndspd_109l.b forcing.wndspd.b
+else
+endif
+if ( -e ./wvel ) then
+if ( -e ./grad ) then
+if ( -e ./ssta ) then
+/bin/rm -f forcing.surtmp.a
+/bin/rm -f forcing.surtmp.b
+/bin/rm -f ./ssta/025p109l
+if ( -e ./ssta/surtmp_109l.a && -e ./ssta/surtmp_109l.b ) then
+/bin/ln ./ssta/surtmp_109l.a forcing.surtmp.a
+/bin/ln ./ssta/surtmp_109l.b forcing.surtmp.b
+else
+endif
+if ( -e ./ssto ) then
+if ( -e ./pcip ) then
+/bin/rm -f forcing.precip.a
+/bin/rm -f forcing.precip.b
+/bin/rm -f ./pcip/025p109l
+if ( -e ./pcip/precip_109l.a && -e ./pcip/precip_109l.b ) then
+/bin/ln ./pcip/precip_109l.a forcing.precip.a
+/bin/ln ./pcip/precip_109l.b forcing.precip.b
+else
+endif
+if ( -e ./flxt ) then
+if ( -e ./flux ) then
+/bin/rm -f forcing.airtmp.a forcing.shwflx.a forcing.vapmix.a
+/bin/rm -f forcing.airtmp.b forcing.shwflx.b forcing.vapmix.b
+if ( ! -e ./pcip ) then
+if ( ! -e ./flxt ) then
+/bin/rm -f forcing.radflx.a
+/bin/rm -f forcing.radflx.b
+touch ./flux/radflx_109l.a
+touch ./flux/radflx_109l.b
+endif
+/bin/rm -f ./flux/025f109l
+if ( -e ./flux/airtmp_109l.a && -e ./flux/airtmp_109l.b && -e ./flux/radflx_109l.a && -e ./flux/radflx_109l.b && -e ./flux/shwflx_109l.a && -e ./flux/shwflx_109l.b && -e ./flux/vapmix_109l.a && -e ./flux/vapmix_109l.b ) then
+/bin/ln ./flux/airtmp_109l.a forcing.airtmp.a
+/bin/ln ./flux/airtmp_109l.b forcing.airtmp.b
+/bin/ln ./flux/shwflx_109l.a forcing.shwflx.a
+/bin/ln ./flux/shwflx_109l.b forcing.shwflx.b
+/bin/ln ./flux/vapmix_109l.a forcing.vapmix.a
+/bin/ln ./flux/vapmix_109l.b forcing.vapmix.b
+if ( ! -e ./pcip ) then
+if ( ! -e ./flxt ) then
+/bin/ln ./flux/radflx_109l.a forcing.radflx.a
+/bin/ln ./flux/radflx_109l.b forcing.radflx.b
+endif
+else
+endif
+wait
+if ( -e ./wind/025w109l ) then
+if ( -e ./wvel ) then
+if ( -e ./wspd ) then
+if ( -e ./wspd/025s109l ) then
+endif
+if ( -e ./ssta ) then
+if ( -e ./ssta/025t109l ) then
+endif
+if ( -e ./ssto ) then
+if ( -e ./pcip ) then
+if ( -e ./pcip/025p109l ) then
+endif
+if ( -e ./flxt ) then
+if ( -e ./flux ) then
+if ( -e ./flux/025f109l ) then
+endif
+C
+C --- CICE.
+C
+if ( -e ./cice ) then
+C
+C --- If the winds or fluxes for the next segment dont exist,
+C --- interpolate them to model grid while current segment is running.
+C
+if ( -e ./wind/tauewd_109l.a && -e ./wind/tauewd_109l.b && -e ./wind/taunwd_109l.a && -e ./wind/taunwd_109l.b ) then
+C
+C --- next segments winds already exist.
+C
+else
+if ( -e ./wspd ) then
+if ( -e ./wspd/wndspd_109l.a && -e ./wspd/wndspd_109l.b ) then
+C
+C --- next segments wndspd already exists.
+C
+else
+endif
+if ( -e ./wvel ) then
+if ( -e ./grad ) then
+if ( -e ./ssta ) then
+if ( -e ./ssta/surtmp_109l.a && -e ./ssta/surtmp_109l.b ) then
+C
+C --- next segments surtmp already exists.
+C
+else
+endif
+if ( -e ./ssto ) then
+if ( -e ./pcip ) then
+if ( -e ./pcip/precip_109l.a && -e ./pcip/precip_109l.b ) then
+C
+C --- next segments pcip already exists.
+C
+else
+endif
+if ( -e ./flxt ) then
+if ( -e ./flux ) then
+if ( ! -e ./pcip ) then
+if ( ! -e ./flxt ) then
+touch ./flux/radflx_109l.a
+touch ./flux/radflx_109l.b
+endif
+if ( -e ./flux/airtmp_109l.a && -e ./flux/airtmp_109l.b && -e ./flux/radflx_109l.a && -e ./flux/radflx_109l.b && -e ./flux/shwflx_109l.a && -e ./flux/shwflx_109l.b && -e ./flux/vapmix_109l.a && -e ./flux/vapmix_109l.b ) then
+C
+C --- next segments fluxes already exist.
+C
+else
+endif
+endif
+C
+C --- Nesting input archive files for next segment.
+C
+if ( -e ./nest ) then
+C
+chmod ug+x hycom
+/bin/ls -laFq
+total 54144892
+drwxr-sr-x 14 Avichal.Mehra ptmp       4096 Apr 23 20:15 ./
+drwxr-sr-x  3 Avichal.Mehra ptmp       4096 Apr 22 15:22 ../
+-rw-r-----  1 Avichal.Mehra ptmp      12911 Apr 23 20:15 blkdat.input
+-rw-r--r--  1 Avichal.Mehra ptmp          0 Apr 23 17:33 core
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 22 15:26 flux/
+-rw-r--r--  1 Avichal.Mehra ptmp          0 Apr 23 20:15 flxdp_old.a
+-rw-r--r--  1 Avichal.Mehra ptmp          0 Apr 23 20:15 flxdp_old.b
+-rw-r--r--  2 Avichal.Mehra ptmp 4760584192 Apr 22 15:23 forcing.airtmp.a
+-rw-r--r--  2 Avichal.Mehra ptmp      58801 Apr 22 15:26 forcing.airtmp.b
+-rw-r--r--  1 Avichal.Mehra ptmp   79233024 Apr 23 20:15 forcing.kpar.a
+-rw-r--r--  1 Avichal.Mehra ptmp       1108 Apr 23 20:15 forcing.kpar.b
+-rw-r--r--  1 Avichal.Mehra ptmp    6602752 Apr 23 20:15 forcing.offlux.a
+-rw-r--r--  1 Avichal.Mehra ptmp        193 Apr 23 20:15 forcing.offlux.b
+-rw-r--r--  2 Avichal.Mehra ptmp 4760584192 Apr 22 15:27 forcing.precip.a
+-rw-r--r--  2 Avichal.Mehra ptmp      58801 Apr 22 15:27 forcing.precip.b
+-rw-r--r--  2 Avichal.Mehra ptmp 4760584192 Apr 23 20:15 forcing.radflx.a
+-rw-r--r--  2 Avichal.Mehra ptmp      58801 Apr 23 20:15 forcing.radflx.b
+-rw-r--r--  1 Avichal.Mehra ptmp   79233024 Apr 23 20:15 forcing.rivers.a
+-rw-r--r--  1 Avichal.Mehra ptmp       1192 Apr 23 20:15 forcing.rivers.b
+-rw-r--r--  2 Avichal.Mehra ptmp 4760584192 Apr 22 15:25 forcing.shwflx.a
+-rw-r--r--  2 Avichal.Mehra ptmp      58801 Apr 22 15:26 forcing.shwflx.b
+-rw-r--r--  2 Avichal.Mehra ptmp 4760584192 Apr 22 15:28 forcing.surtmp.a
+-rw-r--r--  2 Avichal.Mehra ptmp      58801 Apr 22 15:28 forcing.surtmp.b
+-rw-r--r--  2 Avichal.Mehra ptmp 4760584192 Apr 22 15:29 forcing.tauewd.a
+-rw-r--r--  2 Avichal.Mehra ptmp      58801 Apr 22 15:29 forcing.tauewd.b
+-rw-r--r--  2 Avichal.Mehra ptmp 4760584192 Apr 22 15:29 forcing.taunwd.a
+-rw-r--r--  2 Avichal.Mehra ptmp      58801 Apr 22 15:29 forcing.taunwd.b
+-rw-r--r--  2 Avichal.Mehra ptmp 4760584192 Apr 22 15:26 forcing.vapmix.a
+-rw-r--r--  2 Avichal.Mehra ptmp      58801 Apr 22 15:26 forcing.vapmix.b
+-rw-r--r--  2 Avichal.Mehra ptmp 4760584192 Apr 22 15:30 forcing.wndspd.a
+-rw-r--r--  2 Avichal.Mehra ptmp      58801 Apr 22 15:30 forcing.wndspd.b
+-rwxr-xr-x  1 Avichal.Mehra ptmp    3262432 Apr 23 20:15 hycom*
+-rw-r--r--  1 Avichal.Mehra ptmp  211288064 Apr 23 20:15 iso.sigma.a
+-rw-r--r--  1 Avichal.Mehra ptmp       1696 Apr 23 20:15 iso.sigma.b
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 23 20:15 KEEP/
+-rw-r--r--  1 Avichal.Mehra ptmp         31 Apr 23 20:15 limits
+drwxr-sr-x  6 Avichal.Mehra ptmp       4096 Apr 22 15:58 OLD/
+-rw-r--r--  1 Avichal.Mehra ptmp          0 Apr 23 20:15 ovrtn_old
+-rw-r-xr-x  1 Avichal.Mehra ptmp       3500 Apr 23 20:15 patch.input*
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 22 15:27 pcip/
+-rw-r--r--  1 Avichal.Mehra ptmp    6602752 Apr 23 20:15 regional.depth.a
+-rw-r--r--  1 Avichal.Mehra ptmp        440 Apr 23 20:15 regional.depth.b
+-rw-r--r--  1 Avichal.Mehra ptmp  125452288 Apr 23 20:15 regional.grid.a
+-rw-r--r--  1 Avichal.Mehra ptmp       1065 Apr 23 20:15 regional.grid.b
+-rw-r--r--  1 Avichal.Mehra ptmp 2535456768 Apr 23 20:15 relax.intf.a
+-rw-r--r--  1 Avichal.Mehra ptmp      29968 Apr 23 20:15 relax.intf.b
+-rw-r--r--  1 Avichal.Mehra ptmp          0 Apr 23 20:15 relax.rmu.a
+-rw-r--r--  1 Avichal.Mehra ptmp          0 Apr 23 20:15 relax.rmu.b
+-rw-r--r--  1 Avichal.Mehra ptmp 2535456768 Apr 23 20:15 relax.saln.a
+-rw-r--r--  1 Avichal.Mehra ptmp      29968 Apr 23 20:15 relax.saln.b
+-rw-r--r--  1 Avichal.Mehra ptmp 2535456768 Apr 23 20:15 relax.temp.a
+-rw-r--r--  1 Avichal.Mehra ptmp      29968 Apr 23 20:15 relax.temp.b
+-rw-r--r--  1 Avichal.Mehra ptmp 2238332928 Apr 22 15:28 restart_109l.a
+-rw-r--r--  1 Avichal.Mehra ptmp      24559 Apr 22 15:28 restart_109l.b
+-rw-r--r--  1 Avichal.Mehra ptmp 2238332928 Apr 23 20:15 restart_in.a
+-rw-r--r--  1 Avichal.Mehra ptmp      24559 Apr 23 20:15 restart_in.b
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 22 15:30 SCRATCH5/
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 22 15:28 ssta/
+-rw-r--r--  1 Avichal.Mehra ptmp          0 Apr 23 20:15 summary_old
+-rw-r--r--  1 Avichal.Mehra ptmp          0 Apr 23 17:33 tar_109l.com
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 23 17:33 tarc_109l/
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 23 17:33 tare_109l/
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 23 17:33 tarm_109l/
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 23 17:33 tarv_109l/
+-rw-r--r--  1 Avichal.Mehra ptmp    6602752 Apr 23 20:15 tbaric.a
+-rw-r--r--  1 Avichal.Mehra ptmp        237 Apr 23 20:15 tbaric.b
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 22 15:29 wind/
+drwxr-sr-x  2 Avichal.Mehra ptmp       4096 Apr 22 15:30 wspd/
+C
+if ( -e ./nest ) then
+C
+C --- Check to make sure restart file is there
+C
+if ( `echo $LI | awk '{print ($1 > 0.0)}'` && -z restart_in.a ) then
+awk {print ($1 > 0.0)}
+echo 39782.00
+C
+if ( 146 == 0 ) then
+C
+C --- run the model, with MPI or SHMEM and perhaps also with OpenMP.
+C
+touch patch.input
+if ( -z patch.input ) then
+C
+switch ( Linux )
+C
+C --- 146 MPI tasks and 0 THREADs, if compiled for OpenMP.
+C
+/bin/rm -f core
+touch core
+setenv OMP_NUM_THREADS 0
+mpiexec_mpt -np 146 ./hycom
+
+mnproc mproc nproc     i0   ii     j0   jj  i1sum iisum
+     1     1     1      0   32      0  110      1     3
+     2     4     1    299  150      0  110      1    12
+     3     5     1    449   75      0  110      7     5
+     4     6     1    524   75      0  110     -3     6
+     5     7     1    599   75      0  110      0     6
+     6     8     1    674  150      0  110      3    11
+     7     9     1    824  150      0  110     -4    12
+     8    10     1    974   75      0  110      2     6
+     9    11     1   1049  150      0  110      5    11
+    10    12     1   1199  150      0  110     -2    12
+    11    13     1   1349   44      0  110      4     4
+    12    15     1   1450   50      0  110     -6     5
+    13     1     2      0   75    110  110      1     6
+    14     2     2     75   75    110  110      4     6
+    15     3     2    150   75    110  110      7     5
+    16     4     2    225   75    110  110     -3     6
+    17     5     2    300   75    110  110      0     6
+    18     6     2    375   75    110  110      3     6
+    19     7     2    450   75    110  110      6     5
+    20     8     2    525   75    110  110     -4     6
+    21     9     2    600   75    110  110     -1     6
+    22    10     2    675   75    110  110      2     6
+    23    11     2    750   75    110  110      5     5
+    24    12     2    825   75    110  110     -5     6
+    25    13     2    900   75    110  110     -2     6
+    26    14     2    975   75    110  110      1     6
+    27    15     2   1050   75    110  110      4     6
+    28    16     2   1125   75    110  110      7     5
+    29    17     2   1200   75    110  110     -3     6
+    30    18     2   1275   75    110  110      0     6
+    31    19     2   1350   75    110  110      3     6
+    32    20     2   1425   75    110  110      6     6
+    33     1     3      0   75    220  110      1     6
+    34     2     3     75   75    220  110      4     6
+    35     3     3    150   75    220  110      7     5
+    36     4     3    225   75    220  110     -3     6
+    37     5     3    300   75    220  110      0     6
+    38     6     3    375   75    220  110      3     6
+    39     7     3    450   75    220  110      6     5
+    40     8     3    525   75    220  110     -4     6
+    41     9     3    600   75    220  110     -1     6
+    42    10     3    675   75    220  110      2     6
+    43    11     3    750   75    220  110      5     5
+    44    12     3    825   75    220  110     -5     6
+    45    13     3    900   75    220  110     -2     6
+    46    14     3    975   75    220  110      1     6
+    47    15     3   1050   75    220  110      4     6
+    48    16     3   1125   75    220  110      7     5
+    49    17     3   1200   75    220  110     -3     6
+    50    18     3   1275   75    220  110      0     6
+    51    19     3   1350   75    220  110      3     6
+    52    20     3   1425   75    220  110      6     6
+    53     1     4      0   75    330  110      1     6
+    54     2     4     75   75    330  110      4     6
+    55     3     4    150  150    330  110      7    11
+    56     4     4    300   75    330  110      0     6
+    57     5     4    375   75    330  110      3     6
+    58     6     4    450   75    330  110      6     5
+    59     7     4    525   75    330  110     -4     6
+    60     8     4    600   75    330  110     -1     6
+    61     9     4    675   75    330  110      2     6
+    62    10     4    750   75    330  110      5     5
+    63    11     4    825  150    330  110     -5    12
+    64    12     4    975   75    330  110      1     6
+    65    13     4   1050   75    330  110      4     6
+    66    14     4   1125   75    330  110      7     5
+    67    15     4   1200   75    330  110     -3     6
+    68    16     4   1275   75    330  110      0     6
+    69    17     4   1350   75    330  110      3     6
+    70    18     4   1425   75    330  110      6     6
+    71     1     5      0   75    440  110      1     6
+    72     2     5     75   75    440  110      4     6
+    73     3     5    150   75    440  110      7     5
+    74     4     5    225   75    440  110     -3     6
+    75     5     5    300   75    440  110      0     6
+    76     6     5    375   75    440  110      3     6
+    77     7     5    450   75    440  110      6     5
+    78     8     5    525   75    440  110     -4     6
+    79     9     5    600   75    440  110     -1     6
+    80    10     5    675   75    440  110      2     6
+    81    11     5    750   75    440  110      5     5
+    82    12     5    825  150    440  110     -5    12
+    83    13     5    975   75    440  110      1     6
+    84    14     5   1050   75    440  110      4     6
+    85    15     5   1125   75    440  110      7     5
+    86    16     5   1200   50    440  110     -3     5
+    87    18     5   1350   75    440  110    -10     7
+    88    19     5   1425   75    440  110      6     6
+    89     1     6      0  150    550  110      1    12
+    90     2     6    150   75    550  110      7     5
+    91     3     6    225   75    550  110     -3     6
+    92     4     6    300   75    550  110      0     6
+    93     5     6    375   75    550  110      3     6
+    94     6     6    450   75    550  110      6     5
+    95     7     6    525   75    550  110     -4     6
+    96     8     6    600   75    550  110     -1     6
+    97     9     6    675  122    550  110      2     9
+    98    10     6    797  103    550  110     -3     8
+    99    11     6    900   75    550  110     -2     6
+   100    12     6    975   75    550  110      1     6
+   101    13     6   1050   75    550  110      4     6
+   102    14     6   1125  150    550  110      7    11
+   103    15     6   1275  150    550  110      0    12
+   104    16     6   1425   75    550  110      6     6
+   105     3     7    182  150    660  110      1    12
+   106     4     7    332   75    660  110      7     5
+   107     5     7    407   75    660  110     -3     6
+   108     6     7    482   75    660  110      0     6
+   109     7     7    557   75    660  110      3     6
+   110     8     7    632   62    660  110      6     5
+   111    11     7    868  107    660  110     -9     9
+   112    12     7    975   75    660  110      1     6
+   113    13     7   1050   75    660  110      4     6
+   114    14     7   1125   75    660  110      7     5
+   115    15     7   1200  143    660  110     -3    12
+   116     4     8    259  150    770  110    -11    12
+   117     5     8    409   75    770  110     -5     6
+   118     6     8    484   75    770  110     -2     6
+   119     7     8    559  121    770  110      1    10
+   120    10     8    848  127    770  110     -2    10
+   121    11     8    975   75    770  110      1     6
+   122    12     8   1050   75    770  110      4     6
+   123    13     8   1125   75    770  110      7     5
+   124    14     8   1200   40    770  110     -3     4
+   125     4     9    236  139    880  110     -1    11
+   126     5     9    375   75    880  110      3     6
+   127     6     9    450  102    880  110      6     8
+   128    10     9    839   61    880  110     -6     5
+   129    11     9    900   75    880  110     -2     6
+   130    12     9    975  150    880  110      1    12
+   131    13     9   1125   75    880  110      7     5
+   132    14     9   1200  121    880  110     -3    10
+   133     3    10    150   75    990  110     -6     6
+   134     4    10    225   75    990  110     -3     6
+   135     5    10    300   75    990  110      0     6
+   136     6    10    375   75    990  110      3     6
+   137     7    10    450   75    990  110      6     5
+   138     8    10    525   75    990  110     -4     6
+   139     9    10    600   75    990  110     -1     6
+   140    12    10    825   75    990  110     -5     6
+   141    13    10    900   75    990  110     -2     6
+   142    14    10    975   75    990  110      1     6
+   143    15    10   1050   75    990  110      4     6
+   144    16    10   1125   75    990  110      7     5
+   145    17    10   1200   75    990  110     -3     6
+   146    18    10   1275   75    990  110      0     6
+ 
+mnproc mproc nproc mnarct
+   133     3    10    145
+   134     4    10    144
+   135     5    10    143
+   136     6    10    142
+   137     7    10    141
+   138     8    10    140
+   139     9    10    139
+   140    12    10    138
+   141    13    10    137
+   142    14    10    136
+   143    15    10    135
+   144    16    10    134
+   145    17    10    133
+   146    18    10    132
+ 
+
+zaiost - Array I/O is Fortran DA I/O from the 1st task
+
+ 
+CFSR 1993-2009 wind + CFSR 6hr anom; PHC3.0 SSS relax;                          
+Sigma2*; GDEM3i Jan. init; KPP mixed layer; SeaWiFS mon KPAR; energy-loan ice;  
+Z(32): dp00/f/x/i=3m/1.18/450m/1m; GLBa0.24/src_2.2.35; flxflg=4;               
+12345678901234567890123456789012345678901234567890123456789012345678901234567890
+ 
+iversn =        22
+iexpt  =        25
+ 
+idm    =      1500
+jdm    =      1100
+ 
+itest  =       970
+jtest  =        70
+ 
+kdm    =        32
+nhybrd =        32
+nsigma =         0
+dp00   =    3.0000 m
+dp00x  =  450.0000 m
+dp00f  =    1.1800 
+ds00   =    3.0000 m
+ds00x  =  450.0000 m
+ds00f  =    1.1800 
+dp00i  =    1.0000 m
+isotop =    6.0000 m
+ 
+saln0  =   35.0000 psu
+locsig =         T
+kapref =        -1
+thflag =         2
+
+equation of state is 9-term sigma-2
+
+thbase =   34.0000 sigma-2
+ 
+vsigma =         T
+sigma  =   28.1000 sigma-2
+sigma  =   28.9000 sigma-2
+sigma  =   29.7000 sigma-2
+sigma  =   30.5000 sigma-2
+sigma  =   30.9500 sigma-2
+sigma  =   31.5000 sigma-2
+sigma  =   32.0500 sigma-2
+sigma  =   32.6000 sigma-2
+sigma  =   33.1500 sigma-2
+sigma  =   33.7000 sigma-2
+sigma  =   34.2500 sigma-2
+sigma  =   34.7500 sigma-2
+sigma  =   35.1500 sigma-2
+sigma  =   35.5000 sigma-2
+sigma  =   35.8000 sigma-2
+sigma  =   36.0400 sigma-2
+sigma  =   36.2000 sigma-2
+sigma  =   36.3800 sigma-2
+sigma  =   36.5200 sigma-2
+sigma  =   36.6200 sigma-2
+sigma  =   36.7000 sigma-2
+sigma  =   36.7700 sigma-2
+sigma  =   36.8300 sigma-2
+sigma  =   36.8900 sigma-2
+sigma  =   36.9700 sigma-2
+sigma  =   37.0200 sigma-2
+sigma  =   37.0600 sigma-2
+sigma  =   37.1000 sigma-2
+sigma  =   37.1700 sigma-2
+sigma  =   37.3000 sigma-2
+sigma  =   37.4200 sigma-2
+sigma  =   37.4800 sigma-2
+ 
+iniflg =         2
+jerlv0 =         0
+ 
+yrflag =         3
+sshflg =         0
+dsurfq =    0.0000 days
+diagfq =    0.0000 days
+proffq =    0.0000 days
+tilefq =    0.0000 days
+meanfq =    1.0000 days
+rstrfq = 9999.0000 days
+bnstfq =    0.0000 days (-ve mean span)
+nestfq =    0.0000 days (-ve mean span)
+cplifq =    0.1250 days (-ve time steps)
+baclin =  720.0000 sec
+batrop =   20.0000 sec
+ 
+icefrq =        15
+ 
+incflg =         0
+incstp =        12
+incupf =         1
+ 
+wbaro  =    0.1250 
+btrlfr =         T
+btrmas =         F
+hybrlx =    8.0000 time steps
+hybiso =    0.0100 kg/m^3
+hybmap =         3
+hybflg =         0
+advflg =         0
+advtyp =         2
+momtyp =         2
+slip   =   -1.0000 (-1=no-slip, +1=free-slip)
+visco2 =    0.0500 
+visco4 =    0.0000 
+facdf4 =    0.0000 
+veldf2 =    0.0030 m/s
+veldf4 =    0.0200 m/s
+thkdf2 =    0.0000 m/s
+thkdf4 =    0.0100 m/s (-ve if variable)
+temdf2 =    0.0050 m/s
+temdfc =    1.0000 (0.0,1.0 conserve dens,temp resp.)
+vertmx =    0.0000 m/s
+cbar   =    0.0500 m/s
+cb     =    0.0025 
+drglim =    0.0000 
+drgscl =    0.0000 
+thkdrg =  500.0000 m
+ 
+thkbot =   10.0000 m
+sigjmp =    0.0200 kg/m**3
+tmljmp =    0.3000 degC
+thkmls =   15.0000 m
+thkmlt =    0.0000 m
+thkriv =    6.0000 m
+ 
+thkfrz =   20.0000 m
+iceflg =         1
+tfrz_0 =    0.0000 degC
+tfrz_s =   -0.0540 degC/psu
+ticegr =    0.0000 degC/m
+hicemn =    0.5000 m
+hicemx =   10.0000 m
+ 
+ntracr =         0
+trcflg =         0
+ 
+tsofrq =        64
+tofset =    0.0000 degC/century
+sofset =    0.0000  psu/century
+ 
+mlflag =         1
+pensol =         T
+dtrate =  999.0000 m/day
+thkmin =   19.2000 m
+dypflg =         1
+mixfrq =        64
+diapyc =    0.0000 m**2/s**2
+rigr   =    0.2500 
+ribc   =    0.6500 
+rinfty =    0.7000 
+ricr   =    0.2500 
+bldmin =    0.0000 m
+bldmax = 1200.0000 m
+cekman =    0.7000 
+cmonob =    1.0000 
+bblkpp =         F
+shinst =         T
+dbdiff =         T
+nonloc =         T
+botdiw =         F
+difout =         F
+difsmo =         0
+difm0  =    0.0050 m**2/s
+difs0  =    0.0050 m**2/s
+difmiw =    0.0000 m**2/s
+difsiw =    0.0000 m**2/s
+dsfmax =    0.0010 m**2/s
+rrho0  =    1.9000 
+cs     =   98.9600 
+cstar  =   10.0000 
+cv     =    0.0000 
+c11    =    5.0000 
+hblflg =         2
+niter  =         2
+fltflg =         0
+nfladv =         4
+nflsam =         1
+intpfl =         0
+iturbv =         0
+ismpfl =         1
+tbvar  =    0.0000 m**2/s**2
+tdecri =    0.4000 1/day
+ 
+lbflag =         0
+tidflg =         0
+tidcon =         1
+tidsal =    0.0600 
+tidgen =         T
+tidrmp =    1.0000 days
+tid_t0 =    0.0000 model day
+ 
+clmflg =        12
+wndflg =         2
+ustflg =         4
+flxflg =         4
+empflg =         4
+dswflg =         0
+sssflg =         1
+lwflag =         2
+sstflg =         2
+icmflg =         0
+flxoff =         T
+flxsmo =         F
+ 
+relax  =         F
+trcrlx =         F
+priver =         T
+epmass =         F
+ 
+ 
+ ddsurf =    17716740.0877500       2126008811
+ ddiagf =    17716740.0877500       2126008811
+ dproff =    17716740.0877500       2126008811
+ dtilef =    17716740.0877500       2126008811
+ dmeanf =    1.00000000000000              120
+ drstrf =    9999.00000000000          1199880
+ 
+ turb. flux parameters:
+ thkdf2,temdf2 = 0.00E+00 5.00E-03
+ thkdf4        = 1.00E-02
+ veldf2,visco2 = 3.00E-03 5.00E-02
+ veldf4,visco4 = 2.00E-02 0.00E+00
+ diapyc,vertmx = 0.00E+00 0.00E+00
+
+  36 barotropic steps per baroclinic time step
+
+ reading grid file from regional.grid.[ab]
+   12    'mapflg' = map flag (0=mercator,10=panam,12=ulon-panam)
+plon:  min,max =        74.12024      434.11975
+plat:  min,max =       -78.60800       89.93317
+ulon:  min,max =        74.12000      434.11951
+ulat:  min,max =       -78.60800       89.95275
+vlon:  min,max =        74.12048      434.12000
+vlat:  min,max =       -78.65601       89.95275
+pscx:  min,max =      5270.96973    26690.28516
+pscy:  min,max =       100.00000    26686.79102
+qscx:  min,max =       100.00000    26689.03516
+qscy:  min,max =       100.00000    26686.79102
+uscx:  min,max =       100.00000    26689.09375
+uscy:  min,max =       100.00000    26686.79102
+vscx:  min,max =      5249.05029    26690.22656
+vscy:  min,max =       100.00000    26686.79102
+cori:  min,max =   -0.0001429933   0.0001458425
+
+ reading bathymetry file from regional.depth.[ab]
+ i,j=  970   70 plat= -71.984 corio,scux,vy=-0.000138730   8253.42  10674.79
+
+
+ bathymetery from 2-minute NAVO/NRL DBDB2 global dataset                        
+ i/jdm = 1500 1100                                                              
+ plon,plat range =    74.12024   434.11975   -78.60800    89.93317              
+ landmask Black&Baltic Seas, narrow inlets. Scaled by 0.2000 below  6500.00 m.  
+ Merged with depth_GLBa0.24_99 coastline in Antractic                           
+ min,max depth =     5.00000  7163.99609                                         
+
+bigrid: nreg = 2
+bigrid: global basin, arctic overlap
+
+
+ mean basin depth (m) and area (10^6 km^2):   3698.2    360.21
+ 
+dp0k( 1) =   3.00 m    thkns =   3.00 m    depth =    3.00 m
+dp0k( 2) =   3.54 m    thkns =   3.54 m    depth =    6.54 m
+dp0k( 3) =   4.18 m    thkns =   4.18 m    depth =   10.72 m
+dp0k( 4) =   4.93 m    thkns =   4.93 m    depth =   15.65 m
+dp0k( 5) =   5.82 m    thkns =   5.82 m    depth =   21.46 m
+dp0k( 6) =   6.86 m    thkns =   6.86 m    depth =   28.33 m
+dp0k( 7) =   8.10 m    thkns =   8.10 m    depth =   36.42 m
+dp0k( 8) =   9.56 m    thkns =   9.56 m    depth =   45.98 m
+dp0k( 9) =  11.28 m    thkns =  11.28 m    depth =   57.26 m
+dp0k(10) =  13.31 m    thkns =  13.31 m    depth =   70.56 m
+dp0k(11) =  15.70 m    thkns =  15.70 m    depth =   86.27 m
+dp0k(12) =  18.53 m    thkns =  18.53 m    depth =  104.79 m
+dp0k(13) =  21.86 m    thkns =  21.86 m    depth =  126.66 m
+dp0k(14) =  25.80 m    thkns =  25.80 m    depth =  152.45 m
+dp0k(15) =  30.44 m    thkns =  30.44 m    depth =  182.90 m
+dp0k(16) =  35.92 m    thkns =  35.92 m    depth =  218.82 m
+dp0k(17) =  42.39 m    thkns =  42.39 m    depth =  261.20 m
+dp0k(18) =  50.02 m    thkns =  50.02 m    depth =  311.22 m
+dp0k(19) =  59.02 m    thkns =  59.02 m    depth =  370.24 m
+dp0k(20) =  69.64 m    thkns =  69.64 m    depth =  439.88 m
+dp0k(21) =  82.18 m    thkns =  82.18 m    depth =  522.06 m
+dp0k(22) =  96.97 m    thkns =  96.97 m    depth =  619.03 m
+dp0k(23) = 114.43 m    thkns = 114.43 m    depth =  733.46 m
+dp0k(24) = 135.02 m    thkns = 135.02 m    depth =  868.48 m
+dp0k(25) = 159.33 m    thkns = 159.33 m    depth = 1027.81 m
+dp0k(26) = 188.01 m    thkns = 188.01 m    depth = 1215.82 m
+dp0k(27) = 221.85 m    thkns = 221.85 m    depth = 1437.66 m
+dp0k(28) = 261.78 m    thkns = 261.78 m    depth = 1699.44 m
+dp0k(29) = 308.90 m    thkns = 308.90 m    depth = 2008.34 m
+dp0k(30) = 364.50 m    thkns = 364.50 m    depth = 2372.84 m
+dp0k(31) = 430.11 m    thkns = 430.11 m    depth = 2802.96 m
+dp0k(32) = 450.00 m    thkns = 450.00 m    depth = 3252.96 m
+ 
+ds0k( 1) =   3.00 m    thkns =   3.00 m    depth =    3.00 m
+ 
+ reading thermobaric reference file from ./tbaric.[ab]
+
+ Thermobaric Reference State                                                    
+ i/jdm = 1500 1100 (from GLBa0.08 11.1)                                         
+ Default 1.0; Atlantic 2.0; Mediterranean 3.0                                   
+ Switchover in Atlantic between 33.9S and 21.9S, and at sills to GIN Sea        
+ Smoothed 5 times                                                               
+ tbaric: range =    1.0000    3.0000                                             
+  now opening kpar field  ...
+ 
+SeaWifs 1997:2001 monthly clim, 1/m
+i/jdm = 1500 1100
+    kpar: month,range = 01   3.9999999E-02   2.0000000E-01                      
+  ...finished opening kpar field 
+  now opening rivers  field  ...
+ 
+Monthly river inflow bogused to monthly precipitation (m/s)
+all rivers from NRL database
+skip Baltic,Black,Caspian rivers
+   5 smoothing passes.  i/jdm = 1500 1100
+  river precip: month,range =  1    0.0000000E+00   2.9199136E-05               
+  ...finished opening river   field 
+  now opening relaxation fields ...
+ No sss relaxation limiter.
+ No thermal relaxation mask.
+ 
+PHC 3.0 (NOAA WOA-98 with improved Arctic) Climatology
+Expt 01.0  nhybrd=32 nsigma= 0 ds00= 3.00 dp00= 3.00 dp00x= 450.0 dp00f=1.180
+Layered averages w.r.t. Sigma-2,  levtop=2 (relaxv_9t)
+Potential Temperature
+i/jdm = 1500 1100
+ tem: month,layer,dens,range = 01  01 28.100  -1.9236995E+00   3.0583586E+01    
+ 
+PHC 3.0 (NOAA WOA-98 with improved Arctic) Climatology
+Expt 01.0  nhybrd=32 nsigma= 0 ds00= 3.00 dp00= 3.00 dp00x= 450.0 dp00f=1.180
+Layered averages w.r.t. Sigma-2,  levtop=2 (relaxv_9t)
+Salinity
+i/jdm = 1500 1100
+ sal: month,layer,dens,range = 01  01 28.100   2.0361423E+01   4.0557941E+01    
+  ...finished opening relaxation fields
+  now opening sigma field  ...
+target_density: layer,range = 01   28.1000   28.1000                            
+target_density: layer,range = 02   28.9000   28.9000                            
+target_density: layer,range = 03   29.7000   29.7000                            
+target_density: layer,range = 04   30.5000   30.5000                            
+target_density: layer,range = 05   30.9500   30.9500                            
+target_density: layer,range = 06   31.5000   31.5000                            
+target_density: layer,range = 07   32.0500   32.0500                            
+target_density: layer,range = 08   32.6000   32.6000                            
+target_density: layer,range = 09   33.1500   33.1500                            
+target_density: layer,range = 10   33.7000   33.7000                            
+target_density: layer,range = 11   34.2500   34.2500                            
+target_density: layer,range = 12   34.7500   34.7500                            
+target_density: layer,range = 13   35.1500   35.1500                            
+target_density: layer,range = 14   35.5000   35.5000                            
+target_density: layer,range = 15   35.8000   35.8500                            
+target_density: layer,range = 16   36.0400   36.2000                            
+target_density: layer,range = 17   36.2000   36.5500                            
+target_density: layer,range = 18   36.3800   36.9000                            
+target_density: layer,range = 19   36.5200   37.2500                            
+target_density: layer,range = 20   36.6200   37.5000                            
+target_density: layer,range = 21   36.7000   37.6300                            
+target_density: layer,range = 22   36.7700   37.6900                            
+target_density: layer,range = 23   36.8300   37.7300                            
+target_density: layer,range = 24   36.8900   37.7600                            
+target_density: layer,range = 25   36.9700   37.7900                            
+target_density: layer,range = 26   37.0200   37.8200                            
+target_density: layer,range = 27   37.0600   37.8500                            
+target_density: layer,range = 28   37.1000   37.8800                            
+target_density: layer,range = 29   37.1700   37.9100                            
+target_density: layer,range = 30   37.3000   37.9400                            
+target_density: layer,range = 31   37.4200   37.9700                            
+target_density: layer,range = 32   37.4800   38.0000                            
+  ...finished opening sigma field 
+RESTART2: iexpt,iversn,yrflag,sigver =     25    22     3     4
+RESTART2: nstep,dtime,thbase =      4773840   39782.0000000000        34.0000000
+restart_in3d - l,cfield =  64  u       
+u       : layer,tlevel,range =   1  1    -1.2138138E+00   1.6682545E+00
+u       : layer,tlevel,range =   2  1    -1.1827465E+00   1.6587012E+00
+u       : layer,tlevel,range =   3  1    -1.1841021E+00   1.6260018E+00
+u       : layer,tlevel,range =   4  1    -1.3299108E+00   2.3609190E+00
+u       : layer,tlevel,range =   5  1    -1.1769170E+00   1.6458964E+00
+u       : layer,tlevel,range =   6  1    -1.1572298E+00   1.7597511E+00
+u       : layer,tlevel,range =   7  1    -1.1640737E+00   1.8130615E+00
+u       : layer,tlevel,range =   8  1    -1.1820824E+00   1.6833525E+00
+u       : layer,tlevel,range =   9  1    -1.0317990E+00   2.0115449E+00
+u       : layer,tlevel,range =  10  1    -1.3023777E+00   1.3518389E+00
+u       : layer,tlevel,range =  11  1    -1.0762472E+00   1.4643674E+00
+u       : layer,tlevel,range =  12  1    -1.1542993E+00   2.0431955E+00
+u       : layer,tlevel,range =  13  1    -1.1688795E+00   1.2744215E+00
+u       : layer,tlevel,range =  14  1    -1.5935156E+00   1.7949390E+00
+u       : layer,tlevel,range =  15  1    -1.0859809E+00   1.5514562E+00
+u       : layer,tlevel,range =  16  1    -1.6080110E+00   1.9115175E+00
+u       : layer,tlevel,range =  17  1    -1.0859809E+00   1.2475064E+00
+u       : layer,tlevel,range =  18  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  19  1    -1.0859809E+00   1.2727592E+00
+u       : layer,tlevel,range =  20  1    -1.2242285E+00   1.2471483E+00
+u       : layer,tlevel,range =  21  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  22  1    -1.1110859E+00   1.2807027E+00
+u       : layer,tlevel,range =  23  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  24  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  25  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  26  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  27  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  28  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  29  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  30  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  31  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =  32  1    -1.0859809E+00   1.2471483E+00
+u       : layer,tlevel,range =   1  2    -1.2418238E+00   1.6687243E+00
+u       : layer,tlevel,range =   2  2    -1.2075346E+00   1.6585113E+00
+u       : layer,tlevel,range =   3  2    -1.2085251E+00   1.6270207E+00
+u       : layer,tlevel,range =   4  2    -1.3342384E+00   2.4047618E+00
+u       : layer,tlevel,range =   5  2    -1.2011193E+00   1.6519501E+00
+u       : layer,tlevel,range =   6  2    -1.1795286E+00   1.7664218E+00
+u       : layer,tlevel,range =   7  2    -1.1813593E+00   1.8240814E+00
+u       : layer,tlevel,range =   8  2    -1.1997701E+00   1.7035385E+00
+u       : layer,tlevel,range =   9  2    -1.0282973E+00   2.0185359E+00
+u       : layer,tlevel,range =  10  2    -1.3164363E+00   1.3467621E+00
+u       : layer,tlevel,range =  11  2    -1.0765899E+00   1.4632145E+00
+u       : layer,tlevel,range =  12  2    -1.1446736E+00   1.9652777E+00
+u       : layer,tlevel,range =  13  2    -1.1725494E+00   1.2692169E+00
+u       : layer,tlevel,range =  14  2    -1.8009354E+00   1.7956812E+00
+u       : layer,tlevel,range =  15  2    -1.0850880E+00   1.8543303E+00
+u       : layer,tlevel,range =  16  2    -1.5932846E+00   1.9198371E+00
+u       : layer,tlevel,range =  17  2    -1.0850880E+00   1.2640506E+00
+u       : layer,tlevel,range =  18  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  19  2    -1.0850880E+00   1.2831095E+00
+u       : layer,tlevel,range =  20  2    -1.2130339E+00   1.2484432E+00
+u       : layer,tlevel,range =  21  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  22  2    -1.1041225E+00   1.2830913E+00
+u       : layer,tlevel,range =  23  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  24  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  25  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  26  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  27  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  28  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  29  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  30  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  31  2    -1.0850880E+00   1.2484432E+00
+u       : layer,tlevel,range =  32  2    -1.0850880E+00   1.2484432E+00
+restart_in3d - l,cfield =  64  v       
+v       : layer,tlevel,range =   1  1    -1.6620607E+00   1.7312953E+00
+v       : layer,tlevel,range =   2  1    -1.6078855E+00   1.7396181E+00
+v       : layer,tlevel,range =   3  1    -1.5827059E+00   1.7452625E+00
+v       : layer,tlevel,range =   4  1    -1.6112095E+00   1.7467407E+00
+v       : layer,tlevel,range =   5  1    -1.6087104E+00   1.7343689E+00
+v       : layer,tlevel,range =   6  1    -1.6531667E+00   1.6890433E+00
+v       : layer,tlevel,range =   7  1    -1.5581084E+00   1.5818079E+00
+v       : layer,tlevel,range =   8  1    -1.4820728E+00   1.5931519E+00
+v       : layer,tlevel,range =   9  1    -1.5700856E+00   1.6015921E+00
+v       : layer,tlevel,range =  10  1    -1.5438378E+00   1.6101345E+00
+v       : layer,tlevel,range =  11  1    -1.5499591E+00   1.6280342E+00
+v       : layer,tlevel,range =  12  1    -1.3213189E+00   1.6221724E+00
+v       : layer,tlevel,range =  13  1    -1.9822229E+00   1.5710968E+00
+v       : layer,tlevel,range =  14  1    -2.0235517E+00   1.4784875E+00
+v       : layer,tlevel,range =  15  1    -1.2734345E+00   1.4631486E+00
+v       : layer,tlevel,range =  16  1    -1.4663240E+00   1.4631486E+00
+v       : layer,tlevel,range =  17  1    -1.3458085E+00   1.4631486E+00
+v       : layer,tlevel,range =  18  1    -1.6579009E+00   1.5060021E+00
+v       : layer,tlevel,range =  19  1    -1.1157160E+00   1.4631486E+00
+v       : layer,tlevel,range =  20  1    -1.6194575E+00   1.4631486E+00
+v       : layer,tlevel,range =  21  1    -1.5078814E+00   1.4631486E+00
+v       : layer,tlevel,range =  22  1    -1.0822960E+00   1.4631486E+00
+v       : layer,tlevel,range =  23  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =  24  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =  25  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =  26  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =  27  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =  28  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =  29  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =  30  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =  31  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =  32  1    -1.0246189E+00   1.4631486E+00
+v       : layer,tlevel,range =   1  2    -1.6876563E+00   1.7310278E+00
+v       : layer,tlevel,range =   2  2    -1.5996090E+00   1.7412696E+00
+v       : layer,tlevel,range =   3  2    -1.5743753E+00   1.7469416E+00
+v       : layer,tlevel,range =   4  2    -1.6129640E+00   1.7478962E+00
+v       : layer,tlevel,range =   5  2    -1.6110569E+00   1.7351199E+00
+v       : layer,tlevel,range =   6  2    -1.6518189E+00   1.6911411E+00
+v       : layer,tlevel,range =   7  2    -1.5538516E+00   1.5808111E+00
+v       : layer,tlevel,range =   8  2    -1.4862393E+00   1.5924398E+00
+v       : layer,tlevel,range =   9  2    -1.5791802E+00   1.6017873E+00
+v       : layer,tlevel,range =  10  2    -1.5429683E+00   1.6120902E+00
+v       : layer,tlevel,range =  11  2    -1.5441303E+00   1.6286197E+00
+v       : layer,tlevel,range =  12  2    -1.3226849E+00   1.6375299E+00
+v       : layer,tlevel,range =  13  2    -1.9725697E+00   1.5700475E+00
+v       : layer,tlevel,range =  14  2    -2.0345323E+00   1.4761838E+00
+v       : layer,tlevel,range =  15  2    -1.2945789E+00   1.4629867E+00
+v       : layer,tlevel,range =  16  2    -1.4677625E+00   1.4629867E+00
+v       : layer,tlevel,range =  17  2    -1.4460212E+00   1.4629867E+00
+v       : layer,tlevel,range =  18  2    -1.6476625E+00   1.5163608E+00
+v       : layer,tlevel,range =  19  2    -1.1136537E+00   1.4629867E+00
+v       : layer,tlevel,range =  20  2    -1.6232131E+00   1.4629867E+00
+v       : layer,tlevel,range =  21  2    -1.5128735E+00   1.4629867E+00
+v       : layer,tlevel,range =  22  2    -1.0935261E+00   1.4629867E+00
+v       : layer,tlevel,range =  23  2    -1.0297774E+00   1.4629867E+00
+v       : layer,tlevel,range =  24  2    -1.0297774E+00   1.4629867E+00
+v       : layer,tlevel,range =  25  2    -1.0297774E+00   1.4629867E+00
+v       : layer,tlevel,range =  26  2    -1.0297774E+00   1.4629867E+00
+v       : layer,tlevel,range =  27  2    -1.0297774E+00   1.4629867E+00
+v       : layer,tlevel,range =  28  2    -1.0297774E+00   1.4629867E+00
+v       : layer,tlevel,range =  29  2    -1.0297774E+00   1.4629867E+00
+v       : layer,tlevel,range =  30  2    -1.0297774E+00   1.4629867E+00
+v       : layer,tlevel,range =  31  2    -1.0297774E+00   1.4629867E+00
+v       : layer,tlevel,range =  32  2    -1.0297774E+00   1.4629867E+00
+restart_in3d - l,cfield =  64  dp      
+dp      : layer,tlevel,range =   1  1     0.0000000E+00   2.9418000E+04
+dp      : layer,tlevel,range =   2  1     0.0000000E+00   3.4713238E+04
+dp      : layer,tlevel,range =   3  1     0.0000000E+00   3.2625052E+06
+dp      : layer,tlevel,range =   4  1     0.0000000E+00   1.5959904E+06
+dp      : layer,tlevel,range =   5  1     0.0000000E+00   1.4989419E+06
+dp      : layer,tlevel,range =   6  1     0.0000000E+00   2.0034780E+06
+dp      : layer,tlevel,range =   7  1     0.0000000E+00   2.4186498E+06
+dp      : layer,tlevel,range =   8  1     0.0000000E+00   1.8029351E+06
+dp      : layer,tlevel,range =   9  1     0.0000000E+00   3.4910910E+06
+dp      : layer,tlevel,range =  10  1     0.0000000E+00   2.9526480E+06
+dp      : layer,tlevel,range =  11  1     0.0000000E+00   4.3313410E+06
+dp      : layer,tlevel,range =  12  1     0.0000000E+00   7.9741445E+06
+dp      : layer,tlevel,range =  13  1     0.0000000E+00   1.2702228E+07
+dp      : layer,tlevel,range =  14  1     0.0000000E+00   3.8544728E+07
+dp      : layer,tlevel,range =  15  1     0.0000000E+00   8.7293780E+06
+dp      : layer,tlevel,range =  16  1     0.0000000E+00   7.6094775E+06
+dp      : layer,tlevel,range =  17  1     0.0000000E+00   8.1857685E+06
+dp      : layer,tlevel,range =  18  1     0.0000000E+00   1.0535943E+07
+dp      : layer,tlevel,range =  19  1     0.0000000E+00   8.6750350E+06
+dp      : layer,tlevel,range =  20  1     0.0000000E+00   2.0617712E+07
+dp      : layer,tlevel,range =  21  1     0.0000000E+00   2.5273316E+07
+dp      : layer,tlevel,range =  22  1     0.0000000E+00   4.7751156E+07
+dp      : layer,tlevel,range =  23  1     0.0000000E+00   2.5160420E+07
+dp      : layer,tlevel,range =  24  1     0.0000000E+00   4.2691648E+07
+dp      : layer,tlevel,range =  25  1     0.0000000E+00   4.2394584E+07
+dp      : layer,tlevel,range =  26  1     0.0000000E+00   3.5380340E+07
+dp      : layer,tlevel,range =  27  1     0.0000000E+00   2.6232930E+07
+dp      : layer,tlevel,range =  28  1     0.0000000E+00   3.2602432E+07
+dp      : layer,tlevel,range =  29  1     0.0000000E+00   4.3764740E+07
+dp      : layer,tlevel,range =  30  1     0.0000000E+00   7.1498135E+06
+dp      : layer,tlevel,range =  31  1     0.0000000E+00   9.9814500E+06
+dp      : layer,tlevel,range =  32  1     0.0000000E+00   2.0654650E+07
+dp      : layer,tlevel,range =   1  2     0.0000000E+00   2.9692223E+04
+dp      : layer,tlevel,range =   2  2     0.0000000E+00   3.5006355E+04
+dp      : layer,tlevel,range =   3  2     0.0000000E+00   3.2623838E+06
+dp      : layer,tlevel,range =   4  2     0.0000000E+00   1.5960889E+06
+dp      : layer,tlevel,range =   5  2     0.0000000E+00   1.4986606E+06
+dp      : layer,tlevel,range =   6  2     0.0000000E+00   2.0077058E+06
+dp      : layer,tlevel,range =   7  2     0.0000000E+00   2.4189670E+06
+dp      : layer,tlevel,range =   8  2     0.0000000E+00   1.8213702E+06
+dp      : layer,tlevel,range =   9  2     0.0000000E+00   3.4929190E+06
+dp      : layer,tlevel,range =  10  2     0.0000000E+00   2.9522328E+06
+dp      : layer,tlevel,range =  11  2     0.0000000E+00   4.3314110E+06
+dp      : layer,tlevel,range =  12  2     0.0000000E+00   7.9639085E+06
+dp      : layer,tlevel,range =  13  2     0.0000000E+00   1.2702217E+07
+dp      : layer,tlevel,range =  14  2     0.0000000E+00   3.8545396E+07
+dp      : layer,tlevel,range =  15  2     0.0000000E+00   8.7289620E+06
+dp      : layer,tlevel,range =  16  2     0.0000000E+00   7.6077935E+06
+dp      : layer,tlevel,range =  17  2     0.0000000E+00   8.1828605E+06
+dp      : layer,tlevel,range =  18  2     0.0000000E+00   1.0535729E+07
+dp      : layer,tlevel,range =  19  2     0.0000000E+00   8.6749330E+06
+dp      : layer,tlevel,range =  20  2     0.0000000E+00   2.0618802E+07
+dp      : layer,tlevel,range =  21  2     0.0000000E+00   2.5276144E+07
+dp      : layer,tlevel,range =  22  2     0.0000000E+00   4.7750884E+07
+dp      : layer,tlevel,range =  23  2     0.0000000E+00   2.5162052E+07
+dp      : layer,tlevel,range =  24  2     0.0000000E+00   4.2690772E+07
+dp      : layer,tlevel,range =  25  2     0.0000000E+00   4.2394748E+07
+dp      : layer,tlevel,range =  26  2     0.0000000E+00   3.5379852E+07
+dp      : layer,tlevel,range =  27  2     0.0000000E+00   2.6234068E+07
+dp      : layer,tlevel,range =  28  2     0.0000000E+00   3.2604230E+07
+dp      : layer,tlevel,range =  29  2     0.0000000E+00   4.3766696E+07
+dp      : layer,tlevel,range =  30  2     0.0000000E+00   7.1498170E+06
+dp      : layer,tlevel,range =  31  2     0.0000000E+00   9.9815170E+06
+dp      : layer,tlevel,range =  32  2     0.0000000E+00   2.0653720E+07
+restart_in3d - l,cfield =  64  temp    
+temp    : layer,tlevel,range =   1  1    -2.0952585E+00   3.2060410E+01
+temp    : layer,tlevel,range =   2  1    -2.0942533E+00   3.1986515E+01
+temp    : layer,tlevel,range =   3  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =   4  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =   5  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =   6  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =   7  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =   8  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =   9  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  10  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  11  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  12  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  13  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  14  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  15  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  16  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  17  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  18  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  19  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  20  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  21  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  22  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  23  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  24  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  25  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  26  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  27  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  28  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  29  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  30  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  31  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =  32  1    -2.0942533E+00   3.1994974E+01
+temp    : layer,tlevel,range =   1  2    -2.0950513E+00   3.2037800E+01
+temp    : layer,tlevel,range =   2  2    -2.0941575E+00   3.1984190E+01
+temp    : layer,tlevel,range =   3  2    -2.0580158E+00   3.1992455E+01
+temp    : layer,tlevel,range =   4  2    -2.0580158E+00   3.1992453E+01
+temp    : layer,tlevel,range =   5  2    -2.0580158E+00   3.1992666E+01
+temp    : layer,tlevel,range =   6  2    -2.0750308E+00   3.1992666E+01
+temp    : layer,tlevel,range =   7  2    -2.0882323E+00   3.1992666E+01
+temp    : layer,tlevel,range =   8  2    -2.0941255E+00   3.1992666E+01
+temp    : layer,tlevel,range =   9  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  10  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  11  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  12  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  13  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  14  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  15  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  16  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  17  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  18  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  19  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  20  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  21  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  22  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  23  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  24  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  25  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  26  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  27  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  28  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  29  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  30  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  31  2    -2.0941641E+00   3.1992666E+01
+temp    : layer,tlevel,range =  32  2    -2.0941641E+00   3.1992666E+01
+restart_in3d - l,cfield =  64  saln    
+saln    : layer,tlevel,range =   1  1     0.0000000E+00   4.0785072E+01
+saln    : layer,tlevel,range =   2  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =   3  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =   4  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =   5  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =   6  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =   7  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =   8  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =   9  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  10  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  11  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  12  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  13  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  14  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  15  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  16  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  17  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  18  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  19  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  20  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  21  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  22  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  23  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  24  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  25  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  26  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  27  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  28  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  29  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  30  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  31  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =  32  1     0.0000000E+00   4.0782120E+01
+saln    : layer,tlevel,range =   1  2     0.0000000E+00   4.0784382E+01
+saln    : layer,tlevel,range =   2  2     0.0000000E+00   4.0782021E+01
+saln    : layer,tlevel,range =   3  2     0.0000000E+00   4.0776958E+01
+saln    : layer,tlevel,range =   4  2     0.0000000E+00   4.0775684E+01
+saln    : layer,tlevel,range =   5  2     0.0000000E+00   4.0780342E+01
+saln    : layer,tlevel,range =   6  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =   7  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =   8  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =   9  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  10  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  11  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  12  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  13  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  14  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  15  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  16  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  17  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  18  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  19  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  20  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  21  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  22  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  23  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  24  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  25  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  26  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  27  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  28  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  29  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  30  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  31  2     0.0000000E+00   4.0782024E+01
+saln    : layer,tlevel,range =  32  2     0.0000000E+00   4.0782024E+01
+restart_inrw, kline =  322
+saln    : layer,tlevel,range =  32  2     0.0000000E+00   4.0782024E+01
+restart_in3d - l,cfield =   3  ubavg   
+ubavg   : layer,tlevel,range =   0  1    -1.2471483E+00   1.0859809E+00
+ubavg   : layer,tlevel,range =   0  2    -1.2484461E+00   1.0850964E+00
+ubavg   : layer,tlevel,range =   0  3    -1.2471765E+00   1.0859565E+00
+restart_in3d - l,cfield =   3  vbavg   
+vbavg   : layer,tlevel,range =   0  1    -1.4631486E+00   1.0246189E+00
+vbavg   : layer,tlevel,range =   0  2    -1.4629959E+00   1.0297678E+00
+vbavg   : layer,tlevel,range =   0  3    -1.4631355E+00   1.0247535E+00
+restart_in3d - l,cfield =   3  pbavg   
+pbavg   : layer,tlevel,range =   0  1    -1.9647064E+04   1.2268650E+04
+pbavg   : layer,tlevel,range =   0  2    -1.9652434E+04   1.2256188E+04
+pbavg   : layer,tlevel,range =   0  3    -1.9647197E+04   1.2268167E+04
+restart_in3d - l,cfield =   1  pbot    
+pbot    : layer,tlevel,range =   0  1     0.0000000E+00   7.0250144E+07
+restart_in3d - l,cfield =   2  psikk   
+psikk   : layer,tlevel,range =   0  1    -3.4653973E+01   2.8019245E+01
+psikk   : layer,tlevel,range =   0  2    -2.4559183E+01   3.5326904E+01
+restart_in3d - l,cfield =   2  thkk    
+thkk    : layer,tlevel,range =   0  1    -1.3065081E+01   4.9171810E+00
+thkk    : layer,tlevel,range =   0  2    -1.2901136E+01   5.0822678E+00
+restart_in3d - l,cfield =   2  dpmixl  
+dpmixl  : layer,tlevel,range =   0  1     0.0000000E+00   1.4350488E+07
+dpmixl  : layer,tlevel,range =   0  2     0.0000000E+00   1.4350488E+07
+restart_inrw, kline =  338
+dpmixl  : layer,tlevel,range =   0  2     0.0000000E+00   1.4350488E+07
+restart_in3d - l,cfield =   1  temice  
+temice  : layer,tlevel,range =   0  1    -4.1901321E+01   0.0000000E+00
+restart_in3d - l,cfield =   1  covice  
+covice  : layer,tlevel,range =   0  1     0.0000000E+00   1.0000000E+00
+restart_in3d - l,cfield =   1  thkice  
+thkice  : layer,tlevel,range =   0  1    -4.3368087E-19   1.0058330E+01
+restart on day 39782.0 (step  4773840), wanted day 39782.0 (step  4773840)
+  now processing archs.input ...
+  output all surface archive fields.
+
+model starts at day 39782.0, goes to day 39790.0   (steps  4773840 --  4774800)
+
+  now initializing forcing fields ...
+ 
+CFSR-sec2, 1hrly, MKS
+Streses on p-grid
+i/jdm = 1500 1100
+ 
+CFSR-sec2, 1hrly, MKS
+Streses on p-grid
+i/jdm = 1500 1100
+ 
+CFSR-sec2, 1hrly, MKS
+i/jdm = 1500 1100
+ 
+CFSR-sea, 1hrly, MKS
+i/jdm = 1500 1100
+ 
+CFSR-sea, 1hrly, MKS
+i/jdm = 1500 1100
+ 
+CFSR-sea, 1-hrly, MKS
+No precipitation correction
+i/jdm = 1500 1100
+ 
+CFSR-sea, 1hrly, MKS
+No radiation flux correction
+i/jdm = 1500 1100
+ 
+CFSR-sea, 1hrly, MKS
+No radiation flux correction
+i/jdm = 1500 1100
+ 
+CFSR-sea, 1hrly, deg C
+Sea ice present when at or below -1.8 degC
+i/jdm = 1500 1100
+ 
+Heat Flux Offset (W/m^2)
+ -45.0*(expt_02.3_SSTann-PF_SSTann)
+model mean from years 0005_0006
+anomaly between -1.365 and 2.635 degC
+i/jdm = 1500 1100
+min, max =   -131.46141       61.424999                                         
+ tau_ewd: day,span,range = 39782.00000  0.041667  -2.2292128E+00   1.5664492E+00
+ tau_nwd: day,span,range = 39782.00000  0.041667  -2.2722106E+00   1.5059167E+00
+  wndspd: day,span,range = 39782.00000  0.041667   6.2543601E-02   2.9882376E+01
+  airtmp: day,span,range = 39782.04167  0.041667  -3.8067196E+01   3.4873051E+01
+  vapmix: day,span,range = 39782.04167  0.041667   9.9584067E-05   2.1709854E-02
+  precip: day,span,range = 39782.04167  0.041667   0.0000000E+00   7.4436648E-06
+ 
+  dtime,dtime0,dtime1 =    39782.0000000000        39782.0000000000     
+   39782.0416700000     
+ 
+  ...finished initializing forcing fields
+    kpar: month,range = 10   3.9999999E-02   2.0000000E-01                      
+ kpar    forcing   for month 10 written into slot  1
+    kpar: month,range = 11   3.9999999E-02   2.0000000E-01                      
+ kpar    forcing   for month 11 written into slot  2
+    kpar: month,range = 12   3.9999999E-02   2.0000000E-01                      
+ kpar    forcing   for month 12 written into slot  3
+    kpar: month,range = 01   3.9999999E-02   2.0000000E-01                      
+ kpar    forcing   for month  1 written into slot  4
+  river precip: month,range = 10    0.0000000E+00   4.9843555E-05               
+ rivers  forcing   for month 10 written into slot  1
+  river precip: month,range = 11    0.0000000E+00   3.3020915E-05               
+ rivers  forcing   for month 11 written into slot  2
+  river precip: month,range = 12    0.0000000E+00   3.1707619E-05               
+ rivers  forcing   for month 12 written into slot  3
+  river precip: month,range =  1    0.0000000E+00   2.9199136E-05               
+ rivers  forcing   for month  1 written into slot  4
+ rdrlax - month =           10          10
+ tem: month,layer,dens,range = 10  01 28.100  -1.9106361E+00   3.1911688E+01    
+ sal: month,layer,dens,range = 10  01 28.100   2.0393282E+01   4.1090130E+01    
+ relaxation fields for month 10 written into slot  1
+ rdrlax - month =           11          11
+ tem: month,layer,dens,range = 11  01 28.100  -1.9153887E+00   3.0991774E+01    
+ sal: month,layer,dens,range = 11  01 28.100   2.0462973E+01   4.0347576E+01    
+ relaxation fields for month 11 written into slot  2
+ rdrlax - month =           12          12
+ tem: month,layer,dens,range = 12  01 28.100  -1.9119879E+00   3.0730124E+01    
+ sal: month,layer,dens,range = 12  01 28.100   2.0450953E+01   4.1141060E+01    
+ relaxation fields for month 12 written into slot  3
+ rdrlax - month =            1           1
+ tem: month,layer,dens,range = 01  01 28.100  -1.9236995E+00   3.0583586E+01    
+ sal: month,layer,dens,range = 01  01 28.100   2.0361423E+01   4.0557941E+01    
+ relaxation fields for month  1 written into slot  4
+
+
+    timer statistics, processor   97 out of  146
+   -----------------------------------------------
+
+   xcaput   calls =      413   time =    2.82603   time/call =    0.00684268
+   xcsum    calls =        2   time =    0.00026   time/call =    0.00013149
+   xcmaxr   calls =      830   time =    0.43626   time/call =    0.00052562
+   xctilr   calls =      130   time =    0.13725   time/call =    0.00105578
+   zaio**   calls =      884   time =    0.05228   time/call =    0.00005914
+   zaiord   calls =      413   time =   15.33557   time/call =    0.03713213
+   zaioIO   calls =      413   time =    0.00000   time/call =    0.00000000
+   xc****   calls =        1   time =    3.39980   time/call =    3.39980245
+   total    calls =        1   time =   16.68581   time/call =   16.68580699
+
+
+
+  4773841 mean basin temp, saln, dens     3.701   34.718   36.601
+  4773841 (2009/335 00) mean      SSH (mm):  122.79  (-1.8E+03 to  1.9E+03)
+  4773841 (2009/335 00) mean BFL (m^2/s^3):   -4.85 hfl:   -3.91
+  4773841 (2009/335 00) mean HFLUX (w/m^2):   43.03 sst:   -0.31  ml:    5.92
+  4773841 (2009/335 00) mean WFLUX (mm/wk):    2.34 sss:   -4.20
+  4773841 (2009/335 00) mean  ice thk. (m):    1.76  temp:-11.404 pcen:  6.501
+  4773841 (2009/335 00) mean SH I thk. (m):    1.85  temp: -2.730 pcen:  3.458
+  4773841 (2009/335 00) mean NH I thk. (m):    1.65  temp:-21.260 pcen:  3.043
+  4773841 (2009/335 00) mean ice mask pcen:    5.350  S.H:  2.302  N.H:  3.048
+  4773841 (2009/335 00) mean mixl thk. (m):   54.48  temp: 16.129 saln: 34.683
+  4773841 (2009/335 00) mean surf thk. (m):    3.00   sst: 18.235  sss: 34.683
+  4773841 (2009/335 00) mean clim thk. (m):   19.20   sst: 18.239  sss: 34.725
+  4773841 (2009/335 00) mean L  1 thk. (m):    3.00  temp: 18.239 saln: 34.690
+  4773841 (2009/335 00) mean L  2 thk. (m):    3.54  temp: 18.201 saln: 34.693
+  4773841 (2009/335 00) mean L  3 thk. (m):   12.40  temp: 25.348 saln: 34.335
+  4773841 (2009/335 00) mean L  4 thk. (m):   11.14  temp: 23.797 saln: 34.841
+  4773841 (2009/335 00) mean L  5 thk. (m):   10.13  temp: 21.840 saln: 34.963
+  4773841 (2009/335 00) mean L  6 thk. (m):   11.39  temp: 20.747 saln: 34.998
+  4773841 (2009/335 00) mean L  7 thk. (m):   11.51  temp: 19.145 saln: 35.048
+  4773841 (2009/335 00) mean L  8 thk. (m):   13.71  temp: 18.130 saln: 35.049
+  4773841 (2009/335 00) mean L  9 thk. (m):   18.49  temp: 17.519 saln: 35.122
+  4773841 (2009/335 00) mean L 10 thk. (m):   27.56  temp: 16.495 saln: 35.061
+  4773841 (2009/335 00) mean L 11 thk. (m):   37.96  temp: 14.957 saln: 35.021
+  4773841 (2009/335 00) mean L 12 thk. (m):   51.28  temp: 13.424 saln: 35.001
+  4773841 (2009/335 00) mean L 13 thk. (m):   65.88  temp: 11.603 saln: 34.876
+  4773841 (2009/335 00) mean L 14 thk. (m):   80.01  temp:  9.708 saln: 34.716
+  4773841 (2009/335 00) mean L 15 thk. (m):  115.10  temp:  7.905 saln: 34.596
+  4773841 (2009/335 00) mean L 16 thk. (m):  105.92  temp:  6.715 saln: 34.590
+  4773841 (2009/335 00) mean L 17 thk. (m):  131.47  temp:  5.516 saln: 34.519
+  4773841 (2009/335 00) mean L 18 thk. (m):  141.80  temp:  4.702 saln: 34.552
+  4773841 (2009/335 00) mean L 19 thk. (m):  137.98  temp:  3.946 saln: 34.573
+  4773841 (2009/335 00) mean L 20 thk. (m):  131.13  temp:  3.495 saln: 34.616
+  4773841 (2009/335 00) mean L 21 thk. (m):  129.16  temp:  3.073 saln: 34.639
+  4773841 (2009/335 00) mean L 22 thk. (m):  150.80  temp:  2.855 saln: 34.681
+  4773841 (2009/335 00) mean L 23 thk. (m):  180.99  temp:  2.637 saln: 34.719
+  4773841 (2009/335 00) mean L 24 thk. (m):  271.58  temp:  2.369 saln: 34.736
+  4773841 (2009/335 00) mean L 25 thk. (m):  493.88  temp:  1.850 saln: 34.735
+  4773841 (2009/335 00) mean L 26 thk. (m):  542.98  temp:  1.551 saln: 34.750
+  4773841 (2009/335 00) mean L 27 thk. (m):  348.20  temp:  1.420 saln: 34.775
+  4773841 (2009/335 00) mean L 28 thk. (m):  285.99  temp:  0.994 saln: 34.758
+  4773841 (2009/335 00) mean L 29 thk. (m):  159.00  temp:  0.001 saln: 34.698
+  4773841 (2009/335 00) mean L 30 thk. (m):    4.13  temp: -0.672 saln: 34.931
+  4773841 (2009/335 00) mean L 31 thk. (m):    5.49  temp: -0.729 saln: 34.940
+  4773841 (2009/335 00) mean L 32 thk. (m):    4.27  temp: -0.831 saln: 34.945
+  4773841 (2009/335 00) region-wide mean Kin. Energy:     9582.3639631585
+  4773841 (2009/335 00) region-wide mean Temperature:        3.7018257815
+  4773841 (2009/335 00) region-wide mean Salinity:          34.7178401041
+  4773841 (2009/335 00) region-wide mean Density Dev:        2.6005025569
+  radflx: day,span,range = 39782.08333  0.041667  -1.5443942E+02   9.5381604E+02
+  shwflx: day,span,range = 39782.08333  0.041667   0.0000000E+00   1.0651235E+03
+  surtmp: day,span,range = 39782.08333  0.041667  -4.2272552E+01   3.4632812E+01
+ tau_ewd: day,span,range = 39782.12500  0.041667  -2.1953084E+00   2.0453262E+00
+ tau_nwd: day,span,range = 39782.12500  0.041667  -1.9115849E+00   1.7152507E+00
+  wndspd: day,span,range = 39782.12500  0.041667   2.5975308E-03   2.7635056E+01
+  airtmp: day,span,range = 39782.16667  0.041667  -3.8990234E+01   3.6679337E+01
+  vapmix: day,span,range = 39782.16667  0.041667   8.9653855E-05   2.2469461E-02
+  precip: day,span,range = 39782.16667  0.041667   0.0000000E+00   7.0731617E-06
+  radflx: day,span,range = 39782.20833  0.041667  -1.5765616E+02   9.7321667E+02
+  shwflx: day,span,range = 39782.20833  0.041667   0.0000000E+00   1.0852899E+03
+  surtmp: day,span,range = 39782.20833  0.041667  -4.1192001E+01   3.5593323E+01
+ tau_ewd: day,span,range = 39782.25000  0.041667  -2.2082021E+00   2.3509932E+00
+ tau_nwd: day,span,range = 39782.25000  0.041667  -1.8929142E+00   1.7268196E+00
+  wndspd: day,span,range = 39782.25000  0.041667   7.7976644E-02   2.7461296E+01
+  airtmp: day,span,range = 39782.29167  0.041667  -3.7621788E+01   3.6790840E+01
+  vapmix: day,span,range = 39782.29167  0.041667   9.8526703E-05   2.2239460E-02
+  precip: day,span,range = 39782.29167  0.041667   0.0000000E+00   6.4429382E-06
+  radflx: day,span,range = 39782.33333  0.041667  -1.6091434E+02   9.5304468E+02
+  shwflx: day,span,range = 39782.33333  0.041667   0.0000000E+00   1.0402651E+03
+  surtmp: day,span,range = 39782.33333  0.041667  -4.0014511E+01   3.3639191E+01
+ tau_ewd: day,span,range = 39782.37500  0.041667  -1.6539687E+00   2.6315784E+00
+ tau_nwd: day,span,range = 39782.37500  0.041667  -1.7717336E+00   1.5094121E+00
+  wndspd: day,span,range = 39782.37500  0.041667   6.0923811E-02   2.8884125E+01
+  airtmp: day,span,range = 39782.41667  0.041667  -3.9281437E+01   3.4656834E+01
+  vapmix: day,span,range = 39782.41667  0.041667   8.6167129E-05   2.1686830E-02
+  precip: day,span,range = 39782.41667  0.041667   0.0000000E+00   1.6354337E-05
+  radflx: day,span,range = 39782.45833  0.041667  -1.6841446E+02   9.8857343E+02
+  shwflx: day,span,range = 39782.45833  0.041667   0.0000000E+00   1.0761687E+03
+  surtmp: day,span,range = 39782.45833  0.041667  -4.1107208E+01   3.3844482E+01
+ tau_ewd: day,span,range = 39782.50000  0.041667  -1.9981314E+00   2.4129415E+00
+ tau_nwd: day,span,range = 39782.50000  0.041667  -1.3323985E+00   1.7062114E+00
+  wndspd: day,span,range = 39782.50000  0.041667   7.5096846E-02   2.7900837E+01
+  airtmp: day,span,range = 39782.54167  0.041667  -3.9098793E+01   3.2281330E+01
+  vapmix: day,span,range = 39782.54167  0.041667   8.8618603E-05   2.1669723E-02
+  precip: day,span,range = 39782.54167  0.041667   0.0000000E+00   7.7210407E-06
+  radflx: day,span,range = 39782.58333  0.041667  -1.6025636E+02   9.5049231E+02
+  shwflx: day,span,range = 39782.58333  0.041667   0.0000000E+00   1.0472155E+03
+  surtmp: day,span,range = 39782.58333  0.041667  -4.1134171E+01   3.1982605E+01
+ tau_ewd: day,span,range = 39782.62500  0.041667  -1.8900622E+00   2.6581428E+00
+ tau_nwd: day,span,range = 39782.62500  0.041667  -1.8106731E+00   1.6390409E+00
+  wndspd: day,span,range = 39782.62500  0.041667   6.6548228E-02   2.8843983E+01
+  airtmp: day,span,range = 39782.66667  0.041667  -3.9188644E+01   3.2241890E+01
+  vapmix: day,span,range = 39782.66667  0.041667   8.5112115E-05   2.1649227E-02
+  precip: day,span,range = 39782.66667  0.041667   0.0000000E+00   9.2183554E-06
+  radflx: day,span,range = 39782.70833  0.041667  -1.6241321E+02   9.7052576E+02
+  shwflx: day,span,range = 39782.70833  0.041667   0.0000000E+00   1.0580221E+03
+  surtmp: day,span,range = 39782.70833  0.041667  -4.1187210E+01   3.1982605E+01
+ tau_ewd: day,span,range = 39782.75000  0.041667  -2.1801305E+00   2.0046318E+00
+ tau_nwd: day,span,range = 39782.75000  0.041667  -2.0918903E+00   1.8632107E+00
+  wndspd: day,span,range = 39782.75000  0.041667   7.5993821E-02   2.7616589E+01
+  airtmp: day,span,range = 39782.79167  0.041667  -3.8409599E+01   3.2119141E+01
+  vapmix: day,span,range = 39782.79167  0.041667   9.4947434E-05   2.2244889E-02
+  precip: day,span,range = 39782.79167  0.041667   0.0000000E+00   9.6728409E-06
+  radflx: day,span,range = 39782.83333  0.041667  -1.6341159E+02   9.4968408E+02
+  shwflx: day,span,range = 39782.83333  0.041667   0.0000000E+00   1.0463221E+03
+  surtmp: day,span,range = 39782.83333  0.041667  -4.3227921E+01   3.1982605E+01
+ tau_ewd: day,span,range = 39782.87500  0.041667  -2.0336351E+00   1.6914264E+00
+ tau_nwd: day,span,range = 39782.87500  0.041667  -2.1044102E+00   2.0266314E+00
+  wndspd: day,span,range = 39782.87500  0.041667   3.4242205E-02   2.7032978E+01
+  airtmp: day,span,range = 39782.91667  0.041667  -3.9096195E+01   3.1605469E+01
+  vapmix: day,span,range = 39782.91667  0.041667   8.3792351E-05   2.2360813E-02
+  precip: day,span,range = 39782.91667  0.041667   0.0000000E+00   1.3088624E-05
+  radflx: day,span,range = 39782.95833  0.041667  -1.5872702E+02   9.5105322E+02
+  shwflx: day,span,range = 39782.95833  0.041667   0.0000000E+00   1.0442373E+03
+  surtmp: day,span,range = 39782.95833  0.041667  -4.2309341E+01   3.1982605E+01
+ tau_ewd: day,span,range = 39783.00000  0.041667  -2.5918589E+00   1.5649364E+00
+ tau_nwd: day,span,range = 39783.00000  0.041667  -2.1359253E+00   1.5733012E+00
+  wndspd: day,span,range = 39783.00000  0.041667   4.9343191E-02   2.8390387E+01
+  4773960 (2009/336 00) mean      SSH (mm):  122.80  (-1.8E+03 to  1.9E+03)
+  airtmp: day,span,range = 39783.04167  0.041667  -3.8044552E+01   3.5004868E+01
+  vapmix: day,span,range = 39783.04167  0.041667   9.9396842E-05   2.2500817E-02
+  precip: day,span,range = 39783.04167  0.041667   0.0000000E+00   8.7887747E-06
+  radflx: day,span,range = 39783.08333  0.041667  -1.7375018E+02   9.5164331E+02
+  shwflx: day,span,range = 39783.08333  0.041667   0.0000000E+00   1.0477120E+03
+  surtmp: day,span,range = 39783.08333  0.041667  -4.0296951E+01   3.4625549E+01
+ tau_ewd: day,span,range = 39783.12500  0.041667  -2.4976056E+00   1.6247096E+00
+ tau_nwd: day,span,range = 39783.12500  0.041667  -2.3011870E+00   1.9815581E+00
+  wndspd: day,span,range = 39783.12500  0.041667   2.1777742E-02   2.7896841E+01
+  airtmp: day,span,range = 39783.16667  0.041667  -3.8650917E+01   3.6648628E+01
+  vapmix: day,span,range = 39783.16667  0.041667   8.9354638E-05   2.2751756E-02
+  precip: day,span,range = 39783.16667  0.041667   0.0000000E+00   1.3569517E-05
+  radflx: day,span,range = 39783.20833  0.041667  -1.5857913E+02   9.8348499E+02
+  shwflx: day,span,range = 39783.20833  0.041667   0.0000000E+00   1.0757939E+03
+  surtmp: day,span,range = 39783.20833  0.041667  -4.0481766E+01   3.5305756E+01
+ tau_ewd: day,span,range = 39783.25000  0.041667  -2.0991421E+00   1.4034821E+00
+ tau_nwd: day,span,range = 39783.25000  0.041667  -2.4933965E+00   2.0046840E+00
+  wndspd: day,span,range = 39783.25000  0.041667   5.6681987E-02   2.7986982E+01
+  airtmp: day,span,range = 39783.29167  0.041667  -3.9564857E+01   3.6143089E+01
+  vapmix: day,span,range = 39783.29167  0.041667   8.3842133E-05   2.2650983E-02
+  precip: day,span,range = 39783.29167  0.041667   0.0000000E+00   9.0495269E-06
+  radflx: day,span,range = 39783.33333  0.041667  -1.6848337E+02   9.5161212E+02
+  shwflx: day,span,range = 39783.33333  0.041667   0.0000000E+00   1.0384764E+03
+  surtmp: day,span,range = 39783.33333  0.041667  -4.3276245E+01   3.3693359E+01
+ tau_ewd: day,span,range = 39783.37500  0.041667  -2.2447722E+00   1.7296335E+00
+ tau_nwd: day,span,range = 39783.37500  0.041667  -2.4367657E+00   2.1626914E+00
+  wndspd: day,span,range = 39783.37500  0.041667   7.9928860E-02   2.7621712E+01
+  airtmp: day,span,range = 39783.41667  0.041667  -3.9936253E+01   3.3603451E+01
+  vapmix: day,span,range = 39783.41667  0.041667   8.0767219E-05   2.2103678E-02
+  precip: day,span,range = 39783.41667  0.041667   0.0000000E+00   1.0980653E-05
+  radflx: day,span,range = 39783.45833  0.041667  -1.9683350E+02   9.9857434E+02
+  shwflx: day,span,range = 39783.45833  0.041667   0.0000000E+00   1.0920376E+03
+  surtmp: day,span,range = 39783.45833  0.041667  -4.2393707E+01   3.3809875E+01
+ tau_ewd: day,span,range = 39783.50000  0.041667  -2.2963424E+00   2.5706067E+00
+ tau_nwd: day,span,range = 39783.50000  0.041667  -2.6426437E+00   1.8147497E+00
+  wndspd: day,span,range = 39783.50000  0.041667   5.5860337E-02   2.9028172E+01
+  airtmp: day,span,range = 39783.54167  0.041667  -4.2383987E+01   3.2378727E+01
+  vapmix: day,span,range = 39783.54167  0.041667   6.1097351E-05   2.1822292E-02
+  precip: day,span,range = 39783.54167  0.041667   0.0000000E+00   7.2942689E-06
+  radflx: day,span,range = 39783.58333  0.041667  -1.8114600E+02   9.5305359E+02
+  shwflx: day,span,range = 39783.58333  0.041667   0.0000000E+00   1.0417227E+03
+  surtmp: day,span,range = 39783.58333  0.041667  -4.5519867E+01   3.1960266E+01
+ tau_ewd: day,span,range = 39783.62500  0.041667  -2.2217801E+00   2.2905440E+00
+ tau_nwd: day,span,range = 39783.62500  0.041667  -3.0137565E+00   2.0623083E+00
+  wndspd: day,span,range = 39783.62500  0.041667   6.9084786E-02   3.0771599E+01
+  airtmp: day,span,range = 39783.66667  0.041667  -4.0674137E+01   3.1636143E+01
+  vapmix: day,span,range = 39783.66667  0.041667   7.3458068E-05   2.1841358E-02
+  precip: day,span,range = 39783.66667  0.041667   0.0000000E+00   1.0157361E-05
+  radflx: day,span,range = 39783.70833  0.041667  -1.8023618E+02   9.7530115E+02
+  shwflx: day,span,range = 39783.70833  0.041667   0.0000000E+00   1.0685270E+03
+  surtmp: day,span,range = 39783.70833  0.041667  -4.1972015E+01   3.3944000E+01
+ tau_ewd: day,span,range = 39783.75000  0.041667  -2.6600652E+00   1.8135773E+00
+ tau_nwd: day,span,range = 39783.75000  0.041667  -2.8828580E+00   2.2867234E+00
+  wndspd: day,span,range = 39783.75000  0.041667   8.0734968E-02   3.0001329E+01
+  airtmp: day,span,range = 39783.79167  0.041667  -3.8314743E+01   3.2477970E+01
+  vapmix: day,span,range = 39783.79167  0.041667   9.6797943E-05   2.2047071E-02
+  precip: day,span,range = 39783.79167  0.041667   0.0000000E+00   7.1266086E-06
+  radflx: day,span,range = 39783.83333  0.041667  -1.7800444E+02   9.4418390E+02
+  shwflx: day,span,range = 39783.83333  0.041667   0.0000000E+00   1.0413582E+03
+  surtmp: day,span,range = 39783.83333  0.041667  -4.0461838E+01   3.1964508E+01
+ tau_ewd: day,span,range = 39783.87500  0.041667  -2.4688554E+00   2.1279500E+00
+ tau_nwd: day,span,range = 39783.87500  0.041667  -3.8032143E+00   2.9542825E+00
+  wndspd: day,span,range = 39783.87500  0.041667   4.8890170E-02   3.2532867E+01
+  airtmp: day,span,range = 39783.91667  0.041667  -3.9249317E+01   3.1917969E+01
+  vapmix: day,span,range = 39783.91667  0.041667   8.5108812E-05   2.1963175E-02
+  precip: day,span,range = 39783.91667  0.041667   0.0000000E+00   8.5560450E-06
+  radflx: day,span,range = 39783.95833  0.041667  -1.6675638E+02   9.5843811E+02
+  shwflx: day,span,range = 39783.95833  0.041667   0.0000000E+00   1.0433438E+03
+  surtmp: day,span,range = 39783.95833  0.041667  -4.0331802E+01   3.1964508E+01
+ tau_ewd: day,span,range = 39784.00000  0.041667  -2.7257378E+00   2.2121401E+00
+ tau_nwd: day,span,range = 39784.00000  0.041667  -3.9192441E+00   2.5836010E+00
+  wndspd: day,span,range = 39784.00000  0.041667   7.7242762E-02   3.3767479E+01
+  4774080 (2009/337 00) mean      SSH (mm):  122.82  (-1.8E+03 to  1.9E+03)
+  airtmp: day,span,range = 39784.04167  0.041667  -3.7260891E+01   3.2487144E+01
+  vapmix: day,span,range = 39784.04167  0.041667   1.0931834E-04   2.1580769E-02
+  precip: day,span,range = 39784.04167  0.041667   0.0000000E+00   6.7274823E-06
+  radflx: day,span,range = 39784.08333  0.041667  -1.5470029E+02   9.5029590E+02
+  shwflx: day,span,range = 39784.08333  0.041667   0.0000000E+00   1.0397205E+03
+  surtmp: day,span,range = 39784.08333  0.041667  -3.9731995E+01   3.2257935E+01
+ tau_ewd: day,span,range = 39784.12500  0.041667  -3.0349441E+00   3.1417062E+00
+ tau_nwd: day,span,range = 39784.12500  0.041667  -4.8946133E+00   2.4758728E+00
+  wndspd: day,span,range = 39784.12500  0.041667   4.4729330E-02   3.6734856E+01
+  airtmp: day,span,range = 39784.16667  0.041667  -3.8500237E+01   3.4374458E+01
+  vapmix: day,span,range = 39784.16667  0.041667   9.2285889E-05   2.2095595E-02
+  precip: day,span,range = 39784.16667  0.041667   0.0000000E+00   9.1363527E-06
+  radflx: day,span,range = 39784.20833  0.041667  -1.5692334E+02   9.9104742E+02
+  shwflx: day,span,range = 39784.20833  0.041667   0.0000000E+00   1.0708264E+03
+  surtmp: day,span,range = 39784.20833  0.041667  -3.9700958E+01   3.3505829E+01
+ tau_ewd: day,span,range = 39784.25000  0.041667  -3.0902662E+00   3.7618988E+00
+ tau_nwd: day,span,range = 39784.25000  0.041667  -4.4505067E+00   2.4382899E+00
+  wndspd: day,span,range = 39784.25000  0.041667   3.6722250E-02   3.6065842E+01
+  airtmp: day,span,range = 39784.29167  0.041667  -3.7746120E+01   3.5817467E+01
+  vapmix: day,span,range = 39784.29167  0.041667   1.0325515E-04   2.2105243E-02
+  precip: day,span,range = 39784.29167  0.041667   0.0000000E+00   6.1114351E-06
+  radflx: day,span,range = 39784.33333  0.041667  -1.6736609E+02   9.4948315E+02
+  shwflx: day,span,range = 39784.33333  0.041667   0.0000000E+00   1.0371704E+03
+  surtmp: day,span,range = 39784.33333  0.041667  -4.0265579E+01   3.3183258E+01
+ tau_ewd: day,span,range = 39784.37500  0.041667  -2.4902773E+00   3.7191997E+00
+ tau_nwd: day,span,range = 39784.37500  0.041667  -3.8580337E+00   2.3241611E+00
+  wndspd: day,span,range = 39784.37500  0.041667   7.3896483E-02   3.4296921E+01
+  airtmp: day,span,range = 39784.41667  0.041667  -3.8352043E+01   3.5326138E+01
+  vapmix: day,span,range = 39784.41667  0.041667   9.3049915E-05   2.2324808E-02
+  precip: day,span,range = 39784.41667  0.041667   0.0000000E+00   9.4679699E-06
+  radflx: day,span,range = 39784.45833  0.041667  -1.7441869E+02   9.8336865E+02
+  shwflx: day,span,range = 39784.45833  0.041667   0.0000000E+00   1.0643320E+03
+  surtmp: day,span,range = 39784.45833  0.041667  -3.9945755E+01   3.3676453E+01
+ tau_ewd: day,span,range = 39784.50000  0.041667  -2.3603694E+00   2.6896400E+00
+ tau_nwd: day,span,range = 39784.50000  0.041667  -3.7887197E+00   2.3270397E+00
+  wndspd: day,span,range = 39784.50000  0.041667   7.7531144E-02   3.4440300E+01
+  airtmp: day,span,range = 39784.54167  0.041667  -3.7189438E+01   3.2288132E+01
+  vapmix: day,span,range = 39784.54167  0.041667   1.1006023E-04   2.2351140E-02
+  precip: day,span,range = 39784.54167  0.041667   0.0000000E+00   7.8000066E-06
+  radflx: day,span,range = 39784.58333  0.041667  -1.6965331E+02   9.5468842E+02
+  shwflx: day,span,range = 39784.58333  0.041667   0.0000000E+00   1.0357097E+03
+  surtmp: day,span,range = 39784.58333  0.041667  -3.9516800E+01   3.1628174E+01
+ tau_ewd: day,span,range = 39784.62500  0.041667  -2.2277353E+00   2.5607078E+00
+ tau_nwd: day,span,range = 39784.62500  0.041667  -3.4577610E+00   2.6458747E+00
+  wndspd: day,span,range = 39784.62500  0.041667   4.1701507E-02   3.3117317E+01
+  airtmp: day,span,range = 39784.66667  0.041667  -3.8927570E+01   3.1937500E+01
+  vapmix: day,span,range = 39784.66667  0.041667   9.0829883E-05   2.2477463E-02
+  precip: day,span,range = 39784.66667  0.041667   0.0000000E+00   9.1574866E-06
+  radflx: day,span,range = 39784.70833  0.041667  -1.6980458E+02   9.7502118E+02
+  shwflx: day,span,range = 39784.70833  0.041667   0.0000000E+00   1.0696040E+03
+  surtmp: day,span,range = 39784.70833  0.041667  -3.9264572E+01   3.3559204E+01
+ tau_ewd: day,span,range = 39784.75000  0.041667  -2.2226076E+00   2.4560254E+00
+ tau_nwd: day,span,range = 39784.75000  0.041667  -3.0954883E+00   2.8084121E+00
+  wndspd: day,span,range = 39784.75000  0.041667   9.0951905E-02   3.2422501E+01
+  airtmp: day,span,range = 39784.79167  0.041667  -3.8100239E+01   3.2630150E+01
+  vapmix: day,span,range = 39784.79167  0.041667   9.9098150E-05   2.2341710E-02
+  precip: day,span,range = 39784.79167  0.041667   0.0000000E+00   8.7607186E-06
+  radflx: day,span,range = 39784.83333  0.041667  -1.7318773E+02   9.4403339E+02
+  shwflx: day,span,range = 39784.83333  0.041667   0.0000000E+00   1.0276035E+03
+  surtmp: day,span,range = 39784.83333  0.041667  -3.9106628E+01   3.1624878E+01
+ tau_ewd: day,span,range = 39784.87500  0.041667  -1.9741231E+00   2.2260067E+00
+ tau_nwd: day,span,range = 39784.87500  0.041667  -2.5438702E+00   2.4761586E+00
+  wndspd: day,span,range = 39784.87500  0.041667   4.1027199E-02   3.0132874E+01
+  airtmp: day,span,range = 39784.91667  0.041667  -3.8282536E+01   3.1312256E+01
+  vapmix: day,span,range = 39784.91667  0.041667   9.4028386E-05   2.2011951E-02
+  precip: day,span,range = 39784.91667  0.041667   0.0000000E+00   8.8327297E-06
+  radflx: day,span,range = 39784.95833  0.041667  -1.7537375E+02   9.6108984E+02
+  shwflx: day,span,range = 39784.95833  0.041667   0.0000000E+00   1.0410940E+03
+  surtmp: day,span,range = 39784.95833  0.041667  -3.9830933E+01   3.1465302E+01
+ tau_ewd: day,span,range = 39785.00000  0.041667  -2.2427804E+00   1.9116281E+00
+ tau_nwd: day,span,range = 39785.00000  0.041667  -2.3441091E+00   1.6043358E+00
+  wndspd: day,span,range = 39785.00000  0.041667   2.0156305E-02   2.7577312E+01
+  4774200 (2009/338 00) mean      SSH (mm):  122.82  (-1.8E+03 to  1.9E+03)
+  airtmp: day,span,range = 39785.04167  0.041667  -3.8436573E+01   3.2733444E+01
+  vapmix: day,span,range = 39785.04167  0.041667   9.4161660E-05   2.2203960E-02
+  precip: day,span,range = 39785.04167  0.041667   0.0000000E+00   4.7147050E-06
+  radflx: day,span,range = 39785.08333  0.041667  -1.6126239E+02   9.5968524E+02
+  shwflx: day,span,range = 39785.08333  0.041667   0.0000000E+00   1.0633474E+03
+  surtmp: day,span,range = 39785.08333  0.041667  -4.1221283E+01   3.6884369E+01
+ tau_ewd: day,span,range = 39785.12500  0.041667  -2.2895718E+00   2.0655627E+00
+ tau_nwd: day,span,range = 39785.12500  0.041667  -2.6252367E+00   1.7850611E+00
+  wndspd: day,span,range = 39785.12500  0.041667   7.9908460E-02   2.9333836E+01
+  airtmp: day,span,range = 39785.16667  0.041667  -3.8981148E+01   3.4694214E+01
+  vapmix: day,span,range = 39785.16667  0.041667   8.5983454E-05   2.2028308E-02
+  precip: day,span,range = 39785.16667  0.041667   0.0000000E+00   8.9181967E-06
+  radflx: day,span,range = 39785.20833  0.041667  -1.5170454E+02   9.7951587E+02
+  shwflx: day,span,range = 39785.20833  0.041667   0.0000000E+00   1.0524861E+03
+  surtmp: day,span,range = 39785.20833  0.041667  -4.0674957E+01   3.5730377E+01
+ tau_ewd: day,span,range = 39785.25000  0.041667  -1.4938893E+00   2.1921489E+00
+ tau_nwd: day,span,range = 39785.25000  0.041667  -3.2570932E+00   1.5568755E+00
+  wndspd: day,span,range = 39785.25000  0.041667   9.0172797E-02   3.0909721E+01
+  airtmp: day,span,range = 39785.29167  0.041667  -3.7946011E+01   3.6123909E+01
+  vapmix: day,span,range = 39785.29167  0.041667   1.0031706E-04   2.2213101E-02
+  precip: day,span,range = 39785.29167  0.041667   0.0000000E+00   7.6574452E-06
+  radflx: day,span,range = 39785.33333  0.041667  -1.6197189E+02   9.5173438E+02
+  shwflx: day,span,range = 39785.33333  0.041667   0.0000000E+00   1.0360443E+03
+  surtmp: day,span,range = 39785.33333  0.041667  -4.1425003E+01   3.3064240E+01
+ tau_ewd: day,span,range = 39785.37500  0.041667  -2.4074595E+00   1.8937360E+00
+ tau_nwd: day,span,range = 39785.37500  0.041667  -3.5404563E+00   2.0033438E+00
+  wndspd: day,span,range = 39785.37500  0.041667   6.4311057E-02   3.1621445E+01
+  airtmp: day,span,range = 39785.41667  0.041667  -3.9178867E+01   3.3792812E+01
+  vapmix: day,span,range = 39785.41667  0.041667   8.8250570E-05   2.2295367E-02
+  precip: day,span,range = 39785.41667  0.041667   0.0000000E+00   7.4169252E-06
+  radflx: day,span,range = 39785.45833  0.041667  -1.6426175E+02   9.9403302E+02
+  shwflx: day,span,range = 39785.45833  0.041667   0.0000000E+00   1.0737351E+03
+  surtmp: day,span,range = 39785.45833  0.041667  -4.1988174E+01   3.3506866E+01
+ tau_ewd: day,span,range = 39785.50000  0.041667  -3.2191463E+00   1.7379909E+00
+ tau_nwd: day,span,range = 39785.50000  0.041667  -4.3142753E+00   1.9319253E+00
+  wndspd: day,span,range = 39785.50000  0.041667   6.9302864E-02   3.4237572E+01
+  airtmp: day,span,range = 39785.54167  0.041667  -4.1573830E+01   3.2158974E+01
+  vapmix: day,span,range = 39785.54167  0.041667   6.6827604E-05   2.2303145E-02
+  precip: day,span,range = 39785.54167  0.041667   0.0000000E+00   5.2092914E-06
+  radflx: day,span,range = 39785.58333  0.041667  -1.7036813E+02   9.5217346E+02
+  shwflx: day,span,range = 39785.58333  0.041667   0.0000000E+00   1.0408121E+03
+  surtmp: day,span,range = 39785.58333  0.041667  -4.4150772E+01   3.2059418E+01
+ tau_ewd: day,span,range = 39785.62500  0.041667  -2.1608055E+00   2.0075214E+00
+ tau_nwd: day,span,range = 39785.62500  0.041667  -4.3252754E+00   1.4758536E+00
+  wndspd: day,span,range = 39785.62500  0.041667   5.1222861E-02   3.4119957E+01
+  airtmp: day,span,range = 39785.66667  0.041667  -4.2216911E+01   3.1800781E+01
+  vapmix: day,span,range = 39785.66667  0.041667   6.1799488E-05   2.2096494E-02
+  precip: day,span,range = 39785.66667  0.041667   0.0000000E+00   8.0599511E-06
+  radflx: day,span,range = 39785.70833  0.041667  -1.5876636E+02   9.6700433E+02
+  shwflx: day,span,range = 39785.70833  0.041667   0.0000000E+00   1.0604956E+03
+  surtmp: day,span,range = 39785.70833  0.041667  -4.6603668E+01   3.6575806E+01
+ tau_ewd: day,span,range = 39785.75000  0.041667  -1.9971883E+00   2.2841706E+00
+ tau_nwd: day,span,range = 39785.75000  0.041667  -3.3559058E+00   1.9311817E+00
+  wndspd: day,span,range = 39785.75000  0.041667   4.8387088E-02   3.1323509E+01
+  airtmp: day,span,range = 39785.79167  0.041667  -4.1422539E+01   3.2134613E+01
+  vapmix: day,span,range = 39785.79167  0.041667   6.8627014E-05   2.2225190E-02
+  precip: day,span,range = 39785.79167  0.041667   0.0000000E+00   6.6592720E-06
+  radflx: day,span,range = 39785.83333  0.041667  -1.6436205E+02   9.4836169E+02
+  shwflx: day,span,range = 39785.83333  0.041667   0.0000000E+00   1.0322645E+03
+  surtmp: day,span,range = 39785.83333  0.041667  -4.5533707E+01   3.2272125E+01
+ tau_ewd: day,span,range = 39785.87500  0.041667  -2.3786142E+00   2.6552010E+00
+ tau_nwd: day,span,range = 39785.87500  0.041667  -3.7140801E+00   2.2939503E+00
+  wndspd: day,span,range = 39785.87500  0.041667   3.7831903E-02   3.3000309E+01
+  airtmp: day,span,range = 39785.91667  0.041667  -4.2037506E+01   3.1813374E+01
+  vapmix: day,span,range = 39785.91667  0.041667   5.6424829E-05   2.1949444E-02
+  precip: day,span,range = 39785.91667  0.041667   0.0000000E+00   5.6480726E-06
+  radflx: day,span,range = 39785.95833  0.041667  -1.6708217E+02   9.6016565E+02
+  shwflx: day,span,range = 39785.95833  0.041667   0.0000000E+00   1.0414131E+03
+  surtmp: day,span,range = 39785.95833  0.041667  -4.5622757E+01   3.1949890E+01
+ tau_ewd: day,span,range = 39786.00000  0.041667  -2.5147464E+00   2.8680263E+00
+ tau_nwd: day,span,range = 39786.00000  0.041667  -2.7425032E+00   2.0056450E+00
+  wndspd: day,span,range = 39786.00000  0.041667   8.1016861E-02   3.0688446E+01
+  4774320 (2009/339 00) mean      SSH (mm):  122.85  (-1.8E+03 to  1.9E+03)
+  4774320 (2009/339 00) mean BFL (m^2/s^3):   -5.55 hfl:   -4.43
+  4774320 (2009/339 00) mean HFLUX (w/m^2):   49.33 sst:   -0.30  ml:    6.52
+  4774320 (2009/339 00) mean WFLUX (mm/wk):    2.68 sss:   -4.45
+  4774320 (2009/339 00) mean  ice thk. (m):    1.76  temp:-12.181 pcen:  6.322
+  4774320 (2009/339 00) mean SH I thk. (m):    1.80  temp: -2.899 pcen:  3.215
+  4774320 (2009/339 00) mean NH I thk. (m):    1.71  temp:-21.787 pcen:  3.107
+  4774320 (2009/339 00) mean ice mask pcen:    5.594  S.H:  2.465  N.H:  3.129
+  4774320 (2009/339 00) mean mixl thk. (m):   51.82  temp: 16.385 saln: 34.687
+  4774320 (2009/339 00) mean surf thk. (m):    3.00   sst: 18.289  sss: 34.684
+  4774320 (2009/339 00) mean clim thk. (m):   19.20   sst: 18.288  sss: 34.728
+  4774320 (2009/339 00) mean L  1 thk. (m):    3.00  temp: 18.293 saln: 34.691
+  4774320 (2009/339 00) mean L  2 thk. (m):    3.54  temp: 18.245 saln: 34.693
+  4774320 (2009/339 00) mean L  3 thk. (m):   12.35  temp: 25.327 saln: 34.335
+  4774320 (2009/339 00) mean L  4 thk. (m):   11.16  temp: 23.812 saln: 34.840
+  4774320 (2009/339 00) mean L  5 thk. (m):   10.14  temp: 21.857 saln: 34.961
+  4774320 (2009/339 00) mean L  6 thk. (m):   11.35  temp: 20.739 saln: 34.998
+  4774320 (2009/339 00) mean L  7 thk. (m):   11.52  temp: 19.155 saln: 35.048
+  4774320 (2009/339 00) mean L  8 thk. (m):   13.74  temp: 18.137 saln: 35.049
+  4774320 (2009/339 00) mean L  9 thk. (m):   18.48  temp: 17.522 saln: 35.122
+  4774320 (2009/339 00) mean L 10 thk. (m):   27.57  temp: 16.501 saln: 35.062
+  4774320 (2009/339 00) mean L 11 thk. (m):   37.99  temp: 14.956 saln: 35.019
+  4774320 (2009/339 00) mean L 12 thk. (m):   51.25  temp: 13.424 saln: 35.000
+  4774320 (2009/339 00) mean L 13 thk. (m):   65.89  temp: 11.606 saln: 34.876
+  4774320 (2009/339 00) mean L 14 thk. (m):   79.97  temp:  9.709 saln: 34.716
+  4774320 (2009/339 00) mean L 15 thk. (m):  115.14  temp:  7.906 saln: 34.596
+  4774320 (2009/339 00) mean L 16 thk. (m):  105.88  temp:  6.716 saln: 34.590
+  4774320 (2009/339 00) mean L 17 thk. (m):  131.51  temp:  5.516 saln: 34.519
+  4774320 (2009/339 00) mean L 18 thk. (m):  141.81  temp:  4.703 saln: 34.552
+  4774320 (2009/339 00) mean L 19 thk. (m):  137.99  temp:  3.946 saln: 34.573
+  4774320 (2009/339 00) mean L 20 thk. (m):  131.13  temp:  3.495 saln: 34.616
+  4774320 (2009/339 00) mean L 21 thk. (m):  129.16  temp:  3.073 saln: 34.639
+  4774320 (2009/339 00) mean L 22 thk. (m):  150.80  temp:  2.855 saln: 34.681
+  4774320 (2009/339 00) mean L 23 thk. (m):  180.99  temp:  2.637 saln: 34.719
+  4774320 (2009/339 00) mean L 24 thk. (m):  271.58  temp:  2.369 saln: 34.736
+  4774320 (2009/339 00) mean L 25 thk. (m):  493.87  temp:  1.850 saln: 34.735
+  4774320 (2009/339 00) mean L 26 thk. (m):  543.02  temp:  1.551 saln: 34.750
+  4774320 (2009/339 00) mean L 27 thk. (m):  348.17  temp:  1.420 saln: 34.775
+  4774320 (2009/339 00) mean L 28 thk. (m):  285.99  temp:  0.994 saln: 34.758
+  4774320 (2009/339 00) mean L 29 thk. (m):  158.99  temp:  0.001 saln: 34.698
+  4774320 (2009/339 00) mean L 30 thk. (m):    4.13  temp: -0.672 saln: 34.931
+  4774320 (2009/339 00) mean L 31 thk. (m):    5.49  temp: -0.729 saln: 34.940
+  4774320 (2009/339 00) mean L 32 thk. (m):    4.27  temp: -0.831 saln: 34.945
+  4774320 (2009/339 00) region-wide mean Kin. Energy:     9644.5292477561
+  4774320 (2009/339 00) region-wide mean Temperature:        3.7020468445
+  4774320 (2009/339 00) region-wide mean Salinity:          34.7178260306
+  4774320 (2009/339 00) region-wide mean Density Dev:        2.6004720516
+  airtmp: day,span,range = 39786.04167  0.041667  -4.3903313E+01   3.2845184E+01
+  vapmix: day,span,range = 39786.04167  0.041667   4.9902450E-05   2.2017904E-02
+  precip: day,span,range = 39786.04167  0.041667   0.0000000E+00   8.6534919E-06
+  radflx: day,span,range = 39786.08333  0.041667  -1.6379468E+02   9.5677094E+02
+  shwflx: day,span,range = 39786.08333  0.041667   0.0000000E+00   1.0542610E+03
+  surtmp: day,span,range = 39786.08333  0.041667  -4.7519180E+01   3.6767365E+01
+ tau_ewd: day,span,range = 39786.12500  0.041667  -3.1131973E+00   3.4633713E+00
+ tau_nwd: day,span,range = 39786.12500  0.041667  -2.7267647E+00   2.7954092E+00
+  wndspd: day,span,range = 39786.12500  0.041667   7.0509650E-02   3.2697327E+01
+  airtmp: day,span,range = 39786.16667  0.041667  -4.4821976E+01   3.5617470E+01
+  vapmix: day,span,range = 39786.16667  0.041667   4.5016699E-05   2.2458926E-02
+  precip: day,span,range = 39786.16667  0.041667   0.0000000E+00   1.0775366E-05
+  radflx: day,span,range = 39786.20833  0.041667  -1.6783305E+02   9.7798755E+02
+  shwflx: day,span,range = 39786.20833  0.041667   0.0000000E+00   1.0507856E+03
+  surtmp: day,span,range = 39786.20833  0.041667  -4.8291290E+01   3.4853668E+01
+ tau_ewd: day,span,range = 39786.25000  0.041667  -3.2856491E+00   3.5047359E+00
+ tau_nwd: day,span,range = 39786.25000  0.041667  -2.9706781E+00   2.3660161E+00
+  wndspd: day,span,range = 39786.25000  0.041667   6.8505846E-02   3.2865074E+01
+  airtmp: day,span,range = 39786.29167  0.041667  -4.4166271E+01   3.5415874E+01
+  vapmix: day,span,range = 39786.29167  0.041667   4.9301365E-05   2.2486646E-02
+  precip: day,span,range = 39786.29167  0.041667   0.0000000E+00   7.9555621E-06
+  radflx: day,span,range = 39786.33333  0.041667  -1.6994740E+02   9.5197925E+02
+  shwflx: day,span,range = 39786.33333  0.041667   0.0000000E+00   1.0400656E+03
+  surtmp: day,span,range = 39786.33333  0.041667  -4.6932144E+01   3.3153534E+01
+ tau_ewd: day,span,range = 39786.37500  0.041667  -3.7278559E+00   4.2181940E+00
+ tau_nwd: day,span,range = 39786.37500  0.041667  -3.8155377E+00   2.5017440E+00
+  wndspd: day,span,range = 39786.37500  0.041667   3.6204334E-02   3.4710278E+01
+  airtmp: day,span,range = 39786.41667  0.041667  -4.4058796E+01   3.5075081E+01
+  vapmix: day,span,range = 39786.41667  0.041667   5.0102128E-05   2.2090785E-02
+  precip: day,span,range = 39786.41667  0.041667   0.0000000E+00   1.0651042E-05
+  radflx: day,span,range = 39786.45833  0.041667  -1.7642410E+02   9.7901562E+02
+  shwflx: day,span,range = 39786.45833  0.041667   0.0000000E+00   1.0685916E+03
+  surtmp: day,span,range = 39786.45833  0.041667  -4.7476791E+01   3.3521027E+01
+ tau_ewd: day,span,range = 39786.50000  0.041667  -3.7907846E+00   4.0016632E+00
+ tau_nwd: day,span,range = 39786.50000  0.041667  -3.5566072E+00   2.1351068E+00
+  wndspd: day,span,range = 39786.50000  0.041667   4.3860197E-02   3.3984833E+01
+  airtmp: day,span,range = 39786.54167  0.041667  -4.3454567E+01   3.2109970E+01
+  vapmix: day,span,range = 39786.54167  0.041667   5.3602573E-05   2.2184791E-02
+  precip: day,span,range = 39786.54167  0.041667   0.0000000E+00   7.8402081E-06
+  radflx: day,span,range = 39786.58333  0.041667  -1.7488474E+02   9.5239191E+02
+  shwflx: day,span,range = 39786.58333  0.041667   0.0000000E+00   1.0409288E+03
+  surtmp: day,span,range = 39786.58333  0.041667  -4.7052612E+01   3.2100067E+01
+ tau_ewd: day,span,range = 39786.62500  0.041667  -3.2508204E+00   4.2646427E+00
+ tau_nwd: day,span,range = 39786.62500  0.041667  -3.5590208E+00   2.2354684E+00
+  wndspd: day,span,range = 39786.62500  0.041667   7.7006832E-02   3.6232761E+01
+  airtmp: day,span,range = 39786.66667  0.041667  -4.3651196E+01   3.1656250E+01
+  vapmix: day,span,range = 39786.66667  0.041667   5.1987910E-05   2.2222260E-02
+  precip: day,span,range = 39786.66667  0.041667   0.0000000E+00   9.0793401E-06
+  radflx: day,span,range = 39786.70833  0.041667  -1.8780618E+02   9.6583698E+02
+  shwflx: day,span,range = 39786.70833  0.041667   0.0000000E+00   1.0618652E+03
+  surtmp: day,span,range = 39786.70833  0.041667  -4.6687149E+01   3.3257904E+01
+ tau_ewd: day,span,range = 39786.75000  0.041667  -3.5420582E+00   3.4225941E+00
+ tau_nwd: day,span,range = 39786.75000  0.041667  -3.7114685E+00   1.8233210E+00
+  wndspd: day,span,range = 39786.75000  0.041667   8.3856583E-02   3.3429760E+01
+  airtmp: day,span,range = 39786.79167  0.041667  -4.2128967E+01   3.2406822E+01
+  vapmix: day,span,range = 39786.79167  0.041667   6.2814186E-05   2.1997126E-02
+  precip: day,span,range = 39786.79167  0.041667   0.0000000E+00   6.6357870E-06
+  radflx: day,span,range = 39786.83333  0.041667  -1.9226614E+02   9.5053278E+02
+  shwflx: day,span,range = 39786.83333  0.041667   0.0000000E+00   1.0402468E+03
+  surtmp: day,span,range = 39786.83333  0.041667  -4.6102386E+01   3.2128876E+01
+ tau_ewd: day,span,range = 39786.87500  0.041667  -3.6873906E+00   3.8033540E+00
+ tau_nwd: day,span,range = 39786.87500  0.041667  -3.5061207E+00   1.8633641E+00
+  wndspd: day,span,range = 39786.87500  0.041667   4.6947256E-02   3.3904224E+01
+  airtmp: day,span,range = 39786.91667  0.041667  -4.1797424E+01   3.2748329E+01
+  vapmix: day,span,range = 39786.91667  0.041667   6.5109110E-05   2.1873310E-02
+  precip: day,span,range = 39786.91667  0.041667   0.0000000E+00   9.6437907E-06
+  radflx: day,span,range = 39786.95833  0.041667  -1.7840732E+02   9.5996716E+02
+  shwflx: day,span,range = 39786.95833  0.041667   0.0000000E+00   1.0529058E+03
+  surtmp: day,span,range = 39786.95833  0.041667  -4.5644592E+01   3.2092224E+01
+ tau_ewd: day,span,range = 39787.00000  0.041667  -3.5044923E+00   3.0968194E+00
+ tau_nwd: day,span,range = 39787.00000  0.041667  -3.5356946E+00   1.7542411E+00
+  wndspd: day,span,range = 39787.00000  0.041667   4.0051445E-02   3.2802856E+01
+  4774440 (2009/340 00) mean      SSH (mm):  122.88  (-1.8E+03 to  2.8E+03)
+  airtmp: day,span,range = 39787.04167  0.041667  -4.1809570E+01   3.3106945E+01
+  vapmix: day,span,range = 39787.04167  0.041667   6.4643187E-05   2.1963676E-02
+  precip: day,span,range = 39787.04167  0.041667   0.0000000E+00   6.7583178E-06
+  radflx: day,span,range = 39787.08333  0.041667  -1.6661395E+02   9.6216992E+02
+  shwflx: day,span,range = 39787.08333  0.041667   0.0000000E+00   1.0443468E+03
+  surtmp: day,span,range = 39787.08333  0.041667  -4.6456909E+01   3.3657135E+01
+ tau_ewd: day,span,range = 39787.12500  0.041667  -3.4003630E+00   3.4790516E+00
+ tau_nwd: day,span,range = 39787.12500  0.041667  -3.1109719E+00   2.0509014E+00
+  wndspd: day,span,range = 39787.12500  0.041667   5.7331920E-02   3.3044365E+01
+  airtmp: day,span,range = 39787.16667  0.041667  -4.3113991E+01   3.5840103E+01
+  vapmix: day,span,range = 39787.16667  0.041667   5.5074343E-05   2.2451820E-02
+  precip: day,span,range = 39787.16667  0.041667   0.0000000E+00   9.0830617E-06
+  radflx: day,span,range = 39787.20833  0.041667  -1.6893909E+02   9.7690344E+02
+  shwflx: day,span,range = 39787.20833  0.041667   0.0000000E+00   1.0509025E+03
+  surtmp: day,span,range = 39787.20833  0.041667  -4.7613144E+01   3.4857758E+01
+ tau_ewd: day,span,range = 39787.25000  0.041667  -3.1521368E+00   3.1353686E+00
+ tau_nwd: day,span,range = 39787.25000  0.041667  -3.4695644E+00   2.1858685E+00
+  wndspd: day,span,range = 39787.25000  0.041667   6.7771330E-02   3.2093334E+01
+  airtmp: day,span,range = 39787.29167  0.041667  -4.3463219E+01   3.6452976E+01
+  vapmix: day,span,range = 39787.29167  0.041667   5.3207972E-05   2.1493386E-02
+  precip: day,span,range = 39787.29167  0.041667   0.0000000E+00   8.9668574E-06
+  radflx: day,span,range = 39787.33333  0.041667  -1.6105373E+02   9.5142328E+02
+  shwflx: day,span,range = 39787.33333  0.041667   0.0000000E+00   1.0488480E+03
+  surtmp: day,span,range = 39787.33333  0.041667  -4.7827484E+01   3.3224487E+01
+ tau_ewd: day,span,range = 39787.37500  0.041667  -2.4705162E+00   2.4959676E+00
+ tau_nwd: day,span,range = 39787.37500  0.041667  -2.8576710E+00   1.6338326E+00
+  wndspd: day,span,range = 39787.37500  0.041667   7.9974458E-02   2.9774082E+01
+  airtmp: day,span,range = 39787.41667  0.041667  -4.5025295E+01   3.5802162E+01
+  vapmix: day,span,range = 39787.41667  0.041667   4.3949054E-05   2.1740645E-02
+  precip: day,span,range = 39787.41667  0.041667   0.0000000E+00   9.4772977E-06
+  radflx: day,span,range = 39787.45833  0.041667  -1.7795067E+02   9.7835229E+02
+  shwflx: day,span,range = 39787.45833  0.041667   0.0000000E+00   1.0503060E+03
+  surtmp: day,span,range = 39787.45833  0.041667  -4.8699112E+01   3.3703613E+01
+ tau_ewd: day,span,range = 39787.50000  0.041667  -2.4915955E+00   2.2335024E+00
+ tau_nwd: day,span,range = 39787.50000  0.041667  -2.3829718E+00   2.1151385E+00
+  wndspd: day,span,range = 39787.50000  0.041667   2.7185393E-02   2.9603748E+01
+  airtmp: day,span,range = 39787.54167  0.041667  -4.4659512E+01   3.1703669E+01
+  vapmix: day,span,range = 39787.54167  0.041667   4.5941735E-05   2.1500140E-02
+  precip: day,span,range = 39787.54167  0.041667   0.0000000E+00   8.0115669E-06
+  radflx: day,span,range = 39787.58333  0.041667  -1.7872620E+02   9.5217029E+02
+  shwflx: day,span,range = 39787.58333  0.041667   0.0000000E+00   1.0568308E+03
+  surtmp: day,span,range = 39787.58333  0.041667  -4.7350800E+01   3.2069702E+01
+ tau_ewd: day,span,range = 39787.62500  0.041667  -2.3298376E+00   3.1036434E+00
+ tau_nwd: day,span,range = 39787.62500  0.041667  -2.6921940E+00   2.1464970E+00
+  wndspd: day,span,range = 39787.62500  0.041667   3.7471630E-02   3.0686346E+01
+  airtmp: day,span,range = 39787.66667  0.041667  -4.2638676E+01   3.1539062E+01
+  vapmix: day,span,range = 39787.66667  0.041667   5.8368663E-05   2.1252243E-02
+  precip: day,span,range = 39787.66667  0.041667   0.0000000E+00   1.2289573E-05
+  radflx: day,span,range = 39787.70833  0.041667  -1.7728912E+02   9.7662805E+02
+  shwflx: day,span,range = 39787.70833  0.041667   0.0000000E+00   1.0591167E+03
+  surtmp: day,span,range = 39787.70833  0.041667  -4.7440826E+01   3.3795380E+01
+ tau_ewd: day,span,range = 39787.75000  0.041667  -2.4221039E+00   2.4268029E+00
+ tau_nwd: day,span,range = 39787.75000  0.041667  -1.8188921E+00   2.1275914E+00
+  wndspd: day,span,range = 39787.75000  0.041667   6.6690661E-02   2.8954609E+01
+  airtmp: day,span,range = 39787.79167  0.041667  -4.3883011E+01   3.2184967E+01
+  vapmix: day,span,range = 39787.79167  0.041667   5.0067960E-05   2.1796530E-02
+  precip: day,span,range = 39787.79167  0.041667   0.0000000E+00   8.7497219E-06
+  radflx: day,span,range = 39787.83333  0.041667  -1.7690790E+02   9.5341779E+02
+  shwflx: day,span,range = 39787.83333  0.041667   0.0000000E+00   1.0450229E+03
+  surtmp: day,span,range = 39787.83333  0.041667  -4.8228516E+01   3.2078156E+01
+ tau_ewd: day,span,range = 39787.87500  0.041667  -2.0113409E+00   3.4399617E+00
+ tau_nwd: day,span,range = 39787.87500  0.041667  -2.8401971E+00   1.5950639E+00
+  wndspd: day,span,range = 39787.87500  0.041667   4.2886779E-02   3.1790981E+01
+  airtmp: day,span,range = 39787.91667  0.041667  -4.5756912E+01   3.2788574E+01
+  vapmix: day,span,range = 39787.91667  0.041667   4.0170038E-05   2.1316022E-02
+  precip: day,span,range = 39787.91667  0.041667   0.0000000E+00   5.7674424E-06
+  radflx: day,span,range = 39787.95833  0.041667  -1.6064101E+02   9.5655383E+02
+  shwflx: day,span,range = 39787.95833  0.041667   0.0000000E+00   1.0443931E+03
+  surtmp: day,span,range = 39787.95833  0.041667  -4.9420609E+01   3.1815338E+01
+ tau_ewd: day,span,range = 39788.00000  0.041667  -2.0795069E+00   2.9890926E+00
+ tau_nwd: day,span,range = 39788.00000  0.041667  -2.3367505E+00   1.8194094E+00
+  wndspd: day,span,range = 39788.00000  0.041667   5.2089192E-02   3.0194870E+01
+  4774560 (2009/341 00) mean      SSH (mm):  122.89  (-1.8E+03 to  2.0E+03)
+  airtmp: day,span,range = 39788.04167  0.041667  -4.3277836E+01   3.3745491E+01
+  vapmix: day,span,range = 39788.04167  0.041667   5.4052645E-05   2.1774160E-02
+  precip: day,span,range = 39788.04167  0.041667   0.0000000E+00   8.4050562E-06
+  radflx: day,span,range = 39788.08333  0.041667  -1.6327100E+02   9.5867529E+02
+  shwflx: day,span,range = 39788.08333  0.041667   0.0000000E+00   1.0417903E+03
+  surtmp: day,span,range = 39788.08333  0.041667  -4.6878677E+01   3.4661896E+01
+ tau_ewd: day,span,range = 39788.12500  0.041667  -2.2043366E+00   3.3850374E+00
+ tau_nwd: day,span,range = 39788.12500  0.041667  -2.3039937E+00   1.8528737E+00
+  wndspd: day,span,range = 39788.12500  0.041667   2.7428281E-02   3.2283264E+01
+  airtmp: day,span,range = 39788.16667  0.041667  -4.1106064E+01   3.7109753E+01
+  vapmix: day,span,range = 39788.16667  0.041667   6.8187714E-05   2.2342164E-02
+  precip: day,span,range = 39788.16667  0.041667   0.0000000E+00   6.1418405E-06
+  radflx: day,span,range = 39788.20833  0.041667  -1.5828137E+02   9.7051099E+02
+  shwflx: day,span,range = 39788.20833  0.041667   0.0000000E+00   1.0603457E+03
+  surtmp: day,span,range = 39788.20833  0.041667  -4.1877426E+01   3.5211121E+01
+ tau_ewd: day,span,range = 39788.25000  0.041667  -1.9461900E+00   3.6149673E+00
+ tau_nwd: day,span,range = 39788.25000  0.041667  -3.0225315E+00   1.8147905E+00
+  wndspd: day,span,range = 39788.25000  0.041667   6.0595620E-02   3.2181778E+01
+  airtmp: day,span,range = 39788.29167  0.041667  -4.1247116E+01   3.6472206E+01
+  vapmix: day,span,range = 39788.29167  0.041667   6.8187714E-05   2.2531684E-02
+  precip: day,span,range = 39788.29167  0.041667   0.0000000E+00   3.6844253E-06
+  radflx: day,span,range = 39788.33333  0.041667  -1.6024344E+02   9.5349835E+02
+  shwflx: day,span,range = 39788.33333  0.041667   0.0000000E+00   1.0411442E+03
+  surtmp: day,span,range = 39788.33333  0.041667  -4.1742035E+01   3.3429565E+01
+ tau_ewd: day,span,range = 39788.37500  0.041667  -1.8776666E+00   3.8942850E+00
+ tau_nwd: day,span,range = 39788.37500  0.041667  -3.9657099E+00   1.8960470E+00
+  wndspd: day,span,range = 39788.37500  0.041667   4.1645605E-02   3.3820900E+01
+  airtmp: day,span,range = 39788.41667  0.041667  -4.1043930E+01   3.5275322E+01
+  vapmix: day,span,range = 39788.41667  0.041667   6.9168920E-05   2.2295836E-02
+  precip: day,span,range = 39788.41667  0.041667   0.0000000E+00   8.7910739E-06
+  radflx: day,span,range = 39788.45833  0.041667  -1.6543768E+02   9.7419147E+02
+  shwflx: day,span,range = 39788.45833  0.041667   0.0000000E+00   1.0481991E+03
+  surtmp: day,span,range = 39788.45833  0.041667  -4.1526337E+01   3.3590118E+01
+ tau_ewd: day,span,range = 39788.50000  0.041667  -1.8411540E+00   4.0483365E+00
+ tau_nwd: day,span,range = 39788.50000  0.041667  -3.4763718E+00   1.6539729E+00
+  wndspd: day,span,range = 39788.50000  0.041667   5.2273892E-02   3.5330578E+01
+  airtmp: day,span,range = 39788.54167  0.041667  -3.9990173E+01   3.3208481E+01
+  vapmix: day,span,range = 39788.54167  0.041667   7.8201294E-05   2.2633556E-02
+  precip: day,span,range = 39788.54167  0.041667   0.0000000E+00   5.8409669E-06
+  radflx: day,span,range = 39788.58333  0.041667  -1.7389600E+02   9.4896692E+02
+  shwflx: day,span,range = 39788.58333  0.041667   0.0000000E+00   1.0453458E+03
+  surtmp: day,span,range = 39788.58333  0.041667  -4.1089325E+01   3.1990692E+01
+ tau_ewd: day,span,range = 39788.62500  0.041667  -2.2953129E+00   5.2633734E+00
+ tau_nwd: day,span,range = 39788.62500  0.041667  -2.3788166E+00   1.7083117E+00
+  wndspd: day,span,range = 39788.62500  0.041667   5.7841573E-02   3.7436913E+01
+  airtmp: day,span,range = 39788.66667  0.041667  -3.9761009E+01   3.2602795E+01
+  vapmix: day,span,range = 39788.66667  0.041667   7.8324054E-05   2.2662064E-02
+  precip: day,span,range = 39788.66667  0.041667   0.0000000E+00   8.0869440E-06
+  radflx: day,span,range = 39788.70833  0.041667  -1.7004187E+02   9.7734796E+02
+  shwflx: day,span,range = 39788.70833  0.041667   0.0000000E+00   1.0643864E+03
+  surtmp: day,span,range = 39788.70833  0.041667  -4.1074738E+01   3.5682098E+01
+ tau_ewd: day,span,range = 39788.75000  0.041667  -1.8331325E+00   3.7050889E+00
+ tau_nwd: day,span,range = 39788.75000  0.041667  -1.7413335E+00   1.6451716E+00
+  wndspd: day,span,range = 39788.75000  0.041667   6.3577831E-02   3.2883591E+01
+  airtmp: day,span,range = 39788.79167  0.041667  -3.8550011E+01   3.2225983E+01
+  vapmix: day,span,range = 39788.79167  0.041667   9.0938804E-05   2.2709999E-02
+  precip: day,span,range = 39788.79167  0.041667   0.0000000E+00   7.7232235E-06
+  radflx: day,span,range = 39788.83333  0.041667  -1.6962518E+02   9.5549487E+02
+  shwflx: day,span,range = 39788.83333  0.041667   0.0000000E+00   1.0479891E+03
+  surtmp: day,span,range = 39788.83333  0.041667  -4.0661224E+01   3.1990692E+01
+ tau_ewd: day,span,range = 39788.87500  0.041667  -2.4840109E+00   2.8981941E+00
+ tau_nwd: day,span,range = 39788.87500  0.041667  -1.6626694E+00   1.9334074E+00
+  wndspd: day,span,range = 39788.87500  0.041667   7.3693037E-02   3.0986374E+01
+  airtmp: day,span,range = 39788.91667  0.041667  -3.8419556E+01   3.1946291E+01
+  vapmix: day,span,range = 39788.91667  0.041667   9.1238704E-05   2.2509113E-02
+  precip: day,span,range = 39788.91667  0.041667   0.0000000E+00   6.9908110E-06
+  radflx: day,span,range = 39788.95833  0.041667  -1.6700018E+02   9.5328174E+02
+  shwflx: day,span,range = 39788.95833  0.041667   0.0000000E+00   1.0410054E+03
+  surtmp: day,span,range = 39788.95833  0.041667  -4.1231094E+01   3.1990692E+01
+ tau_ewd: day,span,range = 39789.00000  0.041667  -1.9338439E+00   2.4412067E+00
+ tau_nwd: day,span,range = 39789.00000  0.041667  -2.1403327E+00   1.7796508E+00
+  wndspd: day,span,range = 39789.00000  0.041667   5.2997224E-02   2.8087347E+01
+  4774680 (2009/342 00) mean      SSH (mm):  122.93  (-1.8E+03 to  2.1E+03)
+  airtmp: day,span,range = 39789.04167  0.041667  -3.8454613E+01   3.5687023E+01
+  vapmix: day,span,range = 39789.04167  0.041667   9.2222777E-05   2.2502560E-02
+  precip: day,span,range = 39789.04167  0.041667   0.0000000E+00   8.2969909E-06
+  radflx: day,span,range = 39789.08333  0.041667  -1.6414600E+02   9.6419659E+02
+  shwflx: day,span,range = 39789.08333  0.041667   0.0000000E+00   1.0564963E+03
+  surtmp: day,span,range = 39789.08333  0.041667  -4.1340836E+01   3.4778229E+01
+ tau_ewd: day,span,range = 39789.12500  0.041667  -1.6658899E+00   2.0227981E+00
+ tau_nwd: day,span,range = 39789.12500  0.041667  -2.1664152E+00   1.6411102E+00
+  wndspd: day,span,range = 39789.12500  0.041667   6.0097285E-02   2.7446236E+01
+  airtmp: day,span,range = 39789.16667  0.041667  -3.8774448E+01   3.7862648E+01
+  vapmix: day,span,range = 39789.16667  0.041667   8.6673521E-05   2.2833005E-02
+  precip: day,span,range = 39789.16667  0.041667   0.0000000E+00   1.3632519E-05
+  radflx: day,span,range = 39789.20833  0.041667  -1.6125162E+02   9.8302661E+02
+  shwflx: day,span,range = 39789.20833  0.041667   0.0000000E+00   1.0823264E+03
+  surtmp: day,span,range = 39789.20833  0.041667  -4.0932785E+01   3.4832184E+01
+ tau_ewd: day,span,range = 39789.25000  0.041667  -1.7999805E+00   2.4902921E+00
+ tau_nwd: day,span,range = 39789.25000  0.041667  -2.5270531E+00   1.4607003E+00
+  wndspd: day,span,range = 39789.25000  0.041667   7.4096426E-02   3.0381136E+01
+  airtmp: day,span,range = 39789.29167  0.041667  -3.8578259E+01   3.8128944E+01
+  vapmix: day,span,range = 39789.29167  0.041667   8.9566871E-05   2.3247082E-02
+  precip: day,span,range = 39789.29167  0.041667   0.0000000E+00   9.1779293E-06
+  radflx: day,span,range = 39789.33333  0.041667  -1.7225665E+02   9.5468500E+02
+  shwflx: day,span,range = 39789.33333  0.041667   0.0000000E+00   1.0437166E+03
+  surtmp: day,span,range = 39789.33333  0.041667  -4.2090408E+01   3.2913605E+01
+ tau_ewd: day,span,range = 39789.37500  0.041667  -2.0750995E+00   3.1982894E+00
+ tau_nwd: day,span,range = 39789.37500  0.041667  -1.7500418E+00   1.2936912E+00
+  wndspd: day,span,range = 39789.37500  0.041667   6.2211245E-02   3.1591494E+01
+  airtmp: day,span,range = 39789.41667  0.041667  -3.8458694E+01   3.5495682E+01
+  vapmix: day,span,range = 39789.41667  0.041667   9.0299989E-05   2.2918992E-02
+  precip: day,span,range = 39789.41667  0.041667   0.0000000E+00   1.3261887E-05
+  radflx: day,span,range = 39789.45833  0.041667  -1.6974150E+02   9.8362274E+02
+  shwflx: day,span,range = 39789.45833  0.041667   0.0000000E+00   1.0759491E+03
+  surtmp: day,span,range = 39789.45833  0.041667  -4.2932800E+01   3.3935944E+01
+ tau_ewd: day,span,range = 39789.50000  0.041667  -2.0547807E+00   3.4550104E+00
+ tau_nwd: day,span,range = 39789.50000  0.041667  -1.5259701E+00   1.3424014E+00
+  wndspd: day,span,range = 39789.50000  0.041667   4.1741006E-02   3.2044296E+01
+  airtmp: day,span,range = 39789.54167  0.041667  -3.9846798E+01   3.4277779E+01
+  vapmix: day,span,range = 39789.54167  0.041667   8.0972030E-05   2.3330923E-02
+  precip: day,span,range = 39789.54167  0.041667   0.0000000E+00   8.2950492E-06
+  radflx: day,span,range = 39789.58333  0.041667  -1.8052055E+02   9.5032904E+02
+  shwflx: day,span,range = 39789.58333  0.041667   0.0000000E+00   1.0388550E+03
+  surtmp: day,span,range = 39789.58333  0.041667  -4.3049484E+01   3.2037079E+01
+ tau_ewd: day,span,range = 39789.62500  0.041667  -2.3110301E+00   3.1991804E+00
+ tau_nwd: day,span,range = 39789.62500  0.041667  -1.9000891E+00   1.6893430E+00
+  wndspd: day,span,range = 39789.62500  0.041667   3.7602264E-02   3.0903259E+01
+  airtmp: day,span,range = 39789.66667  0.041667  -4.0375427E+01   3.2489609E+01
+  vapmix: day,span,range = 39789.66667  0.041667   7.5841737E-05   2.3312086E-02
+  precip: day,span,range = 39789.66667  0.041667   0.0000000E+00   8.9570449E-06
+  radflx: day,span,range = 39789.70833  0.041667  -1.8281161E+02   9.7945642E+02
+  shwflx: day,span,range = 39789.70833  0.041667   0.0000000E+00   1.0634875E+03
+  surtmp: day,span,range = 39789.70833  0.041667  -4.2686554E+01   3.5886261E+01
+ tau_ewd: day,span,range = 39789.75000  0.041667  -2.2352252E+00   2.9302285E+00
+ tau_nwd: day,span,range = 39789.75000  0.041667  -2.1373405E+00   1.8523457E+00
+  wndspd: day,span,range = 39789.75000  0.041667   3.3163127E-02   3.0381302E+01
+  airtmp: day,span,range = 39789.79167  0.041667  -4.1925301E+01   3.1851191E+01
+  vapmix: day,span,range = 39789.79167  0.041667   6.2298321E-05   2.3670567E-02
+  precip: day,span,range = 39789.79167  0.041667   0.0000000E+00   6.7844276E-06
+  radflx: day,span,range = 39789.83333  0.041667  -1.8648813E+02   9.5102490E+02
+  shwflx: day,span,range = 39789.83333  0.041667   0.0000000E+00   1.0426799E+03
+  surtmp: day,span,range = 39789.83333  0.041667  -4.2686096E+01   3.2037079E+01
+ tau_ewd: day,span,range = 39789.87500  0.041667  -2.4100268E+00   2.7209361E+00
+ tau_nwd: day,span,range = 39789.87500  0.041667  -2.6134274E+00   1.6455405E+00
+  wndspd: day,span,range = 39789.87500  0.041667   7.0160046E-02   2.9312717E+01
+  airtmp: day,span,range = 39789.91667  0.041667  -4.1034626E+01   3.1322266E+01
+  vapmix: day,span,range = 39789.91667  0.041667   6.9425150E-05   2.3270428E-02
+  precip: day,span,range = 39789.91667  0.041667   0.0000000E+00   7.1937907E-06
+  radflx: day,span,range = 39789.95833  0.041667  -1.8715376E+02   9.4865076E+02
+  shwflx: day,span,range = 39789.95833  0.041667   0.0000000E+00   1.0374850E+03
+  surtmp: day,span,range = 39789.95833  0.041667  -4.1958588E+01   3.2037079E+01
+ tau_ewd: day,span,range = 39790.00000  0.041667  -2.6466851E+00   2.5020182E+00
+ tau_nwd: day,span,range = 39790.00000  0.041667  -2.7676406E+00   1.5786307E+00
+  wndspd: day,span,range = 39790.00000  0.041667   1.0146644E-01   3.0472355E+01
+  4774800  1 min/max of s after advection:  2.380 40.753   (range: 3.84E+01)
+  4774800  2 min/max of s after advection:  2.391 40.751   (range: 3.84E+01)
+  4774800  3 min/max of s after advection:  4.973 40.710   (range: 3.57E+01)
+  4774800  4 min/max of s after advection: 24.177 40.708   (range: 1.65E+01)
+  4774800  5 min/max of s after advection: 24.718 40.689   (range: 1.60E+01)
+  4774800  6 min/max of s after advection: 26.214 40.632   (range: 1.44E+01)
+  4774800  7 min/max of s after advection: 27.292 40.632   (range: 1.33E+01)
+  4774800  8 min/max of s after advection: 27.292 40.613   (range: 1.33E+01)
+  4774800  9 min/max of s after advection: 27.942 40.559   (range: 1.26E+01)
+  4774800 10 min/max of s after advection: 28.536 40.433   (range: 1.19E+01)
+  4774800 11 min/max of s after advection: 29.709 40.328   (range: 1.06E+01)
+  4774800 12 min/max of s after advection: 31.092 40.310   (range: 9.22E+00)
+  4774800 13 min/max of s after advection: 31.496 40.172   (range: 8.68E+00)
+  4774800 14 min/max of s after advection: 31.573 40.172   (range: 8.60E+00)
+  4774800 15 min/max of s after advection: 32.090 40.172   (range: 8.08E+00)
+  4774800 16 min/max of s after advection: 32.093 40.165   (range: 8.07E+00)
+  4774800 17 min/max of s after advection: 32.180 40.144   (range: 7.96E+00)
+  4774800 18 min/max of s after advection: 32.488 40.172   (range: 7.68E+00)
+  4774800 19 min/max of s after advection: 32.488 40.227   (range: 7.74E+00)
+  4774800 20 min/max of s after advection: 32.799 40.235   (range: 7.44E+00)
+  4774800 21 min/max of s after advection: 32.871 40.284   (range: 7.41E+00)
+  4774800 22 min/max of s after advection: 32.799 38.818   (range: 6.02E+00)
+  4774800 23 min/max of s after advection: 32.799 38.800   (range: 6.00E+00)
+  4774800 24 min/max of s after advection: 33.445 38.786   (range: 5.34E+00)
+  4774800 25 min/max of s after advection: 34.181 38.770   (range: 4.59E+00)
+  4774800 26 min/max of s after advection: 34.182 38.883   (range: 4.70E+00)
+  4774800 27 min/max of s after advection: 34.234 38.704   (range: 4.47E+00)
+  4774800 28 min/max of s after advection: 34.404 35.077   (range: 6.73E-01)
+  4774800 29 min/max of s after advection: 34.491 34.943   (range: 4.53E-01)
+  4774800 30 min/max of s after advection: 34.631 34.959   (range: 3.27E-01)
+  4774800 31 min/max of s after advection: 34.911 34.965   (range: 5.34E-02)
+  4774800 32 min/max of s after advection: 34.905 34.976   (range: 7.12E-02)
+  4774800 mean basin temp, saln, dens     3.702   34.718   36.600
+  4774800 mean surface temp and saln     18.338   34.690
+  4774800 energy residual (atmos,tot)    12.390   11.520 (W/m^2)
+  4774800  e - p residual (atmos,tot)    -8.645   -8.440 (cm/year)
+  4774800 temp drift per century          2.650    2.464
+  4774800 saln drift per century         -0.082   -0.080
+  4774800 dens drift per century                  -0.350
+  4774800 (2009/343 00) mean      SSH (mm):  122.98  (-1.8E+03 to  1.8E+03)
+  4774800 (2009/343 00) mean BFL (m^2/s^3):  -12.04 hfl:  -12.30
+  4774800 (2009/343 00) mean HFLUX (w/m^2):   62.47 sst:   -0.35  ml:   18.67
+  4774800 (2009/343 00) mean WFLUX (mm/wk):   -0.51 sss:   -4.72
+  4774800 (2009/343 00) mean  ice thk. (m):    1.77  temp:-11.363 pcen:  6.100
+  4774800 (2009/343 00) mean SH I thk. (m):    1.76  temp: -2.966 pcen:  2.960
+  4774800 (2009/343 00) mean NH I thk. (m):    1.78  temp:-19.279 pcen:  3.140
+  4774800 (2009/343 00) mean ice mask pcen:    5.082  S.H:  2.069  N.H:  3.013
+  4774800 (2009/343 00) mean mixl thk. (m):   51.25  temp: 16.689 saln: 34.700
+  4774800 (2009/343 00) mean surf thk. (m):    3.00   sst: 18.341  sss: 34.683
+  4774800 (2009/343 00) mean clim thk. (m):   19.20   sst: 18.325  sss: 34.730
+  4774800 (2009/343 00) mean L  1 thk. (m):    3.00  temp: 18.344 saln: 34.691
+  4774800 (2009/343 00) mean L  2 thk. (m):    3.54  temp: 18.293 saln: 34.693
+  4774800 (2009/343 00) mean L  3 thk. (m):   12.30  temp: 25.317 saln: 34.337
+  4774800 (2009/343 00) mean L  4 thk. (m):   11.21  temp: 23.850 saln: 34.839
+  4774800 (2009/343 00) mean L  5 thk. (m):   10.16  temp: 21.874 saln: 34.959
+  4774800 (2009/343 00) mean L  6 thk. (m):   11.29  temp: 20.726 saln: 35.001
+  4774800 (2009/343 00) mean L  7 thk. (m):   11.51  temp: 19.159 saln: 35.048
+  4774800 (2009/343 00) mean L  8 thk. (m):   13.77  temp: 18.141 saln: 35.048
+  4774800 (2009/343 00) mean L  9 thk. (m):   18.48  temp: 17.517 saln: 35.121
+  4774800 (2009/343 00) mean L 10 thk. (m):   27.61  temp: 16.508 saln: 35.064
+  4774800 (2009/343 00) mean L 11 thk. (m):   38.00  temp: 14.954 saln: 35.018
+  4774800 (2009/343 00) mean L 12 thk. (m):   51.22  temp: 13.422 saln: 34.999
+  4774800 (2009/343 00) mean L 13 thk. (m):   65.90  temp: 11.609 saln: 34.877
+  4774800 (2009/343 00) mean L 14 thk. (m):   79.95  temp:  9.710 saln: 34.716
+  4774800 (2009/343 00) mean L 15 thk. (m):  115.18  temp:  7.906 saln: 34.596
+  4774800 (2009/343 00) mean L 16 thk. (m):  105.83  temp:  6.717 saln: 34.590
+  4774800 (2009/343 00) mean L 17 thk. (m):  131.53  temp:  5.516 saln: 34.519
+  4774800 (2009/343 00) mean L 18 thk. (m):  141.80  temp:  4.703 saln: 34.552
+  4774800 (2009/343 00) mean L 19 thk. (m):  138.01  temp:  3.946 saln: 34.573
+  4774800 (2009/343 00) mean L 20 thk. (m):  131.14  temp:  3.495 saln: 34.616
+  4774800 (2009/343 00) mean L 21 thk. (m):  129.15  temp:  3.073 saln: 34.639
+  4774800 (2009/343 00) mean L 22 thk. (m):  150.80  temp:  2.855 saln: 34.681
+  4774800 (2009/343 00) mean L 23 thk. (m):  180.98  temp:  2.637 saln: 34.719
+  4774800 (2009/343 00) mean L 24 thk. (m):  271.57  temp:  2.369 saln: 34.736
+  4774800 (2009/343 00) mean L 25 thk. (m):  493.86  temp:  1.850 saln: 34.735
+  4774800 (2009/343 00) mean L 26 thk. (m):  543.05  temp:  1.551 saln: 34.750
+  4774800 (2009/343 00) mean L 27 thk. (m):  348.15  temp:  1.420 saln: 34.775
+  4774800 (2009/343 00) mean L 28 thk. (m):  285.98  temp:  0.994 saln: 34.758
+  4774800 (2009/343 00) mean L 29 thk. (m):  158.98  temp:  0.001 saln: 34.698
+  4774800 (2009/343 00) mean L 30 thk. (m):    4.13  temp: -0.672 saln: 34.931
+  4774800 (2009/343 00) mean L 31 thk. (m):    5.49  temp: -0.729 saln: 34.940
+  4774800 (2009/343 00) mean L 32 thk. (m):    4.27  temp: -0.831 saln: 34.945
+  4774800 (2009/343 00) region-wide mean Kin. Energy:     9681.0405178071
+  4774800 (2009/343 00) region-wide mean Temperature:        3.7023692464
+  4774800 (2009/343 00) region-wide mean Salinity:          34.7178225573
+  4774800 (2009/343 00) region-wide mean Density Dev:        2.6004245833
+ northward heat flux (petawatts):
+  0.000  0.000  0.000  0.000  0.000  0.000  0.001  0.001  0.000  0.000  0.000
+  0.000  0.000  0.000  0.000  0.001  0.001  0.001  0.001  0.000  0.001  0.001
+  0.002  0.002  0.003  0.003  0.002  0.001  0.000 -0.001 -0.001  0.000  0.001
+  0.001  0.002  0.002  0.002  0.003  0.003  0.004  0.005  0.006  0.007  0.010
+  0.012  0.011  0.009  0.006  0.001 -0.004 -0.004 -0.006 -0.008 -0.010 -0.011
+ -0.012 -0.014 -0.019 -0.025 -0.027 -0.028 -0.030 -0.032 -0.035 -0.036 -0.037
+ -0.037 -0.037 -0.037 -0.036 -0.037 -0.037 -0.032 -0.028 -0.026 -0.025 -0.024
+ -0.021 -0.020 -0.019 -0.016 -0.013 -0.013 -0.013 -0.013 -0.015 -0.016 -0.017
+ -0.020 -0.026 -0.031 -0.030 -0.026 -0.027 -0.033 -0.042 -0.052 -0.065 -0.073
+ -0.076 -0.078 -0.083 -0.089 -0.094 -0.100 -0.106 -0.112 -0.119 -0.117 -0.110
+ -0.103 -0.095 -0.088 -0.086 -0.089 -0.091 -0.090 -0.091 -0.095 -0.102 -0.109
+ -0.116 -0.126 -0.137 -0.141 -0.150 -0.159 -0.164 -0.169 -0.177 -0.185 -0.189
+ -0.194 -0.201 -0.212 -0.224 -0.229 -0.233 -0.236 -0.236 -0.232 -0.225 -0.229
+ -0.238 -0.245 -0.255 -0.267 -0.278 -0.283 -0.280 -0.272 -0.268 -0.267 -0.271
+ -0.285 -0.304 -0.319 -0.330 -0.332 -0.345 -0.359 -0.359 -0.355 -0.348 -0.341
+ -0.334 -0.337 -0.350 -0.361 -0.364 -0.362 -0.357 -0.347 -0.324 -0.301 -0.281
+ -0.270 -0.265 -0.255 -0.252 -0.267 -0.298 -0.348 -0.410 -0.449 -0.443 -0.409
+ -0.371 -0.333 -0.308 -0.302 -0.288 -0.238 -0.191 -0.181 -0.171 -0.185 -0.199
+ -0.211 -0.228 -0.253 -0.289 -0.327 -0.354 -0.376 -0.360 -0.373 -0.417 -0.484
+ -0.522 -0.519 -0.496 -0.439 -0.409 -0.402 -0.387 -0.395 -0.391 -0.403 -0.452
+ -0.467 -0.479 -0.398 -0.261 -0.208 -0.233 -0.297 -0.303 -0.291 -0.274 -0.239
+ -0.298 -0.322 -0.338 -0.280 -0.189 -0.142 -0.193 -0.263 -0.268 -0.368 -0.510
+ -0.471 -0.587 -0.613 -0.587 -0.635 -0.611 -0.657 -0.704 -0.677 -0.602 -0.548
+ -0.600 -0.567 -0.497 -0.404 -0.443 -0.488 -0.487 -0.494 -0.360 -0.301 -0.381
+ -0.503 -0.588 -0.659 -0.605 -0.594 -0.755 -0.797 -0.505 -0.590 -0.853 -0.815
+ -0.450 -0.288 -0.463 -0.512 -0.472 -0.455 -0.457 -0.517 -0.538 -0.512 -0.548
+ -0.691 -0.623 -0.739 -1.028 -1.315 -1.516 -1.721 -1.991 -2.228 -2.391 -2.502
+ -2.494 -2.277 -2.172 -1.990 -1.795 -1.715 -1.540 -1.506 -1.247 -1.238 -1.403
+ -1.548 -1.780 -1.876 -2.130 -2.246 -2.212 -2.306 -2.297 -2.098 -1.834 -1.672
+ -1.694 -1.836 -1.925 -1.956 -2.063 -2.039 -2.154 -2.272 -2.225 -2.082 -1.855
+ -1.488 -1.356 -1.395 -1.391 -1.099 -0.760 -0.544 -0.461 -0.573 -0.359 -0.376
+ -0.632 -1.130 -1.620 -2.012 -2.267 -2.512 -2.637 -2.361 -2.061 -1.803 -1.381
+ -0.859 -0.473 -0.306 -0.323 -0.490 -0.717 -0.991 -1.331 -1.660 -1.830 -1.836
+ -1.682 -1.494 -1.256 -1.051 -1.070 -1.273 -1.768 -2.423 -2.926 -3.106 -2.924
+ -2.518 -2.181 -2.072 -2.211 -2.318 -2.287 -2.174 -2.071 -2.081 -2.094 -2.002
+ -1.874 -1.907 -2.038 -2.277 -2.299 -2.077 -1.905 -1.766 -1.585 -1.445 -1.287
+ -1.156 -1.173 -1.393 -1.606 -1.730 -1.631 -1.588 -1.620 -1.553 -1.201 -0.658
+ -0.306 -0.206 -0.233 -0.379 -0.757 -1.331 -1.833 -2.068 -1.973 -1.448 -0.783
+ -0.132  0.039 -0.166 -0.523 -0.982 -1.543 -1.857 -1.621 -0.794  0.325  1.256
+  1.672  1.624  1.244  0.767  0.283  0.054 -0.038 -0.062  0.135  0.429  0.622
+  0.708  0.614  0.393  0.217  0.206  0.291  0.259  0.272  0.297  0.520  0.871
+  0.917  0.685  0.164 -0.418 -0.768 -0.753 -0.514 -0.136  0.527  1.114  1.450
+  1.448  1.326  1.423  1.813  2.122  2.121  1.758  1.212  0.817  0.784  1.111
+  1.867  2.739  3.411  3.770  3.612  2.996  2.363  1.830  1.432  1.105  1.050
+  1.436  2.131  2.892  3.327  3.417  3.271  3.266  3.738  4.583  5.683  7.150
+  8.429  9.426  9.922  9.949  9.728  9.592  9.451  9.417  9.308  9.371  9.551
+  9.943  9.806  9.818  9.734  9.592  8.853  7.401  5.539  3.154  0.709 -1.544
+ -3.296 -4.512 -4.733 -4.574 -4.167 -3.388 -2.914 -3.004 -3.394 -3.802 -3.741
+ -3.159 -1.838 -0.130  1.522  2.877  3.894  4.960  6.152  7.126  7.729  7.755
+  7.424  7.202  7.102  6.765  6.014  5.163  4.621  4.390  4.313  3.984  3.319
+  2.681  2.452  2.697  3.036  3.546  3.870  4.060  3.856  3.450  2.692  1.908
+  1.440  1.365  1.645  1.768  1.647  1.214  0.477 -0.267 -0.782 -0.894 -0.581
+ -0.021  0.457  0.781  0.993  1.163  0.970  0.496  0.237  0.643  1.650  2.672
+  3.376  3.646  3.464  2.718  1.741  1.045  0.855  1.523  2.621  3.492  3.934
+  3.713  3.304  2.790  2.012  0.989 -0.249 -1.023 -1.320 -1.130 -0.815 -0.203
+  0.667  1.439  2.160  2.753  2.941  2.863  2.604  2.270  1.818  1.384  1.459
+  1.944  2.319  2.209  1.717  1.257  0.940  0.981  0.917  0.535  0.323  0.566
+  1.148  1.468  1.228  0.960  0.984  1.293  1.377  1.241  1.174  1.360  1.697
+  2.053  2.693  3.235  3.216  2.642  2.029  1.569  1.280  1.198  1.162  0.929
+  0.710  0.744  1.342  1.636  1.720  1.576  1.446  1.289  0.790  0.395 -0.223
+ -0.600 -0.650 -0.364 -0.219 -0.158  0.120  0.649  1.155  1.240  1.448  1.584
+  1.628  1.427  1.186  0.965  0.735  0.531  0.236 -0.183 -0.305 -0.387 -0.399
+ -0.460 -0.259 -0.036  0.176  0.231  0.331  0.516  0.536  0.434  0.418  0.372
+  0.310  0.490  0.794  1.169  1.444  1.580  1.532  1.394  1.377  1.319  1.106
+  0.635  0.153 -0.303 -0.624 -0.895 -1.049 -1.261 -1.329 -1.207 -1.131 -1.152
+ -1.008 -0.865 -0.809 -0.744 -0.651 -0.587 -0.453 -0.320 -0.160 -0.053  0.052
+  0.162  0.327  0.468  0.554  0.618  0.643  0.631  0.593  0.571  0.569  0.600
+  0.582  0.551  0.553  0.541  0.468  0.383  0.292  0.229  0.202  0.224  0.273
+  0.313  0.322  0.344  0.333  0.292  0.257  0.269  0.300  0.353  0.403  0.437
+  0.454  0.487  0.518  0.537  0.553  0.586  0.617  0.614  0.599  0.591  0.580
+  0.554  0.567  0.521  0.492  0.472  0.471  0.501  0.536  0.551  0.554  0.550
+  0.533  0.502  0.469  0.456  0.439  0.428  0.419  0.426  0.419  0.404  0.390
+  0.403  0.404  0.401  0.412  0.428  0.440  0.445  0.448  0.464  0.475  0.492
+  0.512  0.524  0.544  0.565  0.581  0.593  0.621  0.648  0.668  0.678  0.695
+  0.693  0.680  0.651  0.609  0.590  0.602  0.620  0.627  0.631  0.650  0.670
+  0.691  0.705  0.717  0.720  0.712  0.689  0.678  0.666  0.683  0.705  0.724
+  0.729  0.682  0.611  0.592  0.586  0.541  0.510  0.508  0.501  0.480  0.476
+  0.480  0.514  0.537  0.553  0.542  0.537  0.531  0.521  0.498  0.472  0.460
+  0.451  0.439  0.414  0.379  0.360  0.347  0.364  0.398  0.389  0.355  0.337
+  0.343  0.355  0.363  0.356  0.358  0.365  0.368  0.370  0.368  0.368  0.368
+  0.365  0.373  0.384  0.387  0.389  0.392  0.396  0.399  0.398  0.394  0.395
+  0.404  0.420  0.426  0.429  0.434  0.436  0.437  0.438  0.439  0.426  0.419
+  0.419  0.417  0.409  0.400  0.393  0.392  0.390  0.382  0.376  0.367  0.357
+  0.341  0.326  0.314  0.298  0.285  0.272  0.264  0.256  0.253  0.252  0.254
+  0.261  0.270  0.281  0.292  0.304  0.313  0.317  0.321  0.322  0.323  0.324
+  0.321  0.313  0.301  0.292  0.285  0.282  0.281  0.281  0.283  0.283  0.280
+  0.275  0.269  0.264  0.259  0.255  0.253  0.249  0.245  0.240  0.237  0.232
+  0.227  0.223  0.223  0.220  0.212  0.204  0.197  0.192  0.190  0.191  0.192
+  0.194  0.194  0.192  0.189  0.187  0.188  0.185  0.180  0.174  0.170  0.168
+  0.162  0.155  0.145  0.136  0.128  0.122  0.117  0.114  0.111  0.109  0.107
+  0.106  0.105  0.101  0.095  0.092  0.088  0.084  0.082  0.084  0.087  0.093
+  0.098  0.105  0.108  0.103  0.098  0.091  0.084  0.079  0.075  0.073  0.072
+  0.070  0.068  0.065  0.064  0.062  0.061  0.061  0.059  0.058  0.057  0.057
+  0.058  0.059  0.058  0.055  0.054  0.055  0.057  0.059  0.062  0.062  0.063
+  0.064  0.064  0.062  0.058  0.055  0.052  0.049  0.045  0.040  0.037  0.034
+  0.032  0.028  0.026  0.023  0.022  0.022  0.020  0.019  0.018  0.019  0.020
+  0.019  0.019  0.018  0.018  0.017  0.016  0.015  0.016  0.016  0.015  0.013
+  0.013  0.012  0.010  0.009  0.009  0.009  0.009  0.010  0.010  0.011  0.011
+  0.012  0.013  0.014  0.016  0.017  0.016  0.016  0.016  0.016  0.016  0.015
+  0.013  0.012  0.011  0.010  0.009  0.008  0.006  0.004  0.002  0.002
+ time step  4774800         y e a r  2009         d a y  343         h o u r  00
+ creating a new standard restart file
+ restart created & closed at model day  39790.000
+
+
+    timer statistics, processor   21 out of  146
+   -----------------------------------------------
+
+   xcaget   calls =     2275   time =    0.04387   time/call =    0.00001928
+   xcaput   calls =     1719   time =    9.56113   time/call =    0.00556203
+   xcsum    calls =     2624   time =    0.69568   time/call =    0.00026512
+   xcmaxr   calls =    10246   time =   76.60896   time/call =    0.00747696
+   xctilr   calls =   164626   time =  144.12047   time/call =    0.00087544
+   zaio**   calls =       18   time =    0.26820   time/call =    0.01489990
+   zaiord   calls =     1719   time =   35.90213   time/call =    0.02088548
+   zaiowr   calls =     2275   time =   35.10544   time/call =    0.01543096
+   zaioIO   calls =     3994   time =    0.00000   time/call =    0.00000000
+   xc****   calls =        1   time =  231.03011   time/call =  231.03011322
+   cnuity   calls =      960   time =  126.93529   time/call =    0.13222426
+   tsadvc   calls =      960   time =  144.69255   time/call =    0.15072141
+   momtum   calls =      960   time =  359.95181   time/call =    0.37494980
+   barotp   calls =      960   time =   46.24464   time/call =    0.04817150
+   thermf   calls =      960   time =    3.97960   time/call =    0.00414541
+   ic****   calls =      960   time =    1.64259   time/call =    0.00171103
+   mx****   calls =      960   time =  121.95218   time/call =    0.12703352
+   conv**   calls =      960   time =    0.00004   time/call =    0.00000004
+   diapf*   calls =      960   time =    0.00004   time/call =    0.00000004
+   hybgen   calls =      960   time =   76.17707   time/call =    0.07935111
+   restrt   calls =        1   time =    5.43020   time/call =    5.43020320
+   overtn   calls =        1   time =    0.03856   time/call =    0.03855991
+   archiv   calls =        8   time =   31.33311   time/call =    3.91663888
+   incupd   calls =      960   time =    0.00003   time/call =    0.00000003
+   total    calls =        1   time =  980.60709   time/call =  980.60709310
+
+
+
+ **************************************************
+ (normal)
+ **************************************************
+ 
+ mpi_finalize called on processor            1
+ mpi_finalize called on processor          145
+ mpi_finalize called on processor          146
+ mpi_finalize called on processor            7
+ mpi_finalize called on processor          135
+ mpi_finalize called on processor          143
+ mpi_finalize called on processor          121
+ mpi_finalize called on processor           50
+ mpi_finalize called on processor           61
+ mpi_finalize called on processor           16
+ mpi_finalize called on processor           27
+ mpi_finalize called on processor          109
+ mpi_finalize called on processor          122
+ mpi_finalize called on processor           54
+ mpi_finalize called on processor           73
+ mpi_finalize called on processor           64
+ mpi_finalize called on processor           20
+ mpi_finalize called on processor          139
+ mpi_finalize called on processor           31
+ mpi_finalize called on processor          115
+ mpi_finalize called on processor          123
+ mpi_finalize called on processor           60
+ mpi_finalize called on processor          101
+ mpi_finalize called on processor           75
+ mpi_finalize called on processor           69
+ mpi_finalize called on processor           37
+ mpi_finalize called on processor           22
+ mpi_finalize called on processor          138
+ mpi_finalize called on processor           33
+ mpi_finalize called on processor          119
+ mpi_finalize called on processor           91
+ mpi_finalize called on processor          124
+ mpi_finalize called on processor           56
+ mpi_finalize called on processor           98
+ mpi_finalize called on processor           76
+ mpi_finalize called on processor           62
+ mpi_finalize called on processor           42
+ mpi_finalize called on processor           23
+ mpi_finalize called on processor          140
+ mpi_finalize called on processor           34
+ mpi_finalize called on processor          110
+ mpi_finalize called on processor           96
+ mpi_finalize called on processor          130
+ mpi_finalize called on processor           57
+ mpi_finalize called on processor           99
+ mpi_finalize called on processor           74
+ mpi_finalize called on processor           63
+ mpi_finalize called on processor           43
+ mpi_finalize called on processor           17
+ mpi_finalize called on processor          144
+ mpi_finalize called on processor           32
+ mpi_finalize called on processor          111
+ mpi_finalize called on processor           86
+ mpi_finalize called on processor          132
+ mpi_finalize called on processor           51
+ mpi_finalize called on processor          103
+ mpi_finalize called on processor           77
+ mpi_finalize called on processor           65
+ mpi_finalize called on processor           47
+ mpi_finalize called on processor           24
+ mpi_finalize called on processor          133
+ mpi_finalize called on processor           25
+ mpi_finalize called on processor          112
+ mpi_finalize called on processor           94
+ mpi_finalize called on processor          125
+ mpi_finalize called on processor           58
+ mpi_finalize called on processor          107
+ mpi_finalize called on processor           78
+ mpi_finalize called on processor           66
+ mpi_finalize called on processor           38
+ mpi_finalize called on processor           13
+ mpi_finalize called on processor          137
+ mpi_finalize called on processor           26
+ mpi_finalize called on processor          113
+ mpi_finalize called on processor           88
+ mpi_finalize called on processor          128
+ mpi_finalize called on processor           49
+ mpi_finalize called on processor          108
+ mpi_finalize called on processor           79
+ mpi_finalize called on processor           67
+ mpi_finalize called on processor           40
+ mpi_finalize called on processor           14
+ mpi_finalize called on processor          134
+ mpi_finalize called on processor           28
+ mpi_finalize called on processor          114
+ mpi_finalize called on processor           92
+ mpi_finalize called on processor          129
+ mpi_finalize called on processor           52
+ mpi_finalize called on processor          106
+ mpi_finalize called on processor           80
+ mpi_finalize called on processor           68
+ mpi_finalize called on processor           41
+ mpi_finalize called on processor           15
+ mpi_finalize called on processor          136
+ mpi_finalize called on processor           29
+ mpi_finalize called on processor          116
+ mpi_finalize called on processor           93
+ mpi_finalize called on processor          131
+ mpi_finalize called on processor           53
+ mpi_finalize called on processor          102
+ mpi_finalize called on processor           81
+ mpi_finalize called on processor           70
+ mpi_finalize called on processor           45
+ mpi_finalize called on processor           18
+ mpi_finalize called on processor          141
+ mpi_finalize called on processor           30
+ mpi_finalize called on processor          117
+ mpi_finalize called on processor           85
+ mpi_finalize called on processor          126
+ mpi_finalize called on processor           55
+ mpi_finalize called on processor           97
+ mpi_finalize called on processor           82
+ mpi_finalize called on processor           71
+ mpi_finalize called on processor           46
+ mpi_finalize called on processor           19
+ mpi_finalize called on processor          142
+ mpi_finalize called on processor           35
+ mpi_finalize called on processor          118
+ mpi_finalize called on processor           87
+ mpi_finalize called on processor          127
+ mpi_finalize called on processor           59
+ mpi_finalize called on processor          105
+ mpi_finalize called on processor           83
+ mpi_finalize called on processor           72
+ mpi_finalize called on processor           48
+ mpi_finalize called on processor           21
+ mpi_finalize called on processor           36
+ mpi_finalize called on processor          120
+ mpi_finalize called on processor           89
+ mpi_finalize called on processor          100
+ mpi_finalize called on processor           84
+ mpi_finalize called on processor           39
+ mpi_finalize called on processor           90
+ mpi_finalize called on processor          104
+ mpi_finalize called on processor           44
+ mpi_finalize called on processor           95
+ mpi_finalize called on processor            5
+ mpi_finalize called on processor            6
+ mpi_finalize called on processor            4
+ mpi_finalize called on processor            3
+ mpi_finalize called on processor            2
+ mpi_finalize called on processor            8
+ mpi_finalize called on processor            9
+ mpi_finalize called on processor           10
+ mpi_finalize called on processor           11
+ mpi_finalize called on processor           12
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+(xcstop)
+breaksw
+endif
+C
+touch PIPE_DEBUG
+/bin/rm PIPE_DEBUG
+C
+C --- archive output in a separate tar directory
+C
+touch archv.dummy.a archv.dummy.b archv.dummy.txt
+touch archm.dummy.a archm.dummy.b archm.dummy.txt
+touch arche.dummy.a arche.dummy.b arche.dummy.txt
+touch cice.dummy.nc
+C
+if ( -e ./SAVE ) then
+C
+foreach t ( v m e )
+mkdir ./tarv_109l
+mkdir: cannot create directory `./tarv_109l': File exists
+switch ( Linux )
+foreach f ( archv.*.a )
+/bin/mv archv.dummy.a ./tarv_109l/025_archv.dummy.a
+end
+foreach f ( archv.*.b )
+/bin/mv archv.dummy.b ./tarv_109l/025_archv.dummy.b
+end
+foreach f ( archv.*.txt )
+/bin/mv archv.dummy.txt ./tarv_109l/025_archv.dummy.txt
+end
+date
+Tue Apr 23 20:32:30 UTC 2013
+end
+mkdir ./tarm_109l
+mkdir: cannot create directory `./tarm_109l': File exists
+switch ( Linux )
+foreach f ( archm.*.a )
+/bin/mv archm.2009_335_12.a ./tarm_109l/025_archm.2009_335_12.a
+end
+/bin/mv archm.2009_336_12.a ./tarm_109l/025_archm.2009_336_12.a
+end
+/bin/mv archm.2009_337_12.a ./tarm_109l/025_archm.2009_337_12.a
+end
+/bin/mv archm.2009_338_12.a ./tarm_109l/025_archm.2009_338_12.a
+end
+/bin/mv archm.2009_339_12.a ./tarm_109l/025_archm.2009_339_12.a
+end
+/bin/mv archm.2009_340_12.a ./tarm_109l/025_archm.2009_340_12.a
+end
+/bin/mv archm.2009_341_12.a ./tarm_109l/025_archm.2009_341_12.a
+end
+/bin/mv archm.2009_342_12.a ./tarm_109l/025_archm.2009_342_12.a
+end
+/bin/mv archm.dummy.a ./tarm_109l/025_archm.dummy.a
+end
+foreach f ( archm.*.b )
+/bin/mv archm.2009_335_12.b ./tarm_109l/025_archm.2009_335_12.b
+end
+/bin/mv archm.2009_336_12.b ./tarm_109l/025_archm.2009_336_12.b
+end
+/bin/mv archm.2009_337_12.b ./tarm_109l/025_archm.2009_337_12.b
+end
+/bin/mv archm.2009_338_12.b ./tarm_109l/025_archm.2009_338_12.b
+end
+/bin/mv archm.2009_339_12.b ./tarm_109l/025_archm.2009_339_12.b
+end
+/bin/mv archm.2009_340_12.b ./tarm_109l/025_archm.2009_340_12.b
+end
+/bin/mv archm.2009_341_12.b ./tarm_109l/025_archm.2009_341_12.b
+end
+/bin/mv archm.2009_342_12.b ./tarm_109l/025_archm.2009_342_12.b
+end
+/bin/mv archm.dummy.b ./tarm_109l/025_archm.dummy.b
+end
+foreach f ( archm.*.txt )
+/bin/mv archm.2009_335_12.txt ./tarm_109l/025_archm.2009_335_12.txt
+end
+/bin/mv archm.2009_336_12.txt ./tarm_109l/025_archm.2009_336_12.txt
+end
+/bin/mv archm.2009_337_12.txt ./tarm_109l/025_archm.2009_337_12.txt
+end
+/bin/mv archm.2009_338_12.txt ./tarm_109l/025_archm.2009_338_12.txt
+end
+/bin/mv archm.2009_339_12.txt ./tarm_109l/025_archm.2009_339_12.txt
+end
+/bin/mv archm.2009_340_12.txt ./tarm_109l/025_archm.2009_340_12.txt
+end
+/bin/mv archm.2009_341_12.txt ./tarm_109l/025_archm.2009_341_12.txt
+end
+/bin/mv archm.2009_342_12.txt ./tarm_109l/025_archm.2009_342_12.txt
+end
+/bin/mv archm.dummy.txt ./tarm_109l/025_archm.dummy.txt
+end
+date
+Tue Apr 23 20:32:30 UTC 2013
+end
+mkdir ./tare_109l
+mkdir: cannot create directory `./tare_109l': File exists
+switch ( Linux )
+foreach f ( arche.*.a )
+/bin/mv arche.dummy.a ./tare_109l/025_arche.dummy.a
+end
+foreach f ( arche.*.b )
+/bin/mv arche.dummy.b ./tare_109l/025_arche.dummy.b
+end
+foreach f ( arche.*.txt )
+/bin/mv arche.dummy.txt ./tare_109l/025_arche.dummy.txt
+end
+date
+Tue Apr 23 20:32:30 UTC 2013
+end
+foreach f ( cice.*.nc )
+/bin/mv cice.dummy.nc ./tarc_109l/025_cice.dummy.nc
+end
+C
+if ( ! -z archt.input ) then
+if ( -e ./tart_109l ) then
+/bin/mv ./ARCHT ./tart_109l
+/bin/mv: cannot stat `./ARCHT': No such file or directory
+endif
+C
+C --- add last day to next months tar directory, for actual day months only
+C
+setenv DL `awk  '{printf("%15.2f\n", $2)}' limits`
+awk {printf("%15.2f\n", $2)} limits
+setenv DA `echo 3 1.0 1.0 $DL $DL | ~/hycom/ALL/bin/hycom_nest_dates | head -1`
+echo 3 1.0 1.0 39790.00 39790.00
+head -1
+/home/Avichal.Mehra/hycom/ALL/bin/hycom_nest_dates
+/home/Avichal.Mehra/hycom/ALL/bin/hycom_nest_dates: Command not found.
+foreach t ( v c )
+mkdir ./tarv_109l
+mkdir: cannot create directory `./tarv_109l': File exists
+ln: No match.
+end
+mkdir ./tarc_109l
+mkdir: cannot create directory `./tarc_109l': File exists
+ln: No match.
+end
+C
+C --- build and run or submit the tar script
+C
+awk -f /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../025.awk y01=109 ab=l /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../025A.com
+awk: /scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../025.awk:78: fatal: cannot open file `/scratch2/portfolios/NCEPDEV/marine/save/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/../025A.com' for reading (No such file or directory)
+sed -e s/PBS -o XXX.log/PBS -o tar_109l.log/ tar_109l.com1
+rm -i -f tar_109l.com1
+C
+C --- heat transport statistics output
+C
+if ( -e flxdp_out.a ) then
+if ( -e flxdp_out.b ) then
+if ( -e ovrtn_out ) then
+/bin/cp ovrtn_out /ptmp/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/ovrtn_109l
+endif
+C
+C --- restart output
+C
+if ( -e restart_out.a ) then
+/bin/cp restart_out.a /ptmp/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/restart_109l.a
+0.000u 3.507s 0:04.48 78.1%	0+0k 0+4371744io 0pf+0w
+endif
+if ( -e restart_out.b ) then
+/bin/cp restart_out.b /ptmp/Avichal.Mehra/hycom/GLBa0.24/expt_02.5/data/restart_109l.b
+endif
+endif
+if ( -e ./cice ) then
+C
+if ( -e ./wind ) then
+C
+C --- Delete just in time wind and flux files.
+C
+touch summary_out
+tail -1 summary_out
+normal stop
+tail -1 summary_out
+grep -c ^normal stop
+1
+if ( `tail -1 summary_out | grep -c "^normal stop"` == 1 ) then
+grep -c ^normal stop
+tail -1 summary_out
+endif
+C
+if ( -e ./wind/025w109l.com ) then
+if ( -e ./wspd/025s109l.com ) then
+if ( -e ./wvel/025v109l.com ) then
+if ( -e ./grad/025g109l.com ) then
+if ( -e ./flux/025f109l.com ) then
+if ( -e ./flxt/025q109l.com ) then
+if ( -e ./pcip/025p109l.com ) then
+if ( -e ./ssta/025t109l.com ) then
+if ( -e ./ssto/025o109l.com ) then
+C
+C --- Wait for wind and flux interpolation of next segment.
+C
+wait
+C
+if ( -e ./wind/025w109l.com ) then
+if ( -e ./wspd/025s109l.com ) then
+if ( -e ./wvel/025v109l.com ) then
+if ( -e ./grad/025g109l.com ) then
+if ( -e ./flux/025f109l.com ) then
+if ( -e ./flxt/025q109l.com ) then
+if ( -e ./pcip/025p109l.com ) then
+if ( -e ./ssta/025t109l.com ) then
+if ( -e ./ssto/025o109l.com ) then
+endif
+C
+C --- wait for nesting .tar file.
+C
+if ( -e ./nest ) then
+C
+C --- HYCOM error stop is implied by the absence of a normal stop.
+C
+touch summary_out
+tail -1 summary_out
+normal stop
+tail -1 summary_out
+grep -c ^normal stop
+1
+if ( `tail -1 summary_out | grep -c "^normal stop"` == 0 ) then
+grep -c ^normal stop
+tail -1 summary_out
+C
+C --- wait for tar bundles to complete
+C
+wait
+C
+C --- END OF MODEL RUN SCRIPT
+C
+_______________________________________________________________
+Start Epilogue v2.6-ad-2013.03.21 Tue Apr 23 20:32:36 UTC 2013 
+Job 20012651.bqs1.zeus.fairmont.rdhpcs.noaa.gov finished for user Avichal.Mehra in queue batch with exit code 0
+Node Access Status = SINGLEJOB
+No OOM errors or BUG(s) found.  All nodes OK.
+Clearing lustre locks
+Checking memory after freeing memory
+MemTotal:       24631956 kB
+MemFree:        23073652 kB
+Statistics  cput=38:20:32,mem=57598416kb,vmem=113397384kb,walltime=00:16:50
+End Epilogue v2.6-ad-2013.03.21 Tue Apr 23 20:32:41 UTC 2013
+_______________________________________________________________
