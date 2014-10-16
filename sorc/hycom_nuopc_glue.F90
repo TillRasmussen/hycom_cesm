@@ -88,7 +88,7 @@ module hycom_nuopc_glue
     integer               :: localPet, petCount
     type(ESMF_DistGridConnection), allocatable :: connectionList(:)
     type(ESMF_DistGrid)   :: dg
-    type(ESMF_Array)      :: array_plon, array_plat, array_msk
+    type(ESMF_Array)      :: array_plon, array_plat, array_msk, array_area
     
     real(kind=ESMF_KIND_R8) :: dump_lat(1500,1100)
     real(kind=ESMF_KIND_R8) :: dump_lon(1500,1100)
@@ -221,6 +221,17 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    ! dress up "area" array, considering HYCOM memory layout with halo + padding
+    array_area = ESMF_ArrayCreate(dg, farray=scp2, &
+      indexflag=ESMF_INDEX_DELOCAL, &
+      computationalLWidth=(/nbdy,nbdy/), computationalUWidth=(/nbdy,nbdy/), &
+      totalLWidth=(/nbdy,nbdy/), & ! lower corner pinned to memory alloc, float upper
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
       
     ! ready to create the HYCOM Grid from DistGrid and coordinate Arrays
     glue%grid = ESMF_GridCreate(dg, coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
@@ -245,6 +256,13 @@ module hycom_nuopc_glue
     ! set the center stagger mask Array
     call ESMF_GridSetItem(glue%grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
       itemflag=ESMF_GRIDITEM_MASK, array=array_msk, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    ! set the center stagger area Array
+    call ESMF_GridSetItem(glue%grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
+      itemflag=ESMF_GRIDITEM_AREA, array=array_msk, rc=rc)    
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &

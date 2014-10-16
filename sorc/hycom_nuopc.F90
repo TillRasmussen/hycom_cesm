@@ -18,6 +18,18 @@ module hycom
     end_of_run, end_of_run_cpl
     
   use hycom_nuopc_glue
+  use ESMF_IOScripMod
+#ifdef HYCOM_IN_CESM
+  use esmf
+  use esmfshr_util_mod, only : esmfshr_util_StateArrayDestroy
+  use esmfshr_util_mod, only : esmfshr_util_ArrayGetIndex
+  use esmfshr_util_mod, only : esmfshr_util_ArrayGetSize
+  use esmf2mct_mod    , only : esmf2mct_init
+
+  use seq_flds_mod
+  use mct_mod,          only : mct_gsMap, mct_gGrid
+
+#endif
 
   implicit none
   
@@ -34,6 +46,12 @@ module hycom
   end type
   
   public SetServices
+
+#ifdef HYCOM_IN_CESM
+  type(mct_gsMap), target  :: gsmap_o
+  type(mct_gGrid), target  :: dom_o
+  integer                  :: OCNID      
+#endif
   
   !-----------------------------------------------------------------------------
   contains
@@ -112,51 +130,51 @@ module hycom
     rc = ESMF_SUCCESS
 
     ! importable fields:
-    call NUOPC_StateAdvertiseFields(importState, &
-      StandardNames=(/ &
-      "surface_downward_eastward_stress       ",    & ! from ATM
-      "surface_downward_northward_stress      ",    & ! from ATM
-      "wind_speed_height10m                   ",    & ! from ATM
-      "friction_speed                         ",    & ! from ATM
-      "mean_down_sw_flx                       ",    & ! from ATM
-      "mean_net_sw_flx                        ",    & ! from ATM
-      "mean_net_lw_flx                        ",    & ! from ATM
-      "inst_temp_height2m                     ",    & ! from ATM
-      "mean_prec_rate                         ",    & ! from ATM
-      "inst_spec_humid_height2m               ",    & ! from ATM
-      "sea_surface_temperature                ",    & ! from ATM
-      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
-      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
-      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
-      "sea_ice_temperature                    ",    & ! from SEA-ICE
-      "sea_ice_thickness                      ",    & ! from SEA-ICE
-      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-      "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
-      rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    
-    ! exportable fields:
-    call NUOPC_StateAdvertiseFields(exportState, &
-      StandardNames=(/ &
-      "sea_surface_temperature                  ",    &
-      "upward_sea_ice_basal_available_heat_flux ",    &
-      "sea_lev                                  ",    &
-      "mixed_layer_depth                        ",    &
-      "s_surf                                   ",    &
-      "ocn_current_zonal                        ",    &
-      "ocn_current_merid                        "/),  &
-      rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    !call NUOPC_StateAdvertiseFields(importState, &
+    !  StandardNames=(/ &
+    !  "surface_downward_eastward_stress       ",    & ! from ATM
+    !  "surface_downward_northward_stress      ",    & ! from ATM
+    !  "wind_speed_height10m                   ",    & ! from ATM
+    !  "friction_speed                         ",    & ! from ATM
+    !  "mean_down_sw_flx                       ",    & ! from ATM
+    !  "mean_net_sw_flx                        ",    & ! from ATM
+    !  "mean_net_lw_flx                        ",    & ! from ATM
+    !  "inst_temp_height2m                     ",    & ! from ATM
+    !  "mean_prec_rate                         ",    & ! from ATM
+    !  "inst_spec_humid_height2m               ",    & ! from ATM
+    !  "sea_surface_temperature                ",    & ! from ATM
+    !  "sea_ice_area_fraction                  ",    & ! from SEA-ICE
+    !  "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+    !  "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+    !  "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
+    !  "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
+    !  "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
+    !  "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
+    !  "sea_ice_temperature                    ",    & ! from SEA-ICE
+    !  "sea_ice_thickness                      ",    & ! from SEA-ICE
+    !  "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+    !  "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
+    !  rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
+    !
+    !! exportable fields:
+    !call NUOPC_StateAdvertiseFields(exportState, &
+    !  StandardNames=(/ &
+    !  "sea_surface_temperature                  ",    &
+    !  "upward_sea_ice_basal_available_heat_flux ",    &
+    !  "sea_lev                                  ",    &
+    !  "mixed_layer_depth                        ",    &
+    !  "s_surf                                   ",    &
+    !  "ocn_current_zonal                        ",    &
+    !  "ocn_current_merid                        "/),  &
+    !  rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 
     ! set Component name so it becomes identifiable
     call ESMF_GridCompSet(gcomp, name="HYCOM", rc=rc)
@@ -190,6 +208,7 @@ module hycom
     real(ESMF_KIND_R8)          :: startTime_r8, stopTime_r8
     type(InternalState)         :: is
     integer                     :: stat
+    type(ESMF_CALKIND_FLAG)     :: calkind
     
     rc = ESMF_SUCCESS
     
@@ -219,12 +238,12 @@ module hycom
       return  ! bail out
       
     ! Translate startTime and stopTime into HYCOM format
-    call ESMF_TimeSet(hycomRefTime, yy=1900, mm=12, dd=31, rc=rc)
+    call ESMF_ClockGet(clock, startTime=startTime, stopTime=stopTime, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ClockGet(clock, startTime=startTime, stopTime=stopTime, rc=rc)
+    call ESMF_TimeSet(hycomRefTime, yy=1900, mm=12, dd=31, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -242,13 +261,16 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
       
-    !print *, " -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
+    print *, " HYCOM_INIT -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
+
+    call ESMF_LOGWRITE("BEFORE HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
     ! Call into the HYCOM initialization  
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
-      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
+      hycom_start_dtg=startTime_r8, hycom_end_dtg=stopTime_r8)
 
+    call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
     ! Write some HYCOM distribution info into the Log.
     call HYCOM_TileInfo(rc=rc)
@@ -268,14 +290,14 @@ module hycom
     gridIn  = is%wrap%glue%grid ! for imported Fields
     gridOut = is%wrap%glue%grid ! for exported Fields
 
-#if 1
+#if 0
     ! dump the HYCOM Grid coordinate and mask arrays for reference      
     call ESMF_GridGetCoord(gridIn, coordDim=1, array=array, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayWrite(array, file="array_hycom_grid_coord1.nc", rc=rc)
+    call ESMF_ArrayWrite(array, file="array_hycom_grid_coord1.nc", overwrite=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -285,7 +307,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayWrite(array, file="array_hycom_grid_coord2.nc", rc=rc)
+    call ESMF_ArrayWrite(array, file="array_hycom_grid_coord2.nc", overwrite=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -296,7 +318,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayWrite(array, file="array_hycom_grid_mask.nc", rc=rc)
+    call ESMF_ArrayWrite(array, file="array_hycom_grid_mask.nc", overwrite=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -307,51 +329,51 @@ module hycom
     ! also keep track of these Fields on the glue layer
     
     ! importable fields:
-    call HYCOM_GlueFieldsRealize(is%wrap%glue, importState, &
-      StandardNames=(/ &
-      "surface_downward_eastward_stress       ",    & ! from ATM
-      "surface_downward_northward_stress      ",    & ! from ATM
-      "wind_speed_height10m                   ",    & ! from ATM
-      "friction_speed                         ",    & ! from ATM
-      "mean_down_sw_flx                       ",    & ! from ATM
-      "mean_net_sw_flx                        ",    & ! from ATM
-      "mean_net_lw_flx                        ",    & ! from ATM
-      "inst_temp_height2m                     ",    & ! from ATM
-      "mean_prec_rate                         ",    & ! from ATM
-      "inst_spec_humid_height2m               ",    & ! from ATM
-      "sea_surface_temperature                ",    & ! from ATM
-      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
-      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
-      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
-      "sea_ice_temperature                    ",    & ! from SEA-ICE
-      "sea_ice_thickness                      ",    & ! from SEA-ICE
-      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-      "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
-      rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    !call HYCOM_GlueFieldsRealize(is%wrap%glue, importState, &
+    !  StandardNames=(/ &
+    !  "surface_downward_eastward_stress       ",    & ! from ATM
+    !  "surface_downward_northward_stress      ",    & ! from ATM
+    !  "wind_speed_height10m                   ",    & ! from ATM
+    !  "friction_speed                         ",    & ! from ATM
+    !  "mean_down_sw_flx                       ",    & ! from ATM
+    !  "mean_net_sw_flx                        ",    & ! from ATM
+    !  "mean_net_lw_flx                        ",    & ! from ATM
+    !  "inst_temp_height2m                     ",    & ! from ATM
+    !  "mean_prec_rate                         ",    & ! from ATM
+    !  "inst_spec_humid_height2m               ",    & ! from ATM
+    !  "sea_surface_temperature                ",    & ! from ATM
+    !  "sea_ice_area_fraction                  ",    & ! from SEA-ICE
+    !  "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+    !  "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+    !  "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
+    !  "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
+    !  "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
+    !  "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
+    !  "sea_ice_temperature                    ",    & ! from SEA-ICE
+    !  "sea_ice_thickness                      ",    & ! from SEA-ICE
+    !  "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+    !  "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
+    !  rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 
-    ! exportable fields:
-    call HYCOM_GlueFieldsRealize(is%wrap%glue, exportState, &
-      StandardNames=(/ &
-      "sea_surface_temperature                  ",    &
-      "upward_sea_ice_basal_available_heat_flux ",    &
-      "sea_lev                                  ",    &
-      "mixed_layer_depth                        ",    &
-      "s_surf                                   ",    &
-      "ocn_current_zonal                        ",    &
-      "ocn_current_merid                        "/),  &
-      rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    !! exportable fields:
+    !call HYCOM_GlueFieldsRealize(is%wrap%glue, exportState, &
+    !  StandardNames=(/ &
+    !  "sea_surface_temperature                  ",    &
+    !  "upward_sea_ice_basal_available_heat_flux ",    &
+    !  "sea_lev                                  ",    &
+    !  "mixed_layer_depth                        ",    &
+    !  "s_surf                                   ",    &
+    !  "ocn_current_zonal                        ",    &
+    !  "ocn_current_merid                        "/),  &
+    !  rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 
     ! Import data to HYCOM native structures through glue fields.
     call HYCOM_GlueFieldsDataImport(is%wrap%glue, .true., rc=rc)
@@ -369,7 +391,617 @@ module hycom
 
     ! Reset the slice counter
     is%wrap%slice = 1
+
+    !call addCornerCoord(is%wrap%glue%grid, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
+#if 0
+    ! Compute regridding weights ATM->OCN/ICE
+    ! ATM2OCN CONSV, FIX THIS AFTER CORNER STAGGER COORDINATES ARE ADDED
+    call HYCOM_CESM_REGRID_TOOCN("/glade/p/cesm/cseg/mapping/grids/T62_040121.nc", &
+      !is%wrap%glue%grid, "map_T62_TO_gx1v6_aave.130322.nc", ESMF_REGRIDMETHOD_CONSERVE, &
+      is%wrap%glue%grid, "map_T62_TO_gx1v6_aave.130322.nc", ESMF_REGRIDMETHOD_BILINEAR, &
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    ! ATM2OCN BILINEAR
+    call HYCOM_CESM_REGRID_TOOCN("/glade/p/cesm/cseg/mapping/grids/T62_040121.nc", &
+      is%wrap%glue%grid, "map_T62_TO_gx1v6_blin.130322.nc", ESMF_REGRIDMETHOD_BILINEAR, &
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    ! ATM2OCN PATCH
+    call HYCOM_CESM_REGRID_TOOCN("/glade/p/cesm/cseg/mapping/grids/T62_040121.nc", &
+      is%wrap%glue%grid, "map_T62_TO_gx1v6_patc.130322.nc", ESMF_REGRIDMETHOD_BILINEAR, &
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! OCN/ICE->ATM CONS
+    call HYCOM_CESM_REGRID_FROMOCN(is%wrap%glue%grid, "/glade/p/cesm/cseg/mapping/grids/T62_040121.nc", &
+      "map_gx1v6_TO_T62_aave.130322.nc", ESMF_REGRIDMETHOD_BILINEAR, &
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
+#if 0
+    ! Prepare for CESM SPECIFIC DATA STRUCTURES
+    import_state = importState
+    export_state = exportState
+
+    ! duplicate the mpi communicator from the current VM 
+    call MPI_Comm_dup(mpicomm, mpicom_ocn, rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_AttributeGet(export_state, name="ID", value=OCNID, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! Fold DistGrid from HYCOM GRID into 1D arb DistGrid on Mesh
+    mesh = ESMF_GridToMesh(is%wrap%glue%grid, ESMF_STAGGERLOC_CENTER, .true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_MeshGet(Mesh, elementDistgrid=distgrid, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    !-----------------------------------------
+    !  Set arrayspec for dom, o2x and x2o
+    !-----------------------------------------
     
+    call ESMF_ArraySpecSet(arrayspec, rank=2, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_DistGridGet(distgrid, delayout=delayout, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_DelayoutGet(delayout, localDeCount=ldeCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    print *, 'HYCOM DG DELAYOUT localDECount: ', ldeCount
+
+    gsize = 0
+    do lde = 0, ldeCount-1
+      call ESMF_DistGridGet(distgrid, lde, elementCount=eleCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      gsize = gsize + eleCount
+    enddo
+
+    print *, 'HYCOM DG DELAYOUT localDECount: ', gsize
+
+    call ESMF_AttributeSet(export_state, name="gsize", value=gsize, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    !-----------------------------------------
+    ! Create dom 
+    !-----------------------------------------
+
+    nfields = shr_string_listGetNum(trim(seq_flds_dom_fields))
+
+    dom = ESMF_ArrayCreate(distgrid=distgrid, arrayspec=arrayspec, distgridToArrayMap=(/2/), &
+         undistLBound=(/1/), undistUBound=(/nfields/), name="domain", rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_AttributeSet(dom, name="mct_names", value=trim(seq_flds_dom_fields), rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    ! Set values of dom (needs ocn initialization info)
+
+    call ocn_domain_esmf(dom)
+   
+    !----------------------------------------- 
+    !  Create o2x 
+    !-----------------------------------------
+
+    ! 1d undistributed index of fields, 2d is packed data
+
+    nfields = shr_string_listGetNum(trim(seq_flds_o2x_fields))
+
+    o2x = ESMF_ArrayCreate(distgrid=distgrid, arrayspec=arrayspec, distgridToArrayMap=(/2/), &
+         undistLBound=(/1/), undistUBound=(/nfields/), name="d2x", rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_AttributeSet(o2x, name="mct_names", value=trim(seq_flds_o2x_fields), rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    !----------------------------------------- 
+    !  Create x2o 
+    !-----------------------------------------
+
+    nfields = shr_string_listGetNum(trim(seq_flds_x2o_fields))
+
+    x2o = ESMF_ArrayCreate(distgrid=distgrid, arrayspec=arrayspec, distgridToArrayMap=(/2/), &
+         undistLBound=(/1/), undistUBound=(/nfields/), name="x2d", rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_AttributeSet(x2o, name="mct_names", value=trim(seq_flds_x2o_fields), rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    !----------------------------------------- 
+    ! Add esmf arrays to import and export state 
+    !-----------------------------------------
+
+    call ESMF_StateAdd(export_state, (/dom/), rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_StateAdd(export_state, (/o2x/), rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+ 
+    call ESMF_StateAdd(import_state, (/x2o/), rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+   
+    call esmf2mct_init(distgrid, OCNID, gsmap_o, mpicom_ocn, gsize=gsize, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call esmf2mct_init(dom, dom_o, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+#endif
+    
+  end subroutine
+
+#ifdef HYCOM_IN_CESM
+!***********************************************************************
+!BOP
+! !IROUTINE: ocn_domain_esmf
+! !INTERFACE:
+
+ subroutine ocn_domain_esmf( dom, grid )
+
+! !DESCRIPTION:
+!  This routine creates the ocean domain
+!
+! !REVISION HISTORY:
+!  same as module
+!
+! !INPUT/OUTPUT PARAMETERS:
+
+    implicit none
+    type(ESMF_Array), intent(inout)     :: dom
+    type(ESMF_Grid),  intent(in)        :: grid
+
+!EOP
+!BOC
+!-----------------------------------------------------------------------
+!
+!  local variables
+!
+!-----------------------------------------------------------------------
+
+    integer :: rc
+
+    integer ::   &
+      i,j, n, iblock
+
+    integer ::   &
+      klon,klat,karea,kmask,kfrac ! domain fields
+
+    real(ESMF_KIND_R8),    pointer ::  &
+      fptr (:,:)          ! data pointer into ESMF array
+
+    real(ESMF_KIND_R8)  :: &
+      frac                ! temporary var to compute frac/mask from KMT
+
+    type(ESMF_DistGrid)  :: distgrid
+    type(ESMF_VM)        :: vm
+    character(len=256)   :: msg
+    integer              :: n_elem, n_pet, lpet
+    integer, pointer     :: indexlist(:)
+    logical              :: arbIndexFlag
+    type(ESMF_Array)     :: lon1d, lat1d, area1d, mask1d
+    type(ESMF_Array)     :: plon, plat, area, mask
+    type(ESMF_Routehandle) :: rh
+
+!-----------------------------------------------------------------------
+
+    call ESMF_ArrayGet(dom, localDe=0, farrayPtr=fptr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_VMGet(vm, petCount=n_pet, localPet=lpet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_ArrayGet(dom, distgrid=distgrid, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    lon1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    lat1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    area1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    mask1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! dump the HYCOM Grid coordinate and mask arrays for reference      
+    call ESMF_GridGetCoord(grid, coordDim=1, array=plon, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_GridGetCoord(grid, coordDim=2, array=plat, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_GridGetItem(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
+      itemflag=ESMF_GRIDITEM_MASK, array=mask, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_GridGetItem(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
+      itemflag=ESMF_GRIDITEM_AREA, array=area, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! CESM uses 1 DE per PET
+    call ESMF_DistGridGet(distgrid, 0, arbSeqIndexFlag=arbIndexFlag, elementCount=n_elem, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    allocate(indexList(n_elem))
+    call ESMF_DistGridGet(distgrid, 0, seqIndexList=indexlist, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+!-------------------------------------------------------------------
+!
+!  initialize domain type, lat/lon in degrees,
+!  area in radians^2, mask is 1 (ocean), 0 (non-ocean)
+!  Fill in correct values for domain components
+!
+!-------------------------------------------------------------------
+
+    klon  = esmfshr_util_ArrayGetIndex(dom,'lon ',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    klat  = esmfshr_util_ArrayGetIndex(dom,'lat ',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    karea = esmfshr_util_ArrayGetIndex(dom,'area',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    kmask = esmfshr_util_ArrayGetIndex(dom,'mask',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    kfrac = esmfshr_util_ArrayGetIndex(dom,'frac',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    fptr(:,:) = -9999.0_ESMF_KIND_R8
+    n=0
+
+    write(msg, *) 'DUMPING HYCOM INDICES BEGINS:'
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    write(msg, *) 'total number of ocean pet', n_pet, ' local pet number', lpet
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    write(msg, *) 'number of elements on this pet:', n_elem, ' arbflag', arbIndexFlag
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    write(msg, *) 'lpet ', 'Index ', 'i ', 'j ', 'iblock ', 'lon ', 'lat ', &
+      'area ', 'frac ', 'mask'
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_ArrayRedistStore(plon, lon1d, routehandle=rh, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedist(plon, lon1d, routehandle=rh, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedist(plat, lat1d, routehandle=rh, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedist(area, area1d, routehandle=rh, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedist(mask, mask1d, routehandle=rh, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_RouteHandleRelease(rh, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    !do iblock = 1, nblocks_clinic
+    !   this_block = get_block(blocks_clinic(iblock),iblock)
+    !   do j=this_block%jb,this_block%je
+    !   do i=this_block%ib,this_block%ie
+    !      n=n+1
+    !      fptr(klon , n)          = TLON(i,j,iblock)*radian
+    !      fptr(klat , n)          = TLAT(i,j,iblock)*radian 
+    !      fptr(karea, n)          = TAREA(i,j,iblock)/(radius*radius)
+    !      frac                    = float(KMT(i,j,iblock)) 
+    !      if (frac > 1.0_r8) frac = 1.0_r8
+    !      fptr(kfrac, n)          = frac
+    !      fptr(kmask, n)          = frac
+    !      write(msg, '(I4,A1,I8,2I5,I4, 5F10.3)') lpet, ' ', indexlist(n), i, j, iblock, fptr(klon, n), &
+    !        fptr(klat , n), fptr(karea, n), fptr(kfrac, n), fptr(kmask, n)
+    !      call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    !      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    !   enddo
+    !   enddo
+    !enddo
+
+    deallocate(indexlist)
+
+    write(msg, *) 'DUMPING HYCOM INDICES ENDS:'
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+!-----------------------------------------------------------------------
+!EOC
+
+  end subroutine ocn_domain_esmf
+#endif
+
+!  ! add coordinates to corner stagger so regrid works
+!  subroutine addCornerCoord(grid, rc)
+!    type(ESMF_Grid), intent(inout)           :: dstGrid
+!    integer, intent(out)                     :: rc
+!
+!    type(ESMF_Array)                         :: array_ulon, array_ulat
+!    type(ESMF_DistGrid)                      :: dg
+!
+!    rc = ESMF_SUCCESS
+!
+!    call ESMF_GridGet(grid, distgrid=dg, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!
+!    ! dress up "ulon" array, considering HYCOM memory layout with halo + padding
+!    array_ulon = ESMF_ArrayCreate(dg, farray=ulon, &
+!      indexflag=ESMF_INDEX_DELOCAL, &
+!      computationalLWidth=(/nbdy,nbdy/), computationalUWidth=(/nbdy,nbdy/), &
+!      totalLWidth=(/nbdy,nbdy/), & ! lower corner pinned to memory alloc, float upper
+!      rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!      
+!    ! dress up "ulat" array, considering HYCOM memory layout with halo + padding
+!    array_ulat = ESMF_ArrayCreate(dg, farray=ulat, &
+!      indexflag=ESMF_INDEX_DELOCAL, &
+!      computationalLWidth=(/nbdy,nbdy/), computationalUWidth=(/nbdy,nbdy/), &
+!      totalLWidth=(/nbdy,nbdy/), & ! lower corner pinned to memory alloc, float upper
+!      rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!    call ESMF_ArrayWrite(array_ulon, file="array_hycom_grid_ulon.nc", rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!
+!    ! set the center stagger longitude coordinate Array
+!    call ESMF_GridSetCoord(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
+!      coordDim=1, array=array_plon, rc=rc)    
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!    ! set the center stagger latitude coordinate Array
+!    call ESMF_GridSetCoord(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
+!      coordDim=2, array=array_plat, rc=rc)    
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!
+!  end subroutine
+
+  ! compute regridding weights for all regridding pairs
+  subroutine HYCOM_CESM_REGRID_TOOCN(srcGridFile, dstGrid, weightFile, regridMethod, rc)
+    character(len=*), intent(in)             :: srcGridFile
+    type(ESMF_Grid), intent(in)              :: dstGrid
+    character(len=*), intent(in)             :: weightFile
+    type(ESMF_REGRIDMETHOD_FLAG), intent(in) :: regridMethod
+    integer, intent(out)                     :: rc
+
+    ! local
+    character(len=125)                       :: path="/glade/p/work/feiliu/weights/T62/"
+
+    type(ESMF_Grid)                          :: srcGrid
+    type(ESMF_Field)                         :: srcField, dstField
+    type(ESMF_Field)                         :: srcFracField, dstFracField
+    integer, pointer                         :: factorIndexList(:,:)
+    real(ESMF_KIND_R8), pointer              :: factorList(:)
+
+    rc = ESMF_SUCCESS
+
+    srcGrid = ESMF_GridCreate(srcGridFile, ESMF_FILEFORMAT_SCRIP, (/5,8/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    srcField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    dstField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    srcFracField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    dstFracField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_FieldRegridStore(srcField, dstField, regridmethod=regridMethod, &
+      !srcFracField=srcFracField, dstFracField=dstFracField, &
+      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
+      factorList=factorList, factorIndexList=factorIndexList, rc=rc) 
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_OutputScripWeightFile(trim(path)//trim(weightFile), factorList, factorIndexList, &
+      method=ESMF_REGRIDMETHOD_BILINEAR, &
+      srcFile=srcGridFile, dstFile="/glade/p/cesm/cseg/mapping/grids/gx1v6_090205.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  ! compute regridding weights for all regridding pairs
+  subroutine HYCOM_CESM_REGRID_FROMOCN(srcGrid, dstGridFile, weightFile, regridMethod, rc)
+    type(ESMF_Grid), intent(in)              :: srcGrid
+    character(len=*), intent(in)             :: dstGridFile
+    character(len=*), intent(in)             :: weightFile
+    type(ESMF_REGRIDMETHOD_FLAG), intent(in) :: regridMethod
+    integer, intent(out)                     :: rc
+
+    ! local
+    character(len=125)                       :: path="/glade/p/work/feiliu/weights/T62/"
+
+    type(ESMF_Grid)                          :: dstGrid
+    type(ESMF_Field)                         :: srcField, dstField
+    type(ESMF_Field)                         :: srcFracField, dstFracField
+    integer, pointer                         :: factorIndexList(:,:)
+    real(ESMF_KIND_R8), pointer              :: factorList(:)
+
+    rc = ESMF_SUCCESS
+
+    dstGrid = ESMF_GridCreate(dstGridFile, ESMF_FILEFORMAT_SCRIP, (/5,8/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    srcField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    dstField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    srcFracField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    dstFracField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_FieldRegridStore(srcField, dstField, regridmethod=regridMethod, &
+      ! enable for conservative regridding
+      !srcFracField=srcFracField, dstFracField=dstFracField, &
+      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
+      factorList=factorList, factorIndexList=factorIndexList, rc=rc) 
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_OutputScripWeightFile(trim(path)//trim(weightFile), factorList, factorIndexList, &
+      method=ESMF_REGRIDMETHOD_BILINEAR, &
+      srcFile="/glade/p/cesm/cseg/mapping/grids/gx1v6_090205.nc", dstFile=dstGridFile, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
   end subroutine
   
   !-----------------------------------------------------------------------------
@@ -388,6 +1020,7 @@ module hycom
     real(ESMF_KIND_R8)          :: stepTime_r8
     type(InternalState)         :: is
     logical                     :: initFlag
+    type(ESMF_CALKIND_FLAG)     :: calkind
 
     rc = ESMF_SUCCESS
     
@@ -453,7 +1086,7 @@ module hycom
       return  ! bail out
     
     ! Translate currTime + timeStep into HYCOM format
-    call ESMF_TimeSet(hycomRefTime, yy=1900, mm=12, dd=31, rc=rc)
+    call ESMF_TimeSet(hycomRefTime, yy=1900, mm=12, dd=31, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &

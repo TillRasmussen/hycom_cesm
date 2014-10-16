@@ -27,11 +27,11 @@ include $(ESMFMKFILE)
 FC            =	$(ESMF_F90COMPILER)
 #FCFFLAGS      =	-g -convert big_endian -assume byterecl -cm -vec_report0 -w -O3 -tpp7 -xW -r8 -mt_mpi
 #FCFFLAGS      = -g -cm -vec_report0 -w -O3 -tpp7 -xW -r8 -mt_mpi
-FCFFLAGS      =	-assume byterecl -cm -vec_report0 -w -O2 -xSSE4.2 -ip -tpp7 -xW -r8 -lmpi
+FCFFLAGS      =	-assume byterecl -cm -vec_report0 -w -O0 -g -xSSE4.2 -ip -tpp7 -xW -r8 -lmpi
 CC            =	gcc
-CCFLAGS       =	-O 
+CCFLAGS       =	-O0 -g 
 CPP           =	cpp -P
-CPPFLAGS      =	-DNUOPC -DREAL8 -DENDIAN_IO -DMPI -DSERIAL_IO -DTIMER -DARCTIC
+CPPFLAGS      =	-DNUOPC -DREAL8 -DENDIAN_IO -DMPI -DSERIAL_IO -DTIMER
 LD            =	$(FC)
 #LDFLAGS       =	$(FCFFLAGS) -Vaxlib -Bstatic
 LDFLAGS       =	$(ESMF_F90LINKOPTS) $(ESMF_F90LINKPATHS) $(ESMF_F90LINKRPATHS) $(FCFFLAGS)

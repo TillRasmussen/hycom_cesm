@@ -19,6 +19,7 @@
         ! grid
         public plon     ! lon at the p pts
         public plat     ! lat at the p pts
+        public scp2     ! grid cell area at the p pts
         
         ! import from ATM
         public cpl_taux,    imp_taux      ! xstress [Pa]
