@@ -21,13 +21,13 @@ module hycom
   use ESMF_IOScripMod
 #ifdef HYCOM_IN_CESM
   use esmf
-  use esmfshr_util_mod, only : esmfshr_util_StateArrayDestroy
   use esmfshr_util_mod, only : esmfshr_util_ArrayGetIndex
   use esmfshr_util_mod, only : esmfshr_util_ArrayGetSize
   use esmf2mct_mod    , only : esmf2mct_init
 
   use seq_flds_mod
   use mct_mod,          only : mct_gsMap, mct_gGrid
+  use shr_string_mod,   only : shr_string_listGetNum
 
 #endif
 
@@ -209,6 +209,15 @@ module hycom
     type(InternalState)         :: is
     integer                     :: stat
     type(ESMF_CALKIND_FLAG)     :: calkind
+#ifdef HYCOM_IN_CESM            
+    type(ESMF_State)            :: import_state, export_state
+    type(ESMF_Mesh)             :: mesh
+    type(ESMF_DistGrid)         :: distgrid
+    type(ESMF_Array)            :: o2x, x2o, dom
+    type(ESMF_ArraySpec)        :: arrayspec
+    type(ESMF_Delayout)         :: delayout
+    integer                     :: ldeCount, eleCount, gsize, mpicom_ocn, nfields, lde
+#endif
     
     rc = ESMF_SUCCESS
     
@@ -435,7 +444,7 @@ module hycom
       return  ! bail out
 #endif
 
-#if 0
+#ifdef HYCOM_IN_CESM
     ! Prepare for CESM SPECIFIC DATA STRUCTURES
     import_state = importState
     export_state = exportState
@@ -446,6 +455,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    ! satisfy some external needs
     call ESMF_AttributeGet(export_state, name="ID", value=OCNID, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -453,7 +463,7 @@ module hycom
       return  ! bail out
 
     ! Fold DistGrid from HYCOM GRID into 1D arb DistGrid on Mesh
-    mesh = ESMF_GridToMesh(is%wrap%glue%grid, ESMF_STAGGERLOC_CENTER, .true., rc=rc)
+    mesh = ESMF_GridToMesh(is%wrap%glue%grid, ESMF_STAGGERLOC_CENTER, 1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -516,7 +526,7 @@ module hycom
 
     ! Set values of dom (needs ocn initialization info)
 
-    call ocn_domain_esmf(dom)
+    call ocn_domain_esmf(dom, is%wrap%glue%grid)
    
     !----------------------------------------- 
     !  Create o2x 
