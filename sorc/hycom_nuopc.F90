@@ -438,11 +438,6 @@ module hycom
     ! Reset the slice counter
     is%wrap%slice = 1
 
-    !call addCornerCoord(is%wrap%glue%grid, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
 #if 0
     ! Compute regridding weights ATM->OCN/ICE
     ! ATM2OCN CONSV, FIX THIS AFTER CORNER STAGGER COORDINATES ARE ADDED
@@ -633,11 +628,11 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    !call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/weights/pop2_export_all_fields_r3.raw', rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !return ! bail out
+    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_init.raw', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
 
     call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -970,66 +965,6 @@ module hycom
   end subroutine ocn_domain_esmf
 #endif
 
-!  ! add coordinates to corner stagger so regrid works
-!  subroutine addCornerCoord(grid, rc)
-!    type(ESMF_Grid), intent(inout)           :: dstGrid
-!    integer, intent(out)                     :: rc
-!
-!    type(ESMF_Array)                         :: array_ulon, array_ulat
-!    type(ESMF_DistGrid)                      :: dg
-!
-!    rc = ESMF_SUCCESS
-!
-!    call ESMF_GridGet(grid, distgrid=dg, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!
-!    ! dress up "ulon" array, considering HYCOM memory layout with halo + padding
-!    array_ulon = ESMF_ArrayCreate(dg, farray=ulon, &
-!      indexflag=ESMF_INDEX_DELOCAL, &
-!      computationalLWidth=(/nbdy,nbdy/), computationalUWidth=(/nbdy,nbdy/), &
-!      totalLWidth=(/nbdy,nbdy/), & ! lower corner pinned to memory alloc, float upper
-!      rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!      
-!    ! dress up "ulat" array, considering HYCOM memory layout with halo + padding
-!    array_ulat = ESMF_ArrayCreate(dg, farray=ulat, &
-!      indexflag=ESMF_INDEX_DELOCAL, &
-!      computationalLWidth=(/nbdy,nbdy/), computationalUWidth=(/nbdy,nbdy/), &
-!      totalLWidth=(/nbdy,nbdy/), & ! lower corner pinned to memory alloc, float upper
-!      rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!    call ESMF_ArrayWrite(array_ulon, file="array_hycom_grid_ulon.nc", rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!
-!    ! set the center stagger longitude coordinate Array
-!    call ESMF_GridSetCoord(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
-!      coordDim=1, array=array_plon, rc=rc)    
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!    ! set the center stagger latitude coordinate Array
-!    call ESMF_GridSetCoord(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
-!      coordDim=2, array=array_plat, rc=rc)    
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!
-!  end subroutine
-
   ! compute regridding weights for all regridding pairs
   subroutine HYCOM_CESM_REGRID_TOOCN(srcGridFile, dstGrid, weightFile, regridMethod, rc)
     character(len=*), intent(in)             :: srcGridFile
@@ -1228,6 +1163,14 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
     
+#ifdef HYCOM_IN_CESM
+    !call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
+    !  timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
+#else
     ! write out the Fields in the importState
     call NUOPC_StateWrite(importState, filePrefix="field_ocn_import_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
@@ -1235,6 +1178,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#endif
     
     !TODO: don't need the additional initialization step once data-dependency
     !TODO: is taken care of during initialize.
@@ -1278,13 +1222,23 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
     
+#ifdef HYCOM_IN_CESM
+    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
+    !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
+#else
     ! write out the Fields in the exportState
     call NUOPC_StateWrite(exportState, filePrefix="field_ocn_export_", &
-      timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+      !timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+      timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#endif
     
     ! advance the time slice counter
     is%wrap%slice = is%wrap%slice + 1
@@ -1377,7 +1331,7 @@ module hycom
     return ! bail out
 
     nfields = shr_string_listGetNum(trim(seq_flds_o2x_fields))
-    print *, 'ocn_forcing nfields: ', nfields
+    print *, 'ocn_forcing nfields: ', nfields, ' gsize: ', gsize
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1405,9 +1359,132 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    deallocate(rawdata)
+    if(lpet == 0) deallocate(rawdata)
 
   end subroutine
+
+  subroutine RedistAndWriteField(grid, state, fieldNameList, filePrefix, overwrite, &
+    status, timeslice, relaxedflag, rc)
+    type(ESMF_Grid),            intent(in)            :: grid
+    type(ESMF_State),           intent(in)            :: state
+    character(len=*),           intent(in),  optional :: fieldNameList(:)
+    character(len=*),           intent(in),  optional :: filePrefix
+    logical,                    intent(in),  optional :: overwrite
+    type(ESMF_FileStatus_Flag), intent(in),  optional :: status
+    integer,                    intent(in),  optional :: timeslice
+    logical,                    intent(in),  optional :: relaxedflag
+    integer,                    intent(out), optional :: rc
+  !-----------------------------------------------------------------------------
+    ! local variables
+    integer                         :: i, itemCount
+    type(ESMF_Field)                :: field
+    type(ESMF_StateItem_Flag)       :: itemType
+    character(len=80)               :: fileName
+    character(len=80), allocatable  :: fieldNameList_loc(:)
+    type(ESMF_Mesh)                 :: mesh
+    type(ESMF_RouteHandle)          :: rh
+    type(ESMF_Field)                :: src1DField, dst2DField
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    mesh = ESMF_GridToMesh(grid, ESMF_STAGGERLOC_CENTER, 1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    src1DField = ESMF_FieldCreate(mesh, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    dst2DField = ESMF_FieldCreate(grid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_FieldRedistStore(src1DField, dst2DField, routehandle=rh, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    if (present(fieldNameList)) then
+      allocate(fieldNameList_loc(size(fieldNameList)))
+      do i=1, size(fieldNameList)
+        fieldNameList_loc(i) = trim(fieldNameList(i))
+      enddo
+    else
+      call ESMF_StateGet(state, itemCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      allocate(fieldNameList_loc(itemCount))
+      call ESMF_StateGet(state, itemNameList=fieldNameList_loc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+
+    do i=1, size(fieldNameList_loc)
+      call ESMF_StateGet(state, itemName=fieldNameList_loc(i), &
+        itemType=itemType, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=FILENAME)) &
+        return  ! bail out
+      if (itemType == ESMF_STATEITEM_FIELD) then
+        ! field is available in the state
+        call ESMF_StateGet(state, itemName=fieldNameList_loc(i), field=field, &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=FILENAME)) &
+          return  ! bail out
+        ! -> output to file
+        if (present(filePrefix)) then
+          write (fileName,"(A)") filePrefix//trim(fieldNameList_loc(i))//".nc"
+        else
+          write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
+        endif
+
+        call ESMF_FieldRedist(field, dst2DField, routehandle=rh, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+        return ! bail out
+
+        call ESMF_FieldWrite(dst2DField, file=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
+          overwrite=overwrite, status=status, timeslice=timeslice, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=FILENAME)) &
+          return  ! bail out
+
+      endif
+    enddo
+
+    deallocate(fieldNameList_loc)
+    call ESMF_RouteHandleRelease(rh, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_FieldDestroy(src1DField, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_FieldDestroy(dst2DField, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+  end subroutine
+
     
 #endif
 

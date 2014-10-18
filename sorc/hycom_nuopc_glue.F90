@@ -17,6 +17,8 @@ module hycom_nuopc_glue
   type hycom_nuopc_glue_type
     ! native grid:
     type(ESMF_Grid)         :: grid
+    ! native mesh:
+    type(ESMF_Mesh)         :: mesh           ! from Grid center stagger 
     ! import fields:
     type(ESMF_FieldBundle)  :: importFields
     ! export fields:
@@ -280,6 +282,12 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    ! attach the center staggered mesh too for later reference
+    glue%mesh = ESMF_GridToMesh(glue%grid, ESMF_STAGGERLOC_CENTER, 1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
      
     ! create the import and export FieldBundles
     glue%importFields = ESMF_FieldBundleCreate(rc=rc)
