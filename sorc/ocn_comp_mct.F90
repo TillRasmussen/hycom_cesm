@@ -63,6 +63,8 @@ CONTAINS
 
 !EOP
 
+  print *, "ALERT: OCN_INIT_MCT should not be called"
+
 
 end subroutine ocn_init_mct
 

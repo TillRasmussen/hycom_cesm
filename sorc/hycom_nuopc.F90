@@ -26,9 +26,10 @@ module hycom
   use esmf2mct_mod    , only : esmf2mct_init
 
   use seq_flds_mod
-  use mct_mod,          only : mct_gsMap, mct_gGrid
+  use mct_mod,          only : mct_gsMap, mct_gGrid, mct_gsMap_gsize
   use shr_string_mod,   only : shr_string_listGetNum
-
+  use seq_flds_mod
+  use esmfshr_nuopc_mod
 #endif
 
   implicit none
@@ -48,9 +49,9 @@ module hycom
   public SetServices
 
 #ifdef HYCOM_IN_CESM
-  type(mct_gsMap), target  :: gsmap_o
-  type(mct_gGrid), target  :: dom_o
-  integer                  :: OCNID      
+  type(mct_gsMap), public, pointer  :: gsmap_o
+  type(mct_gGrid), public, pointer  :: dom_o
+  integer                           :: OCNID      
 #endif
   
   !-----------------------------------------------------------------------------
@@ -182,6 +183,23 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#ifdef HYCOM_IN_CESM
+    !! Setup import-able fields
+    call esmfshr_nuopc_advertise_fields( &
+      ocn_import_fields, importState, tag='HYCOM import', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    !! Setup export-able fields
+    call esmfshr_nuopc_advertise_fields( &
+      ocn_export_fields, exportState, tag='HYCOM export', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+#endif
       
   end subroutine
   
@@ -216,7 +234,7 @@ module hycom
     type(ESMF_Array)            :: o2x, x2o, dom
     type(ESMF_ArraySpec)        :: arrayspec
     type(ESMF_Delayout)         :: delayout
-    integer                     :: ldeCount, eleCount, gsize, mpicom_ocn, nfields, lde
+    integer                     :: ldeCount, eleCount, lsize, mpicom_ocn, nfields, lde
 #endif
     
     rc = ESMF_SUCCESS
@@ -332,7 +350,26 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    call ESMF_GridGetItem(gridIn, staggerLoc=ESMF_STAGGERLOC_CENTER, &
+      itemflag=ESMF_GRIDITEM_AREA, array=array, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayWrite(array, file="array_hycom_grid_area.nc", overwrite=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
+    call ESMF_OutputScripGridFile("hycom_1xv6_grid.nc", gridIn, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
 #endif
+
     
     ! conditionally realize or remove Fields in import and export States
     ! also keep track of these Fields on the glue layer
@@ -469,7 +506,7 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
-    call ESMF_MeshGet(Mesh, elementDistgrid=distgrid, rc=rc)
+    call ESMF_MeshGet(Mesh, nodalDistgrid=distgrid, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -496,20 +533,17 @@ module hycom
 
     print *, 'HYCOM DG DELAYOUT localDECount: ', ldeCount
 
-    gsize = 0
+    lsize = 0
     do lde = 0, ldeCount-1
       call ESMF_DistGridGet(distgrid, lde, elementCount=eleCount, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
-      gsize = gsize + eleCount
+      lsize = lsize + eleCount
     enddo
 
-    print *, 'HYCOM DG DELAYOUT localDECount: ', gsize
-
-    call ESMF_AttributeSet(export_state, name="gsize", value=gsize, rc=rc)
-    if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    print *, 'HYCOM DG DELAYOUT lsize: ', lsize
 
     !-----------------------------------------
     ! Create dom 
@@ -568,12 +602,49 @@ module hycom
  
     call ESMF_StateAdd(import_state, (/x2o/), rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    allocate(gsmap_o)
+    allocate(dom_o)
    
-    call esmf2mct_init(distgrid, OCNID, gsmap_o, mpicom_ocn, gsize=gsize, rc=rc)
+    call esmf2mct_init(distgrid, OCNID, gsmap_o, mpicom_ocn, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
     call esmf2mct_init(dom, dom_o, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    print *, 'HYCOM GSMAP gsize: ', mct_gsMap_gsize(gsmap_o)
+
+    call ESMF_AttributeSet(export_state, name="gsize", value=mct_gsMap_gsize(gsmap_o), rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    !! Create and Realize Importable fields
+    call esmfshr_nuopc_create_fields( &
+      ocn_import_fields, mesh, importState, tag='HYCOM import', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    !! Create and Realize Exportable fields
+    call esmfshr_nuopc_create_fields( &
+      ocn_export_fields, mesh, exportState, tag='HYCOM export', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    !call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/weights/pop2_export_all_fields_r3.raw', rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
+
+    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
 #endif
     
   end subroutine
@@ -628,58 +699,23 @@ module hycom
     logical              :: arbIndexFlag
     type(ESMF_Array)     :: lon1d, lat1d, area1d, mask1d
     type(ESMF_Array)     :: plon, plat, area, mask
-    type(ESMF_Routehandle) :: rh
+    type(ESMF_Routehandle) :: rh, rh1
+    integer              :: elb(2,1), eub(2,1), elb1(1,1), eub1(1,1)
+    real(ESMF_KIND_R8), pointer  :: tlon(:), tlat(:), tarea(:)
+    integer(ESMF_KIND_I4), pointer :: tmask(:)
+    real(ESMF_KIND_R8)   :: radian, radius, pi
+    type(ESMF_TYPEKIND_FLAG)  :: tkf
 
 !-----------------------------------------------------------------------
 
+    ! Retrieve dom data pointer
     call ESMF_ArrayGet(dom, localDe=0, farrayPtr=fptr, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
-    call ESMF_VMGetCurrent(vm, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_VMGet(vm, petCount=n_pet, localPet=lpet, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call ESMF_ArrayGet(dom, distgrid=distgrid, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    lon1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    lat1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    area1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    mask1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! dump the HYCOM Grid coordinate and mask arrays for reference      
+    ! Retrieve the HYCOM Grid coordinate and mask arrays for reference      
     call ESMF_GridGetCoord(grid, coordDim=1, array=plon, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -696,8 +732,75 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    call ESMF_ArrayGet(mask, typekind=tkf, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
     call ESMF_GridGetItem(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
       itemflag=ESMF_GRIDITEM_AREA, array=area, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_VMGet(vm, petCount=n_pet, localPet=lpet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! Use the mesh based 1D distgrid to create DOM elements
+    call ESMF_ArrayGet(dom, distgrid=distgrid, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    lon1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayGet(lon1D, farrayPtr = tlon, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    lat1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayGet(lat1D, farrayPtr = tlat, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    area1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayGet(area1D, farrayPtr = tarea, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    mask1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_I4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayGet(mask1D, farrayPtr = tmask, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -749,12 +852,40 @@ module hycom
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
-    write(msg, *) 'lpet ', 'Index ', 'i ', 'j ', 'iblock ', 'lon ', 'lat ', &
+    write(msg, *) 'lpet ', 'n ', 'Index ', 'lon ', 'lat ', &
       'area ', 'frac ', 'mask'
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
+    call ESMF_ArrayGet(plon, exclusiveLBound=elb, exclusiveUBound=eub, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    write(msg, *) 'src shape: ', elb, eub, ' dst shape: ', lbound(fptr), ubound(fptr)
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    write(msg, *) 'plon: ', elb, eub
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_ArrayGet(lon1d, exclusiveLBound=elb1, exclusiveUBound=eub1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    write(msg, *) 'lon1d: ', elb1, eub1
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
     call ESMF_ArrayRedistStore(plon, lon1d, routehandle=rh, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedistStore(mask, mask1d, routehandle=rh1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -769,17 +900,22 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    call ESMF_ArrayRedist(mask, mask1d, routehandle=rh1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
     call ESMF_ArrayRedist(area, area1d, routehandle=rh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayRedist(mask, mask1d, routehandle=rh, rc=rc)
+    call ESMF_RouteHandleRelease(rh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_RouteHandleRelease(rh, rc=rc)
+    call ESMF_RouteHandleRelease(rh1, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -804,6 +940,23 @@ module hycom
     !   enddo
     !   enddo
     !enddo
+    !print *, 'lpet: ', lpet, ' indexlist: ', indexlist
+    pi = 3.14159265358
+    radian = 180.0_ESMF_KIND_R8/pi
+    radius    = 6370.0e5_ESMF_KIND_R8
+    do n = elb1(1,1), eub1(1,1)
+      fptr(klon , n)          = TLON(n)
+      fptr(klat , n)          = TLAT(n)
+      fptr(karea, n)          = TAREA(n)/radius/radius
+      frac                    = TMASK(n)
+      if (frac > 1.0_ESMF_KIND_R8) frac = 1.0_ESMF_KIND_R8
+      fptr(kfrac, n)          = frac
+      fptr(kmask, n)          = frac
+      write(msg, '(I4,A1,I8,A7,I8,2F10.3,E15.7,2F10.3)') lpet, ' ', n, ' INDEX=',indexlist(n), fptr(klon, n), &
+        fptr(klat , n), fptr(karea, n), fptr(kfrac, n), fptr(kmask, n)
+      call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    enddo
 
     deallocate(indexlist)
 
@@ -1196,6 +1349,66 @@ module hycom
 
   end subroutine
   !-----------------------------------------------------------------------------
+
+  subroutine ocn_forcing(state, d2x, filename, rc)
+    use shr_string_mod
+
+    type(ESMF_State)                :: state
+    type(ESMF_Array)                :: d2x
+    character(len=*), intent(in)    :: filename
+    integer, intent(out)            :: rc
+
+    real(ESMF_KIND_R8), allocatable :: rawdata(:,:)
+    integer                         :: gsize, nfields, elb(2,1), eub(2,1), lpet, rec_len
+    type(ESMF_VM)                   :: vm
+
+    rc = ESMF_SUCCESS
+
+    call ESMF_AttributeGet(state, name="gsize", value=gsize, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_ArrayGet(d2x, exclusiveLBound=elb, exclusiveUBound=eub, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    nfields = shr_string_listGetNum(trim(seq_flds_o2x_fields))
+    print *, 'ocn_forcing nfields: ', nfields
+
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_VMGet(vm, localPet=lpet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    if(lpet == 0) then
+      allocate(rawdata(nfields, gsize))
+      inquire (IOLENGTH=rec_len) rawdata
+      open(1901,file=filename,status = 'unknown', form='unformatted', access='direct',recl=rec_len)
+      read(1901,rec=1) rawdata
+      close(1901)
+    endif
+
+    call ESMF_ArrayScatter(d2x, rawdata, 0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    deallocate(rawdata)
+
+  end subroutine
+    
 #endif
 
 end module

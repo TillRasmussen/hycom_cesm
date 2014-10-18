@@ -21,7 +21,6 @@ module hycom_nuopc_glue
     type(ESMF_FieldBundle)  :: importFields
     ! export fields:
     type(ESMF_FieldBundle)  :: exportFields
-#define WORKAROUND_HOLES
 #ifdef WORKAROUND_HOLES
     ! --------------------------------------------------------------------------
     ! Below members are only temporarily needed to work-around a Regrid 
@@ -253,6 +252,20 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    ! set the corner stagger latitude coordinate Array
+    call ESMF_GridSetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
+      coordDim=1, array=array_plon, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    ! set the center stagger latitude coordinate Array
+    call ESMF_GridSetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
+      coordDim=2, array=array_plat, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
     ! set the center stagger mask Array
     call ESMF_GridSetItem(glue%grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
       itemflag=ESMF_GRIDITEM_MASK, array=array_msk, rc=rc)    
@@ -262,12 +275,12 @@ module hycom_nuopc_glue
       return  ! bail out
     ! set the center stagger area Array
     call ESMF_GridSetItem(glue%grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
-      itemflag=ESMF_GRIDITEM_AREA, array=array_msk, rc=rc)    
+      itemflag=ESMF_GRIDITEM_AREA, array=array_area, rc=rc)    
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-      
+     
     ! create the import and export FieldBundles
     glue%importFields = ESMF_FieldBundleCreate(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
