@@ -295,7 +295,7 @@ module hycom
     ! Call into the HYCOM initialization  
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
-      hycom_start_dtg=startTime_r8, hycom_end_dtg=stopTime_r8)
+      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
