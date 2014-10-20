@@ -516,6 +516,8 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    connected = .true.
     
     if (connected) then
       ! create the Field object
@@ -640,11 +642,11 @@ module hycom_nuopc_glue
 
     else
       ! remove a not connected Field from State
-      call ESMF_StateRemove(state, (/fieldName/), rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
+      !call ESMF_StateRemove(state, (/fieldName/), rc=rc)
+      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      !  line=__LINE__, &
+      !  file=__FILE__)) &
+      !  return  ! bail out
     endif
   end subroutine
 

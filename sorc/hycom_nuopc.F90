@@ -52,6 +52,8 @@ module hycom
   type(mct_gsMap), public, pointer  :: gsmap_o
   type(mct_gGrid), public, pointer  :: dom_o
   integer                           :: OCNID      
+  type(ESMF_Routehandle), pointer   :: HYCOM2CESM_RHR8, CESM2HYCOM_RHR8
+  type(ESMF_Routehandle), pointer   :: HYCOM2CESM_RHI4, CESM2HYCOM_RHI4
 #endif
   
   !-----------------------------------------------------------------------------
@@ -628,6 +630,7 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
+    ! Provide static forcing to dynamic ice
     call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_init.raw', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -653,7 +656,7 @@ module hycom
  subroutine ocn_domain_esmf( dom, grid )
 
 ! !DESCRIPTION:
-!  This routine creates the ocean domain
+!  This routine creates the ocean domain and necessary communication routehandles
 !
 ! !REVISION HISTORY:
 !  same as module
@@ -875,74 +878,59 @@ module hycom
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
-    call ESMF_ArrayRedistStore(plon, lon1d, routehandle=rh, rc=rc)
+    allocate(HYCOM2CESM_RHR8)   ! 2D->1D
+    allocate(HYCOM2CESM_RHI4)   ! 2D->1D
+    allocate(CESM2HYCOM_RHR8)   ! 1D->2D
+    allocate(CESM2HYCOM_RHI4)   ! 1D->2D
+
+    call ESMF_ArrayRedistStore(plon, lon1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayRedistStore(mask, mask1d, routehandle=rh1, rc=rc)
+    call ESMF_ArrayRedistStore(mask, mask1d, routehandle=HYCOM2CESM_RHI4, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayRedist(plon, lon1d, routehandle=rh, rc=rc)
+    call ESMF_ArrayRedistStore(lon1D, plon, routehandle=CESM2HYCOM_RHR8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayRedist(plat, lat1d, routehandle=rh, rc=rc)
+    call ESMF_ArrayRedistStore(mask1D, mask, routehandle=CESM2HYCOM_RHI4, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayRedist(mask, mask1d, routehandle=rh1, rc=rc)
+    call ESMF_ArrayRedist(plon, lon1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayRedist(area, area1d, routehandle=rh, rc=rc)
+    call ESMF_ArrayRedist(plat, lat1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_RouteHandleRelease(rh, rc=rc)
+    call ESMF_ArrayRedist(mask, mask1d, routehandle=HYCOM2CESM_RHI4, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_RouteHandleRelease(rh1, rc=rc)
+    call ESMF_ArrayRedist(area, area1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
-    !do iblock = 1, nblocks_clinic
-    !   this_block = get_block(blocks_clinic(iblock),iblock)
-    !   do j=this_block%jb,this_block%je
-    !   do i=this_block%ib,this_block%ie
-    !      n=n+1
-    !      fptr(klon , n)          = TLON(i,j,iblock)*radian
-    !      fptr(klat , n)          = TLAT(i,j,iblock)*radian 
-    !      fptr(karea, n)          = TAREA(i,j,iblock)/(radius*radius)
-    !      frac                    = float(KMT(i,j,iblock)) 
-    !      if (frac > 1.0_r8) frac = 1.0_r8
-    !      fptr(kfrac, n)          = frac
-    !      fptr(kmask, n)          = frac
-    !      write(msg, '(I4,A1,I8,2I5,I4, 5F10.3)') lpet, ' ', indexlist(n), i, j, iblock, fptr(klon, n), &
-    !        fptr(klat , n), fptr(karea, n), fptr(kfrac, n), fptr(kmask, n)
-    !      call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    !      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-    !   enddo
-    !   enddo
-    !enddo
-    !print *, 'lpet: ', lpet, ' indexlist: ', indexlist
     pi = 3.14159265358
     radian = 180.0_ESMF_KIND_R8/pi
     radius    = 6370.0e5_ESMF_KIND_R8
     do n = elb1(1,1), eub1(1,1)
       fptr(klon , n)          = TLON(n)
       fptr(klat , n)          = TLAT(n)
-      fptr(karea, n)          = TAREA(n)/radius/radius
+      fptr(karea, n)          = TAREA(n)/radius/radius*1.e4
       frac                    = TMASK(n)
       if (frac > 1.0_ESMF_KIND_R8) frac = 1.0_ESMF_KIND_R8
       fptr(kfrac, n)          = frac
@@ -1120,6 +1108,10 @@ module hycom
     logical                     :: initFlag
     type(ESMF_CALKIND_FLAG)     :: calkind
 
+    integer                     :: fieldCount, i
+    character(len=128), allocatable :: fieldNameList(:)
+    type(ESMF_Field)            :: field
+
     rc = ESMF_SUCCESS
     
     ! query the Component for its clock, importState and exportState
@@ -1185,6 +1177,56 @@ module hycom
     initFlag = .false.
     if (is%wrap%slice==1) initFlag = .true.
 
+#ifdef HYCOM_IN_CESM
+    ! Redistribute CESM input to HYCOM field stored in glue import fieldbundle
+
+    call ESMF_StatePrint(importState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_FieldBundlePrint(is%wrap%glue%importFields, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_FieldBundleGet(is%wrap%glue%importFields, fieldCount=fieldCount, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    print *, 'FIELDBUNDLEPRINT: -> number of field in HYCOM import FieldBundle: ', fieldcount
+    allocate(fieldNameList(fieldCount))
+    call ESMF_FieldBundleGet(is%wrap%glue%importFields, fieldNameList=fieldNameList, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    do i = 1, fieldCount
+      print *, 'FIELDBUNDLEPRINT: -> ', fieldNameList(i)
+    end do
+    deallocate(fieldNameList)
+
+    field = ESMF_FieldCreate(is%wrap%glue%grid, typekind=ESMF_TYPEKIND_R8, name="swflx", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_FieldBundleAdd(is%wrap%glue%importFields, (/field/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call HYCOM_RedistCESM2HYCOM(importState, 'Foxx_surface_net_shortwave_flux', &
+      is%wrap%glue%importFields, 'mean_net_sw_flx', hycom_field_shortname="swflx", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
     ! Import data to HYCOM native structures through glue fields.
     call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1221,6 +1263,15 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+#ifdef HYCOM_IN_CESM
+    ! Redistribute HYCOM field stored in glue export fieldbundle to CESM output
+    !call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom_field_name, exportState, cesm_field_name, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
+#endif
     
 #ifdef HYCOM_IN_CESM
     !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
@@ -1381,28 +1432,11 @@ module hycom
     type(ESMF_StateItem_Flag)       :: itemType
     character(len=80)               :: fileName
     character(len=80), allocatable  :: fieldNameList_loc(:)
-    type(ESMF_Mesh)                 :: mesh
-    type(ESMF_RouteHandle)          :: rh
-    type(ESMF_Field)                :: src1DField, dst2DField
+    type(ESMF_Field)                :: dst2DField
 
     if (present(rc)) rc = ESMF_SUCCESS
 
-    mesh = ESMF_GridToMesh(grid, ESMF_STAGGERLOC_CENTER, 1, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-    src1DField = ESMF_FieldCreate(mesh, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
     dst2DField = ESMF_FieldCreate(grid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-    call ESMF_FieldRedistStore(src1DField, dst2DField, routehandle=rh, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1449,7 +1483,7 @@ module hycom
           write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
         endif
 
-        call ESMF_FieldRedist(field, dst2DField, routehandle=rh, rc=rc)
+        call ESMF_FieldRedist(field, dst2DField, routehandle=CESM2HYCOM_RHR8, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -1466,17 +1500,7 @@ module hycom
     enddo
 
     deallocate(fieldNameList_loc)
-    call ESMF_RouteHandleRelease(rh, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
 
-    call ESMF_FieldDestroy(src1DField, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
     call ESMF_FieldDestroy(dst2DField, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1485,7 +1509,128 @@ module hycom
 
   end subroutine
 
+  ! make the proper connections
+  ! redist hycom 2d data to cesm 1d data
+  subroutine HYCOM_RedistHYCOM2CESM(exportFields, hycom_field_stdname, exportState, cesm_field_stdname, hycom_field_shortname, initFlag, fptr, twolevel, rc)
+
+    type(ESMF_FieldBundle)     , intent(in)                :: exportFields 
+    character(len=*)           , intent(in)                :: hycom_field_stdname
+
+    type(ESMF_State)           , intent(in)                :: exportState
+    character(len=*)           , intent(in)                :: cesm_field_stdname
+
+    character(len=*)           , intent(in),  optional     :: hycom_field_shortname
+
+    logical                    , intent(in) , optional     :: initFlag
+    real(ESMF_KIND_R8), pointer, intent(in) , optional     :: fptr(:,:)
+    logical                    , intent(in) , optional     :: twolevel
+
+    integer                    , intent(out), optional     :: rc
+
+    !local
+    type(ESMF_Field)                                       :: cesm_field  ! cesm field
+    type(ESMF_Field)                                       :: hycom_field ! hycom field
+    character(len=256)                                     :: cesm_field_shortname
+    character(len=256)                                     :: l_hycom_field_shortname
+
+    rc = ESMF_SUCCESS
+
+    ! retrieve 1D field from cesm export State
+    call NUOPC_FieldDictionaryGetEntry(standardName=trim(cesm_field_stdname), &
+      defaultShortName=cesm_field_shortname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_StateGet(exportState, itemName=cesm_field_shortname, field =cesm_field, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    if(.not. present(hycom_field_shortname)) then
+      call NUOPC_FieldDictionaryGetEntry(standardName=trim(hycom_field_stdname), &
+        defaultShortName=l_hycom_field_shortname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    else 
+      l_hycom_field_shortname = hycom_field_shortname
+    endif
+    call ESMF_FieldBundleGet(exportFields, fieldname=l_hycom_field_shortname, field=hycom_field, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_FieldRedist(hycom_field, cesm_field, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
     
+  end subroutine
+
+  ! redist cesm 1d data to hycom 2d data
+  subroutine HYCOM_RedistCESM2HYCOM(importState, cesm_field_stdname, importFields, hycom_field_stdname, hycom_field_shortname, initFlag, fptr, twolevel, rc)
+
+    type(ESMF_State)           , intent(in)                 :: importState
+    character(len=*)           , intent(in)                 :: cesm_field_stdname
+
+    type(ESMF_FieldBundle)     , intent(in)                 :: importFields 
+    character(len=*)           , intent(in)                 :: hycom_field_stdname
+    character(len=*)           , intent(in),  optional      :: hycom_field_shortname
+
+    logical                    , intent(in),  optional      :: initFlag
+    real(ESMF_KIND_R8), pointer, intent(in),  optional      :: fptr(:,:)
+    logical                    , intent(in),  optional      :: twolevel
+
+    integer                    , intent(out), optional      :: rc
+
+    !local
+    type(ESMF_Field)                                       :: cesm_field  ! cesm field
+    type(ESMF_Field)                                       :: hycom_field ! hycom field
+    character(len=256)                                     :: cesm_field_shortname
+    character(len=256)                                     :: l_hycom_field_shortname
+
+    rc = ESMF_SUCCESS
+
+    ! retrieve 1D field from cesm import State
+    call NUOPC_FieldDictionaryGetEntry(standardName=trim(cesm_field_stdname), &
+      defaultShortName=cesm_field_shortname, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_StateGet(importState, itemName=cesm_field_shortname, field =cesm_field, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    if(.not. present(hycom_field_shortname)) then
+      call NUOPC_FieldDictionaryGetEntry(standardName=trim(hycom_field_stdname), &
+        defaultShortName=l_hycom_field_shortname, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    else
+      l_hycom_field_shortname = hycom_field_shortname
+    endif
+    call ESMF_FieldBundleGet(importFields, fieldname=l_hycom_field_shortname, field=hycom_field, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_FieldRedist(cesm_field, hycom_field, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+  end subroutine
 #endif
 
 end module
