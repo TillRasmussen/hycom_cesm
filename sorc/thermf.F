@@ -22,6 +22,14 @@ c
         if     (iceflg.ne.0) then
           do l=1,isp(j)
             do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+#ifdef NUOPC
+              surflx(i,j) = surflx(i,j) + flxice(i,j)   !cell average
+              sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
+              salflx(i,j) = (1.0-covice(i,j))*salflx(i,j) +
+     &                                        sflice(i,j) + !cell average
+     &                                        sssflx(i,j)   !relax everywhere
+#else
+c
               sswflx(i,j) = (1.0-covice(i,j))*sswflx(i,j) +
      &                                        fswice(i,j)   !cell average
               surflx(i,j) = (1.0-covice(i,j))*surflx(i,j) +
@@ -30,6 +38,7 @@ c
               salflx(i,j) = (1.0-covice(i,j))*salflx(i,j) +
      &                                        sflice(i,j) + !cell average
      &                                        sssflx(i,j)   !relax everywhere
+#endif
                util1(i,j) = surflx(i,j)*scp2(i,j)
                util2(i,j) = salflx(i,j)*scp2(i,j)
             enddo !i
@@ -62,6 +71,7 @@ c ---         change total water depth by the water exchanged with the atmos.
       enddo !j
 !$OMP END PARALLEL DO
 c
+
       call xcsum(d1, util1,ip)
       call xcsum(d2, util2,ip)
       watcum=watcum+d1
@@ -775,8 +785,10 @@ c ---   radfl= net       radiative thermal flux (W/m^2) +ve into ocean/ice
 c ---        = Qsw+Qlw across the atmosphere to ocean or sea-ice interface
 #ifdef NUOPC
         if(cpl_lwflx) then
-          radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
-     &           +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3 
+          radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
+     &          +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
+     &          +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
+
         else
           radfl=radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
      &       +radflx(i,j,l2)*w2+radflx(i,j,l3)*w3
