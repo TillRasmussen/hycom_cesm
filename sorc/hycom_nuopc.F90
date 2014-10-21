@@ -647,448 +647,6 @@ module hycom
     
   end subroutine
 
-#ifdef HYCOM_IN_CESM
-!***********************************************************************
-!BOP
-! !IROUTINE: ocn_domain_esmf
-! !INTERFACE:
-
- subroutine ocn_domain_esmf( dom, grid )
-
-! !DESCRIPTION:
-!  This routine creates the ocean domain and necessary communication routehandles
-!
-! !REVISION HISTORY:
-!  same as module
-!
-! !INPUT/OUTPUT PARAMETERS:
-
-    implicit none
-    type(ESMF_Array), intent(inout)     :: dom
-    type(ESMF_Grid),  intent(in)        :: grid
-
-!EOP
-!BOC
-!-----------------------------------------------------------------------
-!
-!  local variables
-!
-!-----------------------------------------------------------------------
-
-    integer :: rc
-
-    integer ::   &
-      i,j, n, iblock
-
-    integer ::   &
-      klon,klat,karea,kmask,kfrac ! domain fields
-
-    real(ESMF_KIND_R8),    pointer ::  &
-      fptr (:,:)          ! data pointer into ESMF array
-
-    real(ESMF_KIND_R8)  :: &
-      frac                ! temporary var to compute frac/mask from KMT
-
-    type(ESMF_DistGrid)  :: distgrid
-    type(ESMF_VM)        :: vm
-    character(len=256)   :: msg
-    integer              :: n_elem, n_pet, lpet
-    integer, pointer     :: indexlist(:)
-    logical              :: arbIndexFlag
-    type(ESMF_Array)     :: lon1d, lat1d, area1d, mask1d
-    type(ESMF_Array)     :: plon, plat, area, mask
-    type(ESMF_Routehandle) :: rh, rh1
-    integer              :: elb(2,1), eub(2,1), elb1(1,1), eub1(1,1)
-    real(ESMF_KIND_R8), pointer  :: tlon(:), tlat(:), tarea(:)
-    integer(ESMF_KIND_I4), pointer :: tmask(:)
-    real(ESMF_KIND_R8)   :: radian, radius, pi
-    type(ESMF_TYPEKIND_FLAG)  :: tkf
-
-!-----------------------------------------------------------------------
-
-    ! Retrieve dom data pointer
-    call ESMF_ArrayGet(dom, localDe=0, farrayPtr=fptr, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! Retrieve the HYCOM Grid coordinate and mask arrays for reference      
-    call ESMF_GridGetCoord(grid, coordDim=1, array=plon, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_GridGetCoord(grid, coordDim=2, array=plat, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_GridGetItem(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
-      itemflag=ESMF_GRIDITEM_MASK, array=mask, rc=rc)    
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayGet(mask, typekind=tkf, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_GridGetItem(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
-      itemflag=ESMF_GRIDITEM_AREA, array=area, rc=rc)    
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call ESMF_VMGetCurrent(vm, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_VMGet(vm, petCount=n_pet, localPet=lpet, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! Use the mesh based 1D distgrid to create DOM elements
-    call ESMF_ArrayGet(dom, distgrid=distgrid, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    lon1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayGet(lon1D, farrayPtr = tlon, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    lat1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayGet(lat1D, farrayPtr = tlat, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    area1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayGet(area1D, farrayPtr = tarea, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    mask1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_I4, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayGet(mask1D, farrayPtr = tmask, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! CESM uses 1 DE per PET
-    call ESMF_DistGridGet(distgrid, 0, arbSeqIndexFlag=arbIndexFlag, elementCount=n_elem, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    allocate(indexList(n_elem))
-    call ESMF_DistGridGet(distgrid, 0, seqIndexList=indexlist, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-!-------------------------------------------------------------------
-!
-!  initialize domain type, lat/lon in degrees,
-!  area in radians^2, mask is 1 (ocean), 0 (non-ocean)
-!  Fill in correct values for domain components
-!
-!-------------------------------------------------------------------
-
-    klon  = esmfshr_util_ArrayGetIndex(dom,'lon ',rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    klat  = esmfshr_util_ArrayGetIndex(dom,'lat ',rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    karea = esmfshr_util_ArrayGetIndex(dom,'area',rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    kmask = esmfshr_util_ArrayGetIndex(dom,'mask',rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    kfrac = esmfshr_util_ArrayGetIndex(dom,'frac',rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    fptr(:,:) = -9999.0_ESMF_KIND_R8
-    n=0
-
-    write(msg, *) 'DUMPING HYCOM INDICES BEGINS:'
-    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    write(msg, *) 'total number of ocean pet', n_pet, ' local pet number', lpet
-    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    write(msg, *) 'number of elements on this pet:', n_elem, ' arbflag', arbIndexFlag
-    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    write(msg, *) 'lpet ', 'n ', 'Index ', 'lon ', 'lat ', &
-      'area ', 'frac ', 'mask'
-    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    call ESMF_ArrayGet(plon, exclusiveLBound=elb, exclusiveUBound=eub, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    write(msg, *) 'src shape: ', elb, eub, ' dst shape: ', lbound(fptr), ubound(fptr)
-    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    write(msg, *) 'plon: ', elb, eub
-    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    call ESMF_ArrayGet(lon1d, exclusiveLBound=elb1, exclusiveUBound=eub1, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    write(msg, *) 'lon1d: ', elb1, eub1
-    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-    allocate(HYCOM2CESM_RHR8)   ! 2D->1D
-    allocate(HYCOM2CESM_RHI4)   ! 2D->1D
-    allocate(CESM2HYCOM_RHR8)   ! 1D->2D
-    allocate(CESM2HYCOM_RHI4)   ! 1D->2D
-
-    call ESMF_ArrayRedistStore(plon, lon1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayRedistStore(mask, mask1d, routehandle=HYCOM2CESM_RHI4, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayRedistStore(lon1D, plon, routehandle=CESM2HYCOM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayRedistStore(mask1D, mask, routehandle=CESM2HYCOM_RHI4, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayRedist(plon, lon1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayRedist(plat, lat1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayRedist(mask, mask1d, routehandle=HYCOM2CESM_RHI4, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayRedist(area, area1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    pi = 3.14159265358
-    radian = 180.0_ESMF_KIND_R8/pi
-    radius    = 6370.0e5_ESMF_KIND_R8
-    do n = elb1(1,1), eub1(1,1)
-      fptr(klon , n)          = TLON(n)
-      fptr(klat , n)          = TLAT(n)
-      fptr(karea, n)          = TAREA(n)/radius/radius*1.e4
-      frac                    = TMASK(n)
-      if (frac > 1.0_ESMF_KIND_R8) frac = 1.0_ESMF_KIND_R8
-      fptr(kfrac, n)          = frac
-      fptr(kmask, n)          = frac
-      write(msg, '(I4,A1,I8,A7,I8,2F10.3,E15.7,2F10.3)') lpet, ' ', n, ' INDEX=',indexlist(n), fptr(klon, n), &
-        fptr(klat , n), fptr(karea, n), fptr(kfrac, n), fptr(kmask, n)
-      call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-    enddo
-
-    deallocate(indexlist)
-
-    write(msg, *) 'DUMPING HYCOM INDICES ENDS:'
-    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-!-----------------------------------------------------------------------
-!EOC
-
-  end subroutine ocn_domain_esmf
-#endif
-
-  ! compute regridding weights for all regridding pairs
-  subroutine HYCOM_CESM_REGRID_TOOCN(srcGridFile, dstGrid, weightFile, regridMethod, rc)
-    character(len=*), intent(in)             :: srcGridFile
-    type(ESMF_Grid), intent(in)              :: dstGrid
-    character(len=*), intent(in)             :: weightFile
-    type(ESMF_REGRIDMETHOD_FLAG), intent(in) :: regridMethod
-    integer, intent(out)                     :: rc
-
-    ! local
-    character(len=125)                       :: path="/glade/p/work/feiliu/weights/T62/"
-
-    type(ESMF_Grid)                          :: srcGrid
-    type(ESMF_Field)                         :: srcField, dstField
-    type(ESMF_Field)                         :: srcFracField, dstFracField
-    integer, pointer                         :: factorIndexList(:,:)
-    real(ESMF_KIND_R8), pointer              :: factorList(:)
-
-    rc = ESMF_SUCCESS
-
-    srcGrid = ESMF_GridCreate(srcGridFile, ESMF_FILEFORMAT_SCRIP, (/5,8/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    srcField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    dstField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    srcFracField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    dstFracField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call ESMF_FieldRegridStore(srcField, dstField, regridmethod=regridMethod, &
-      !srcFracField=srcFracField, dstFracField=dstFracField, &
-      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
-      factorList=factorList, factorIndexList=factorIndexList, rc=rc) 
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call ESMF_OutputScripWeightFile(trim(path)//trim(weightFile), factorList, factorIndexList, &
-      method=ESMF_REGRIDMETHOD_BILINEAR, &
-      srcFile=srcGridFile, dstFile="/glade/p/cesm/cseg/mapping/grids/gx1v6_090205.nc", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-  end subroutine
-
-  ! compute regridding weights for all regridding pairs
-  subroutine HYCOM_CESM_REGRID_FROMOCN(srcGrid, dstGridFile, weightFile, regridMethod, rc)
-    type(ESMF_Grid), intent(in)              :: srcGrid
-    character(len=*), intent(in)             :: dstGridFile
-    character(len=*), intent(in)             :: weightFile
-    type(ESMF_REGRIDMETHOD_FLAG), intent(in) :: regridMethod
-    integer, intent(out)                     :: rc
-
-    ! local
-    character(len=125)                       :: path="/glade/p/work/feiliu/weights/T62/"
-
-    type(ESMF_Grid)                          :: dstGrid
-    type(ESMF_Field)                         :: srcField, dstField
-    type(ESMF_Field)                         :: srcFracField, dstFracField
-    integer, pointer                         :: factorIndexList(:,:)
-    real(ESMF_KIND_R8), pointer              :: factorList(:)
-
-    rc = ESMF_SUCCESS
-
-    dstGrid = ESMF_GridCreate(dstGridFile, ESMF_FILEFORMAT_SCRIP, (/5,8/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    srcField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    dstField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    srcFracField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    dstFracField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call ESMF_FieldRegridStore(srcField, dstField, regridmethod=regridMethod, &
-      ! enable for conservative regridding
-      !srcFracField=srcFracField, dstFracField=dstFracField, &
-      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
-      factorList=factorList, factorIndexList=factorIndexList, rc=rc) 
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call ESMF_OutputScripWeightFile(trim(path)//trim(weightFile), factorList, factorIndexList, &
-      method=ESMF_REGRIDMETHOD_BILINEAR, &
-      srcFile="/glade/p/cesm/cseg/mapping/grids/gx1v6_090205.nc", dstFile=dstGridFile, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-  end subroutine
   
   !-----------------------------------------------------------------------------
 
@@ -1326,6 +884,37 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+#ifdef HYCOM_IN_CESM
+    call ESMF_RouteHandleRelease(CESM2HYCOM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_RouteHandleRelease(CESM2HYCOM_RHI4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_RouteHandleRelease(HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_RouteHandleRelease(HYCOM2CESM_RHI4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    deallocate(CESM2HYCOM_RHR8)
+    deallocate(CESM2HYCOM_RHI4)
+    deallocate(HYCOM2CESM_RHR8)
+    deallocate(HYCOM2CESM_RHI4)
+
+    deallocate(gsmap_o)
+    deallocate(dom_o)
+#endif
       
   end subroutine
 
@@ -1575,18 +1164,18 @@ module hycom
   ! redist cesm 1d data to hycom 2d data
   subroutine HYCOM_RedistCESM2HYCOM(importState, cesm_field_stdname, importFields, hycom_field_stdname, hycom_field_shortname, initFlag, fptr, twolevel, rc)
 
-    type(ESMF_State)           , intent(in)                 :: importState
-    character(len=*)           , intent(in)                 :: cesm_field_stdname
+    type(ESMF_State)           , intent(in)                :: importState
+    character(len=*)           , intent(in)                :: cesm_field_stdname
 
-    type(ESMF_FieldBundle)     , intent(in)                 :: importFields 
-    character(len=*)           , intent(in)                 :: hycom_field_stdname
-    character(len=*)           , intent(in),  optional      :: hycom_field_shortname
+    type(ESMF_FieldBundle)     , intent(in)                :: importFields 
+    character(len=*)           , intent(in)                :: hycom_field_stdname
+    character(len=*)           , intent(in),  optional     :: hycom_field_shortname
 
-    logical                    , intent(in),  optional      :: initFlag
-    real(ESMF_KIND_R8), pointer, intent(in),  optional      :: fptr(:,:)
-    logical                    , intent(in),  optional      :: twolevel
+    logical                    , intent(in),  optional     :: initFlag
+    real(ESMF_KIND_R8), pointer, intent(in),  optional     :: fptr(:,:)
+    logical                    , intent(in),  optional     :: twolevel
 
-    integer                    , intent(out), optional      :: rc
+    integer                    , intent(out), optional     :: rc
 
     !local
     type(ESMF_Field)                                       :: cesm_field  ! cesm field
@@ -1630,6 +1219,463 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+  end subroutine
+
+!***********************************************************************
+!BOP
+! !IROUTINE: ocn_domain_esmf
+! !INTERFACE:
+
+ subroutine ocn_domain_esmf( dom, grid )
+
+! !DESCRIPTION:
+!  This routine creates the ocean domain and necessary communication routehandles
+!
+! !REVISION HISTORY:
+!  same as module
+!
+! !INPUT/OUTPUT PARAMETERS:
+
+    implicit none
+    type(ESMF_Array), intent(inout)     :: dom
+    type(ESMF_Grid),  intent(in)        :: grid
+
+!EOP
+!BOC
+!-----------------------------------------------------------------------
+!
+!  local variables
+!
+!-----------------------------------------------------------------------
+
+    integer :: rc
+
+    integer ::   &
+      i,j, n, iblock
+
+    integer ::   &
+      klon,klat,karea,kmask,kfrac ! domain fields
+
+    real(ESMF_KIND_R8),    pointer ::  &
+      fptr (:,:)          ! data pointer into ESMF array
+
+    real(ESMF_KIND_R8)  :: &
+      frac                ! temporary var to compute frac/mask from KMT
+
+    type(ESMF_DistGrid)  :: distgrid, distgrid2d
+    type(ESMF_VM)        :: vm
+    character(len=256)   :: msg
+    integer              :: n_elem, n_pet, lpet
+    integer, pointer     :: indexlist(:)
+    logical              :: arbIndexFlag
+    type(ESMF_Array)     :: lon1d, lat1d, area1d, mask1d
+    type(ESMF_Array)     :: plon, plat, area, mask, area2d
+    integer              :: elb(2,1), eub(2,1), elb1(1,1), eub1(1,1)
+    real(ESMF_KIND_R8), pointer  :: tlon(:), tlat(:), tarea(:)
+    integer(ESMF_KIND_I4), pointer :: tmask(:)
+    real(ESMF_KIND_R8)   :: radian, radius, pi
+    type(ESMF_TYPEKIND_FLAG)  :: tkf
+
+!-----------------------------------------------------------------------
+
+    ! Retrieve dom data pointer
+    call ESMF_ArrayGet(dom, localDe=0, farrayPtr=fptr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! Retrieve the HYCOM Grid coordinate and mask arrays for reference      
+    call ESMF_GridGetCoord(grid, coordDim=1, array=plon, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_GridGetCoord(grid, coordDim=2, array=plat, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_GridGetItem(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
+      itemflag=ESMF_GRIDITEM_MASK, array=mask, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayGet(mask, typekind=tkf, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_GridGetItem(grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
+      itemflag=ESMF_GRIDITEM_AREA, array=area, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_GridGet(grid, distgrid=distgrid2d, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    area2d = ESMF_ArrayCreate(distgrid2d, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_VMGet(vm, petCount=n_pet, localPet=lpet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! Use the mesh based 1D distgrid to create DOM elements
+    call ESMF_ArrayGet(dom, distgrid=distgrid, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    lon1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayGet(lon1D, farrayPtr = tlon, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    lat1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayGet(lat1D, farrayPtr = tlat, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    area1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayGet(area1D, farrayPtr = tarea, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    mask1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_I4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayGet(mask1D, farrayPtr = tmask, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! CESM uses 1 DE per PET
+    call ESMF_DistGridGet(distgrid, 0, arbSeqIndexFlag=arbIndexFlag, elementCount=n_elem, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    allocate(indexList(n_elem))
+    call ESMF_DistGridGet(distgrid, 0, seqIndexList=indexlist, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+!-------------------------------------------------------------------
+!
+!  initialize domain type, lat/lon in degrees,
+!  area in radians^2, mask is 1 (ocean), 0 (non-ocean)
+!  Fill in correct values for domain components
+!
+!-------------------------------------------------------------------
+
+    klon  = esmfshr_util_ArrayGetIndex(dom,'lon ',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    klat  = esmfshr_util_ArrayGetIndex(dom,'lat ',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    karea = esmfshr_util_ArrayGetIndex(dom,'area',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    kmask = esmfshr_util_ArrayGetIndex(dom,'mask',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    kfrac = esmfshr_util_ArrayGetIndex(dom,'frac',rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    fptr(:,:) = -9999.0_ESMF_KIND_R8
+    n=0
+
+    write(msg, *) 'DUMPING HYCOM INDICES BEGINS:'
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    write(msg, *) 'total number of ocean pet', n_pet, ' local pet number', lpet
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    write(msg, *) 'number of elements on this pet:', n_elem, ' arbflag', arbIndexFlag
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    write(msg, *) 'lpet ', 'n ', 'Index ', 'lon ', 'lat ', &
+      'area ', 'frac ', 'mask'
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_ArrayGet(plon, exclusiveLBound=elb, exclusiveUBound=eub, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    write(msg, *) 'src shape: ', elb, eub, ' dst shape: ', lbound(fptr), ubound(fptr)
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    write(msg, *) 'plon: ', elb, eub
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_ArrayGet(lon1d, exclusiveLBound=elb1, exclusiveUBound=eub1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    write(msg, *) 'lon1d: ', elb1, eub1
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    allocate(HYCOM2CESM_RHR8)   ! 2D->1D
+    allocate(HYCOM2CESM_RHI4)   ! 2D->1D
+    allocate(CESM2HYCOM_RHR8)   ! 1D->2D
+    allocate(CESM2HYCOM_RHI4)   ! 1D->2D
+
+    call ESMF_ArrayRedistStore(plon, lon1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedistStore(mask, mask1d, routehandle=HYCOM2CESM_RHI4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedist(plon, lon1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedist(plat, lat1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedist(mask, mask1d, routehandle=HYCOM2CESM_RHI4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedist(area, area1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    pi = 3.14159265358
+    radian = 180.0_ESMF_KIND_R8/pi
+    radius    = 6370.0e5_ESMF_KIND_R8
+    do n = elb1(1,1), eub1(1,1)
+      fptr(klon , n)          = TLON(n)
+      fptr(klat , n)          = TLAT(n)
+      fptr(karea, n)          = TAREA(n)/radius/radius*1.e4
+      frac                    = TMASK(n)
+      if (frac > 1.0_ESMF_KIND_R8) frac = 1.0_ESMF_KIND_R8
+      fptr(kfrac, n)          = frac
+      fptr(kmask, n)          = frac
+      write(msg, '(I4,A1,I8,A7,I8,2F10.3,E15.7,2F10.3)') lpet, ' ', n, ' INDEX=',indexlist(n), fptr(klon, n), &
+        fptr(klat , n), fptr(karea, n), fptr(kfrac, n), fptr(kmask, n)
+      call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    enddo
+
+    deallocate(indexlist)
+
+    write(msg, *) 'DUMPING HYCOM INDICES ENDS:'
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_ArrayRedistStore(lon1D, plon, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedistStore(mask1D, mask, routehandle=CESM2HYCOM_RHI4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_ArrayRedist(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+!-----------------------------------------------------------------------
+!EOC
+
+  end subroutine ocn_domain_esmf
+
+  ! compute regridding weights for all regridding pairs
+  subroutine HYCOM_CESM_REGRID_TOOCN(srcGridFile, dstGrid, weightFile, regridMethod, rc)
+    character(len=*), intent(in)             :: srcGridFile
+    type(ESMF_Grid), intent(in)              :: dstGrid
+    character(len=*), intent(in)             :: weightFile
+    type(ESMF_REGRIDMETHOD_FLAG), intent(in) :: regridMethod
+    integer, intent(out)                     :: rc
+
+    ! local
+    character(len=125)                       :: path="/glade/p/work/feiliu/weights/T62/"
+
+    type(ESMF_Grid)                          :: srcGrid
+    type(ESMF_Field)                         :: srcField, dstField
+    type(ESMF_Field)                         :: srcFracField, dstFracField
+    integer, pointer                         :: factorIndexList(:,:)
+    real(ESMF_KIND_R8), pointer              :: factorList(:)
+
+    rc = ESMF_SUCCESS
+
+    srcGrid = ESMF_GridCreate(srcGridFile, ESMF_FILEFORMAT_SCRIP, (/5,8/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    srcField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    dstField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    srcFracField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    dstFracField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_FieldRegridStore(srcField, dstField, regridmethod=regridMethod, &
+      !srcFracField=srcFracField, dstFracField=dstFracField, &
+      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
+      factorList=factorList, factorIndexList=factorIndexList, rc=rc) 
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_OutputScripWeightFile(trim(path)//trim(weightFile), factorList, factorIndexList, &
+      method=ESMF_REGRIDMETHOD_BILINEAR, &
+      srcFile=srcGridFile, dstFile="/glade/p/cesm/cseg/mapping/grids/gx1v6_090205.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
+
+  ! compute regridding weights for all regridding pairs
+  subroutine HYCOM_CESM_REGRID_FROMOCN(srcGrid, dstGridFile, weightFile, regridMethod, rc)
+    type(ESMF_Grid), intent(in)              :: srcGrid
+    character(len=*), intent(in)             :: dstGridFile
+    character(len=*), intent(in)             :: weightFile
+    type(ESMF_REGRIDMETHOD_FLAG), intent(in) :: regridMethod
+    integer, intent(out)                     :: rc
+
+    ! local
+    character(len=125)                       :: path="/glade/p/work/feiliu/weights/T62/"
+
+    type(ESMF_Grid)                          :: dstGrid
+    type(ESMF_Field)                         :: srcField, dstField
+    type(ESMF_Field)                         :: srcFracField, dstFracField
+    integer, pointer                         :: factorIndexList(:,:)
+    real(ESMF_KIND_R8), pointer              :: factorList(:)
+
+    rc = ESMF_SUCCESS
+
+    dstGrid = ESMF_GridCreate(dstGridFile, ESMF_FILEFORMAT_SCRIP, (/5,8/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    srcField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    dstField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    srcFracField = ESMF_FieldCreate(srcGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    dstFracField = ESMF_FieldCreate(dstGrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_FieldRegridStore(srcField, dstField, regridmethod=regridMethod, &
+      ! enable for conservative regridding
+      !srcFracField=srcFracField, dstFracField=dstFracField, &
+      unmappedaction=ESMF_UNMAPPEDACTION_IGNORE, &
+      factorList=factorList, factorIndexList=factorIndexList, rc=rc) 
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_OutputScripWeightFile(trim(path)//trim(weightFile), factorList, factorIndexList, &
+      method=ESMF_REGRIDMETHOD_BILINEAR, &
+      srcFile="/glade/p/cesm/cseg/mapping/grids/gx1v6_090205.nc", dstFile=dstGridFile, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
   end subroutine
 #endif
 
