@@ -18,9 +18,8 @@ module hycom
     end_of_run, end_of_run_cpl
     
   use hycom_nuopc_glue
-  use ESMF_IOScripMod
 #ifdef HYCOM_IN_CESM
-  use esmf
+  use ESMF_IOScripMod
   use esmfshr_util_mod, only : esmfshr_util_ArrayGetIndex
   use esmfshr_util_mod, only : esmfshr_util_ArrayGetSize
   use esmf2mct_mod    , only : esmf2mct_init
@@ -1237,8 +1236,8 @@ module hycom
 ! !INPUT/OUTPUT PARAMETERS:
 
     implicit none
-    type(ESMF_Array), intent(inout)     :: dom
-    type(ESMF_Grid),  intent(in)        :: grid
+    type(ESMF_Array), intent(inout)     :: dom      ! CESM DOMAIN INFO
+    type(ESMF_Grid),  intent(in)        :: grid     ! Native HYCOM 2D Grid
 
 !EOP
 !BOC
@@ -1498,11 +1497,11 @@ module hycom
 
     pi = 3.14159265358
     radian = 180.0_ESMF_KIND_R8/pi
-    radius    = 6370.0e5_ESMF_KIND_R8
+    radius    = 6370.0e3_ESMF_KIND_R8
     do n = elb1(1,1), eub1(1,1)
       fptr(klon , n)          = TLON(n)
       fptr(klat , n)          = TLAT(n)
-      fptr(karea, n)          = TAREA(n)/radius/radius*1.e4
+      fptr(karea, n)          = TAREA(n)/radius/radius
       frac                    = TMASK(n)
       if (frac > 1.0_ESMF_KIND_R8) frac = 1.0_ESMF_KIND_R8
       fptr(kfrac, n)          = frac
