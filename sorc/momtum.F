@@ -296,7 +296,7 @@ cjc   weights for the coupled forcing
 #ifdef NUOPC
                 if(cpl_taux) then
                   surtx(i,j)=imp_taux(i,j,1)*cpl_w2
-     &              +imp_taux(i,j,2)*cpl_w3
+     &                      +imp_taux(i,j,2)*cpl_w3
 cc                  if(abs(surtx(i,j))>500) then
 c                  if(surtx(i,j).eq.0) then
 c                    surtx(i,j)=( taux(i,j,l0)*w0+taux(i,j,l1)*w1
@@ -304,7 +304,7 @@ c     &                      +taux(i,j,l2)*w2+taux(i,j,l3)*w3)
 c                  endif
                 else
                   surtx(i,j)=( taux(i,j,l0)*w0+taux(i,j,l1)*w1
-     &                      +taux(i,j,l2)*w2+taux(i,j,l3)*w3)
+     &                        +taux(i,j,l2)*w2+taux(i,j,l3)*w3)
                 endif
 #else
                 surtx(i,j)=( taux(i,j,l0)*w0+taux(i,j,l1)*w1
@@ -313,7 +313,7 @@ c                  endif
 #ifdef NUOPC
                 if(cpl_tauy) then
                   surty(i,j)= imp_tauy(i,j,1)*cpl_w2
-     &               +imp_tauy(i,j,2)*cpl_w3
+     &                       +imp_tauy(i,j,2)*cpl_w3
 cc                  if(abs(surty(i,j))>500) then
 c                  if(surty(i,j).eq.0) then
 c                    surty(i,j)=( tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
@@ -321,7 +321,7 @@ c     &                      +tauy(i,j,l2)*w2+tauy(i,j,l3)*w3)
 c                  endif
                 else
                   surty(i,j)=( tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
-     &                      +tauy(i,j,l2)*w2+tauy(i,j,l3)*w3)
+     &                        +tauy(i,j,l2)*w2+tauy(i,j,l3)*w3)
                 endif
 #else
                 surty(i,j)=( tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
@@ -331,7 +331,7 @@ c                  endif
 #ifdef NUOPC
 c                if(cpl_taux) then
                   surtx(i,j)=(
-     &                  (imp_taux(i,j,1)+imp_taux(i+1,j,1))*cpl_w2
+     &                   (imp_taux(i,j,1)+imp_taux(i+1,j,1))*cpl_w2
      &                  +(imp_taux(i,j,2)+imp_taux(i+1,j,2))*cpl_w3)*0.5
 cc                  if(abs(surtx(i,j))>500) then
 c                  if(surtx(i,j).eq.0) then
