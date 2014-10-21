@@ -22,7 +22,7 @@ c
         if     (iceflg.ne.0) then
           do l=1,isp(j)
             do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
-#ifdef HYCOM_IN_CESM
+#ifdef NUOPC
               surflx(i,j) = surflx(i,j) + flxice(i,j)   !cell average
               sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
               salflx(i,j) = (1.0-covice(i,j))*salflx(i,j) +
