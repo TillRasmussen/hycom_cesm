@@ -437,7 +437,6 @@ module hycom_nuopc_glue
     cpl_ustara    =.false.
     cpl_airtmp    =.false.
     cpl_vapmix    =.false.
-    cpl_swdnflx   =.false.
     cpl_swflx     =.false.
     cpl_lwflx     =.false.
     cpl_precip    =.false.
@@ -755,17 +754,17 @@ module hycom_nuopc_glue
         cpl_ustara = .not.initFlag
         impPtr2 => imp_ustara
         twoLevel = .true.
-      elseif (fieldStdName == "mean_down_sw_flx") then
-        cpl_swdnflx = .not.initFlag
-        impPtr2 => imp_swdnflx
-        twoLevel = .true.
       elseif (fieldStdName == "mean_net_sw_flx") then
-        cpl_swflx = .not.initFlag
+        cpl_swdnflx = .not.initFlag
         impPtr2 => imp_swflx
+        twoLevel = .true. 
+      elseif (fieldStdName == "mean_down_lw_flx") then
+        cpl_swflx = .not.initFlag
+        impPtr2 => imp_lwdflx
         twoLevel = .true.
-      elseif (fieldStdName == "mean_net_lw_flx") then
+      elseif (fieldStdName == "mean_up_lw_flx") then
         cpl_lwflx = .not.initFlag
-        impPtr2 => imp_lwflx
+        impPtr2 => imp_lwuflx
         twoLevel = .true.
       elseif (fieldStdName == "inst_temp_height2m") then
         cpl_airtmp = .not.initFlag
@@ -940,9 +939,8 @@ module hycom_nuopc_glue
         if (covice(i,j).gt.0.0) then
            si_tx(i,j) = -sitx_import(i,j) !Sea Ice X-Stress into ocean
            si_ty(i,j) = -sity_import(i,j) !Sea Ice Y-Stress into ocean
-          fswice(i,j) =  siqs_import(i,j) !Solar Heat Flux thru Ice to Ocean
-          flxice(i,j) =  fswice(i,j) + &
-                         sifh_import(i,j) !Ice Freezing/Melting Heat Flux
+          fswice(i,j) =  siqs_import(i,j) !Solar Heat Flux thru Ice to Ocean already in swflx
+          flxice(i,j) =  sifh_import(i,j) !Ice Freezing/Melting Heat Flux
           sflice(i,j) =  sifs_import(i,j)*1.e3 - &
                          sifw_import(i,j)*saln(i,j,1,2)
                                             !Ice Virtual Salt Flux

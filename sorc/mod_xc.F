@@ -96,7 +96,7 @@ c --- NUOPC glue code structures
 c==>  import from atm
       real nstep1_cpl,nstep2_cpl
       logical cpl_taux, cpl_tauy, cpl_wndspd, cpl_ustara,
-     & cpl_airtmp, cpl_vapmix, cpl_swdnflx, cpl_swflx, cpl_lwflx,
+     & cpl_airtmp, cpl_vapmix, cpl_swflx, cpl_lwdflx, cpl_lwuflx,
      & cpl_precip, cpl_surtmp, cpl_seatmp
 
       real cpl_w2, cpl_w3
@@ -105,7 +105,7 @@ c==>  import from atm
 
       real, target, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) ::
      & imp_taux, imp_tauy, imp_wndspd, imp_ustara,
-     & imp_airtmp, imp_vapmix, imp_swdnflx, imp_swflx, imp_lwflx,
+     & imp_airtmp, imp_vapmix, imp_swflx, imp_lwdflx, imp_lwuflx,
      & imp_precip, imp_surtmp, imp_seatmp
 
 c==>  import from ice

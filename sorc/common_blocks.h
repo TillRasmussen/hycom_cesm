@@ -78,6 +78,7 @@ c
      & util3,util4,   ! arrays for temporary storage
      & util5,util6,   ! arrays for temporary storage
      & plon, plat,    ! lon,lat at p pts
+     & qlon, qlat,    ! lon,lat at q pts
      & ulon, ulat,    ! lon,lat at u pts
      & vlon, vlat,    ! lon,lat at v pts
      & scux, scuy,    ! mesh size at u pts in x,y dir.
@@ -110,7 +111,7 @@ c
      & sssrmx         ! maximum SSS difference for relaxation (psu)
 
       common/hycom3r/ util1,util2,util3,util4,util5,util6,
-     &                plon,plat,ulon,ulat,vlon,vlat,
+     &                plon,plat,qlon,qlat,ulon,ulat,vlon,vlat,
      &                scux,scuy,scvx,scvy,scuxi,scvyi,
      &                scpx,scpy,scqx,scqy,
      &                scu2,scv2,scp2,scq2,scp2i,scq2i,
