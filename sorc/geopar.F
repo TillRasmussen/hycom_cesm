@@ -102,19 +102,21 @@ c
           call zaiord(plon, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.2) then
           call zaiord(plat, ip,.false., hmina,hmaxa, 9)
-          do i= 1,2  !skip qlon,qlat
-            call zagetc(cline,ios, uoff+9)
-            if     (ios.ne.0) then
-              if     (mnproc.eq.1) then
-                write(lp,'(/ a,i4,i9 /)')
-     &            'geopar: I/O error from zagetc, iunit,ios = ',
-     &            uoff+9,ios
-              endif !1st tile
-              call xcstop('(geopar)')
-                     stop '(geopar)'
-            endif
-            call zaiosk(9)
-          enddo
+          call zaiord(qlon, ip,.false., hmina,hmaxa, 9)
+          call zaiord(qlat, ip,.false., hmina,hmaxa, 9)
+!          do i= 1,2  !skip qlon,qlat
+!            call zagetc(cline,ios, uoff+9)
+!            if     (ios.ne.0) then
+!              if     (mnproc.eq.1) then
+!                write(lp,'(/ a,i4,i9 /)')
+!     &            'geopar: I/O error from zagetc, iunit,ios = ',
+!     &            uoff+9,ios
+!              endif !1st tile
+!              call xcstop('(geopar)')
+!                     stop '(geopar)'
+!            endif
+!            call zaiosk(9)
+!          enddo
         elseif (k.eq.3) then
           call zaiord(ulon, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.4) then
