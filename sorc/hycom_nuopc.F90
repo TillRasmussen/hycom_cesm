@@ -48,11 +48,13 @@ module hycom
   public SetServices
 
 #ifdef HYCOM_IN_CESM
+  public loadHycomDictionary
+
   type(mct_gsMap), public, pointer  :: gsmap_o
   type(mct_gGrid), public, pointer  :: dom_o
   integer                           :: OCNID      
-  type(ESMF_Routehandle), pointer   :: HYCOM2CESM_RHR8, CESM2HYCOM_RHR8
-  type(ESMF_Routehandle), pointer   :: HYCOM2CESM_RHI4, CESM2HYCOM_RHI4
+  type(ESMF_Routehandle), save      :: HYCOM2CESM_RHR8, CESM2HYCOM_RHR8
+  type(ESMF_Routehandle), save      :: HYCOM2CESM_RHI4, CESM2HYCOM_RHI4
 #endif
   
   !-----------------------------------------------------------------------------
@@ -131,6 +133,12 @@ module hycom
     
     rc = ESMF_SUCCESS
 
+    call loadHycomDictionary(rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
     ! importable fields:
     !call NUOPC_StateAdvertiseFields(importState, &
     !  StandardNames=(/ &
@@ -161,8 +169,8 @@ module hycom
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !  return  ! bail out
-    !
-    !! exportable fields:
+    
+    ! exportable fields:
     !call NUOPC_StateAdvertiseFields(exportState, &
     !  StandardNames=(/ &
     !  "sea_surface_temperature                  ",    &
@@ -376,35 +384,35 @@ module hycom
     ! also keep track of these Fields on the glue layer
     
     ! importable fields:
-    !call HYCOM_GlueFieldsRealize(is%wrap%glue, importState, &
-    !  StandardNames=(/ &
-    !  "surface_downward_eastward_stress       ",    & ! from ATM
-    !  "surface_downward_northward_stress      ",    & ! from ATM
-    !  "wind_speed_height10m                   ",    & ! from ATM
-    !  "friction_speed                         ",    & ! from ATM
-    !  "mean_down_sw_flx                       ",    & ! from ATM
-    !  "mean_net_sw_flx                        ",    & ! from ATM
-    !  "mean_net_lw_flx                        ",    & ! from ATM
-    !  "inst_temp_height2m                     ",    & ! from ATM
-    !  "mean_prec_rate                         ",    & ! from ATM
-    !  "inst_spec_humid_height2m               ",    & ! from ATM
-    !  "sea_surface_temperature                ",    & ! from ATM
-    !  "sea_ice_area_fraction                  ",    & ! from SEA-ICE
-    !  "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-    !  "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-    !  "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
-    !  "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-    !  "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
-    !  "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
-    !  "sea_ice_temperature                    ",    & ! from SEA-ICE
-    !  "sea_ice_thickness                      ",    & ! from SEA-ICE
-    !  "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-    !  "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
-    !  rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
+    call HYCOM_GlueFieldsRealize(is%wrap%glue, importState, &
+      StandardNames=(/ &
+      "surface_downward_eastward_stress       ",    & ! from ATM
+      "surface_downward_northward_stress      ",    & ! from ATM
+      "wind_speed_height10m                   ",    & ! from ATM
+      "friction_speed                         ",    & ! from ATM
+      "mean_down_sw_flx                       ",    & ! from ATM
+      "mean_net_sw_flx                        ",    & ! from ATM
+      "mean_net_lw_flx                        ",    & ! from ATM
+      "inst_temp_height2m                     ",    & ! from ATM
+      "mean_prec_rate                         ",    & ! from ATM
+      "inst_spec_humid_height2m               ",    & ! from ATM
+      "sea_surface_temperature                ",    & ! from ATM
+      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
+      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
+      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
+      "sea_ice_temperature                    ",    & ! from SEA-ICE
+      "sea_ice_thickness                      ",    & ! from SEA-ICE
+      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+      "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
     !! exportable fields:
     !call HYCOM_GlueFieldsRealize(is%wrap%glue, exportState, &
@@ -761,23 +769,33 @@ module hycom
     return ! bail out
     do i = 1, fieldCount
       print *, 'FIELDBUNDLEPRINT: -> ', fieldNameList(i)
+      call ESMF_FieldBundleGet(is%wrap%glue%importFields, fieldName=fieldNameList(i), field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      call ESMF_AttributeSet(field, name="HYCOM_IN_CESM_Connected", value=.false., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
     end do
     deallocate(fieldNameList)
 
-    field = ESMF_FieldCreate(is%wrap%glue%grid, typekind=ESMF_TYPEKIND_R8, name="swflx", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !field = ESMF_FieldCreate(is%wrap%glue%grid, typekind=ESMF_TYPEKIND_R8, name="swflx", rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    call ESMF_FieldBundleAdd(is%wrap%glue%importFields, (/field/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_FieldBundleAdd(is%wrap%glue%importFields, (/field/), rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
     call HYCOM_RedistCESM2HYCOM(importState, 'Foxx_surface_net_shortwave_flux', &
-      is%wrap%glue%importFields, 'mean_net_sw_flx', hycom_field_shortname="swflx", rc=rc)
+      is%wrap%glue%importFields, 'mean_net_sw_flx', hycom_field_shortname="mnswfx", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -905,11 +923,6 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
-
-    deallocate(CESM2HYCOM_RHR8)
-    deallocate(CESM2HYCOM_RHI4)
-    deallocate(HYCOM2CESM_RHR8)
-    deallocate(HYCOM2CESM_RHI4)
 
     deallocate(gsmap_o)
     deallocate(dom_o)
@@ -1218,6 +1231,13 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+
+    call ESMF_AttributeSet(hycom_field, name="HYCOM_IN_CESM_Connected", value=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
   end subroutine
 
 !***********************************************************************
@@ -1268,7 +1288,7 @@ module hycom
     integer, pointer     :: indexlist(:)
     logical              :: arbIndexFlag
     type(ESMF_Array)     :: lon1d, lat1d, area1d, mask1d
-    type(ESMF_Array)     :: plon, plat, area, mask, area2d
+    type(ESMF_Array)     :: plon, plat, area, mask, area2d, mask2d
     integer              :: elb(2,1), eub(2,1), elb1(1,1), eub1(1,1)
     real(ESMF_KIND_R8), pointer  :: tlon(:), tlat(:), tarea(:)
     integer(ESMF_KIND_I4), pointer :: tmask(:)
@@ -1277,7 +1297,7 @@ module hycom
 
 !-----------------------------------------------------------------------
 
-    ! Retrieve dom data pointer
+    ! Retrieve domain data pointer
     call ESMF_ArrayGet(dom, localDe=0, farrayPtr=fptr, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1318,6 +1338,11 @@ module hycom
       file=__FILE__)) &
     return ! bail out
     area2d = ESMF_ArrayCreate(distgrid2d, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    mask2d = ESMF_ArrayCreate(distgrid2d, typekind=ESMF_TYPEKIND_I4, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1459,10 +1484,10 @@ module hycom
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
-    allocate(HYCOM2CESM_RHR8)   ! 2D->1D
-    allocate(HYCOM2CESM_RHI4)   ! 2D->1D
-    allocate(CESM2HYCOM_RHR8)   ! 1D->2D
-    allocate(CESM2HYCOM_RHI4)   ! 1D->2D
+!    allocate(HYCOM2CESM_RHR8)   ! 2D->1D
+!    allocate(HYCOM2CESM_RHI4)   ! 2D->1D
+!    allocate(CESM2HYCOM_RHR8)   ! 1D->2D
+!    allocate(CESM2HYCOM_RHI4)   ! 1D->2D
 
     call ESMF_ArrayRedistStore(plon, lon1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1518,12 +1543,12 @@ module hycom
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
-    call ESMF_ArrayRedistStore(lon1D, plon, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    call ESMF_ArrayRedistStore(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_ArrayRedistStore(mask1D, mask, routehandle=CESM2HYCOM_RHI4, rc=rc)
+    call ESMF_ArrayRedistStore(mask1D, mask2d, routehandle=CESM2HYCOM_RHI4, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1676,6 +1701,399 @@ module hycom
       return  ! bail out
 
   end subroutine
+
 #endif
 
+  subroutine loadHycomDictionary(rc)
+    integer, intent(out)                     :: rc
+    rc = ESMF_SUCCESS
+
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "surface_downward_eastward_stress")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="surface_downward_eastward_stress", &
+        canonicalUnits="Pa", &
+        defaultLongName="Surface Downward Eastward Stress", &
+        defaultShortName="taux", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "surface_downward_northward_stress")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="surface_downward_northward_stress", &
+        canonicalUnits="Pa", &
+        defaultLongName="Surface Downward Northward Stress", &
+        defaultShortName="tauy", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "wind_speed_height10m")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="wind_speed_height10m", &
+        canonicalUnits="m s-1", &
+        defaultLongName="Wind Speed at 10m", &
+        defaultShortName="wndspd", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "friction_speed")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="friction_speed", &
+        canonicalUnits="m s-1", &
+        defaultLongName="Friction Speed", &
+        defaultShortName="ustara", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not.NUOPC_FieldDictionaryHasEntry( &
+      "mean_down_sw_flx")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="mean_down_sw_flx", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Mean Downward Short Wave Radiation Flux", &
+        defaultShortName="mdswfx", rc=rc);
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "mean_net_sw_flx")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="mean_net_sw_flx", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Mean Net Short Wave Radiation Flux", &
+        defaultShortName="mnswfx", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not.NUOPC_FieldDictionaryHasEntry( &
+      "mean_down_lw_flx")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="mean_down_lw_flx", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Mean Downward Long Wave Radiation Flux", &
+        defaultShortName="mdlwfx", rc=rc);
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "mean_net_lw_flx")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="mean_net_lw_flx", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Mean Net Long Wave Radiation Flux", &
+        defaultShortName="mnlwfx", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not.NUOPC_FieldDictionaryHasEntry( &
+      "inst_temp_height2m")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="inst_temp_height2m", &
+        canonicalUnits="K", &
+        defaultLongName="Instantaneous Temperature 2m Above Ground", &
+        defaultShortName="ith2m", rc=rc);
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not.NUOPC_FieldDictionaryHasEntry( &
+      "inst_spec_humid_height2m")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="inst_spec_humid_height2m", &
+        canonicalUnits="kg kg-1", &
+        defaultLongName="Instantaneous Specific Humidity 2m Above Ground", &
+        defaultShortName="ishh2m", rc=rc);
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not.NUOPC_FieldDictionaryHasEntry( &
+      "mean_prec_rate")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="mean_prec_rate", &
+        canonicalUnits="kg s m-2", &
+        defaultLongName="Mean Liquid Precipitation Rate", &
+        defaultShortName="lprec", rc=rc);
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "air_surface_temperature")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="air_surface_temperature", &
+        canonicalUnits="K", &
+        defaultLongName="Air surface temerature", &
+        defaultShortName="surtmp", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "upward_sea_ice_basal_available_heat_flux")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="upward_sea_ice_basal_available_heat_flux", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Oceanic Heat Flux Available to Sea Ice", &
+        defaultShortName="ssfi", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "sea_lev")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="sea_lev", &
+        canonicalUnits="m", &
+        defaultLongName="sea level", &
+        defaultShortName="sea_lev", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "mixed_layer_depth")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="mixed_layer_depth", &
+        canonicalUnits="m", &
+        defaultLongName="Mixed Layer Depth in Ocean", &
+        defaultShortName="mld", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "s_surf")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="s_surf", &
+        canonicalUnits="psu", &
+        defaultLongName="sea surface salinity on t-cell", &
+        defaultShortName="sss", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "sea_ice_area_fraction")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="sea_ice_area_fraction", &
+        canonicalUnits="1", &
+        defaultLongName="Sea Ice Concentration", &
+        defaultShortName="sic", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "downward_x_stress_at_sea_ice_base")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="downward_x_stress_at_sea_ice_base", &
+        canonicalUnits="Pa", &
+        defaultLongName="Sea Ice X-Stress", &
+        defaultShortName="sitx", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "downward_y_stress_at_sea_ice_base")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="downward_y_stress_at_sea_ice_base", &
+        canonicalUnits="Pa", &
+        defaultLongName="Sea Ice Y-Stress", &
+        defaultShortName="sity", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "downward_sea_ice_basal_solar_heat_flux")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="downward_sea_ice_basal_solar_heat_flux", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Solar Heat Flux thru Ice to Ocean", &
+        defaultShortName="siqs", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "upward_sea_ice_basal_heat_flux")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="upward_sea_ice_basal_heat_flux", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Ice Freezing/Melting Heat Flux", &
+        defaultShortName="sifh", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "downward_sea_ice_basal_salt_flux")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="downward_sea_ice_basal_salt_flux", &
+        canonicalUnits="kg m-2 s-1", &
+        defaultLongName="Ice Freezing/Melting Salt Flux", &
+        defaultShortName="sifs", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "downward_sea_ice_basal_water_flux")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="downward_sea_ice_basal_water_flux", &
+        canonicalUnits="kg m-2 s-1", &
+        defaultLongName="Ice Net Water Flux", &
+        defaultShortName="sifw", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "sea_ice_temperature")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="sea_ice_temperature", &
+        canonicalUnits="K", &
+        defaultLongName="Sea Ice Temperature", &
+        defaultShortName="sit", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "sea_ice_thickness")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="sea_ice_thickness", &
+        canonicalUnits="m", &
+        defaultLongName="Sea Ice Thickness", &
+        defaultShortName="sih", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "sea_ice_x_velocity")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="sea_ice_x_velocity", &
+        canonicalUnits="m s-1", &
+        defaultLongName="Sea Ice X-Velocity", &
+        defaultShortName="siu", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "sea_ice_y_velocity")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="sea_ice_y_velocity", &
+        canonicalUnits="m s-1", &
+        defaultLongName="Sea Ice Y-Velocity", &
+        defaultShortName="siv", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "dummyfield")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="dummyfield", &
+        canonicalUnits="1", &
+        defaultLongName="Dummy Test Field", &
+        defaultShortName="dummyfield", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "ocn_current_zonal")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="ocn_current_zonal", &
+        canonicalUnits="m s-1", &
+        defaultLongName="ocean current zonal component", &
+        defaultShortName="ocncz", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "ocn_current_merid")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="ocn_current_merid", &
+        canonicalUnits="m s-1", &
+        defaultLongName="ocean current meridional component", &
+        defaultShortName="ocncm", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+
+  end subroutine
+  
 end module

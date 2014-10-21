@@ -461,6 +461,10 @@ module hycom_nuopc_glue
     if (present(rc)) rc = ESMF_SUCCESS
     
     do i=1, size(standardNames)
+
+      call ESMF_LogWrite(trim('Realize glue field: '//standardNames(i)), ESMF_LOGMSG_INFO, rc=rc)
+      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
       call HYCOM_GlueFieldRealize(glue, state, &
         standardName=standardNames(i), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -510,16 +514,20 @@ module hycom_nuopc_glue
         rcToReturn=rc)
       return  ! bail out
     endif
-    
+
+#ifdef HYCOM_IN_CESM
+    connected = .true.
+#else
     connected = NUOPC_StateIsFieldConnected(state, fieldName=fieldName, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
-    connected = .true.
+#endif
     
     if (connected) then
+      call ESMF_LogWrite(trim('HYCOM: Create connected glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
+      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
       ! create the Field object
       field = ESMF_FieldCreate(glue%grid, ESMF_TYPEKIND_R8, name=fieldName, &
         rc=rc)
@@ -527,14 +535,24 @@ module hycom_nuopc_glue
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
+#ifdef HYCOM_IN_CESM
+      call ESMF_AttributeSet(field, name="StandardName", value=standardName, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+#else
       ! realize the Field in the State
       call NUOPC_StateRealizeField(state, field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
+#endif
       ! add the Field to the correct glue FieldBundle
       if (stateIntent == ESMF_STATEINTENT_IMPORT) then
+        call ESMF_LogWrite(trim('HYCOM: Add connected import glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
+        if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
         ! import
         call ESMF_FieldBundleAdd(glue%importFields, fieldList=(/field/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -542,6 +560,8 @@ module hycom_nuopc_glue
           file=__FILE__)) &
           return  ! bail out
       else
+        call ESMF_LogWrite(trim('HYCOM: Add connected export glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
+        if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
         ! export
         call ESMF_FieldBundleAdd(glue%exportFields, fieldList=(/field/), rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -669,6 +689,7 @@ module hycom_nuopc_glue
     logical                           :: twoLevel
     real, parameter                   :: sstmin = -1.8 ! Celsius
     real, parameter                   :: sstmax = 35.0 ! Celsius
+    logical                           :: isConnected
     
     if (present(rc)) rc = ESMF_SUCCESS
     
@@ -697,12 +718,27 @@ module hycom_nuopc_glue
       field = fieldList(iField)
       fieldName = fieldNameList(iField)
     
+#ifdef HYCOM_IN_CESM
+      call ESMF_AttributeGet(field, name="StandardName", value=fieldStdName, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      isConnected = .false.
+      call ESMF_AttributeGet(field, name="HYCOM_IN_CESM_Connected", value=isConnected, defaultValue=.false., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      if(.not. isConnected) cycle
+#else
       call NUOPC_FieldAttributeGet(field, name="StandardName", &
         value=fieldStdName, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
+#endif
       
       call ESMF_LogWrite("HYCOM_GlueFieldsDataImport(): "// &
         trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
@@ -840,8 +876,11 @@ module hycom_nuopc_glue
           enddo
         else
           ! shift #1 -> #2
-          do j=lbound(impPtr,2), ubound(impPtr,2)
-          do i=lbound(impPtr,1), ubound(impPtr,1)
+          ! Fei: talk to Alex
+          !do j=lbound(impPtr,2), ubound(impPtr,2)
+          !do i=lbound(impPtr,1), ubound(impPtr,1)
+          do j = 1,jj
+           do i = 1,ii
             impPtr2(i,j,2) = impPtr2(i,j,1)
           enddo
           enddo
