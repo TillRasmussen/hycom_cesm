@@ -485,7 +485,7 @@ cjc   weights for the coupled forcing
         print *,"thermf.F, cpl_w2,cpl_w3=",cpl_w2,cpl_w3
         print *,"thermf.F, cpl_taux=",cpl_taux,cpl_tauy,
      &   cpl_wndspd,cpl_ustara,cpl_airtmp,cpl_vapmix,cpl_swflx,
-     &   cpl_lwflx,cpl_precip
+     &   cpl_lwmdnflx, cpl_lwmupflx,cpl_precip
         print *,"w0,w1=",w0,w1
       endif
 
@@ -784,12 +784,16 @@ c ---   wind = wind speed (m/s)
 c ---   radfl= net       radiative thermal flux (W/m^2) +ve into ocean/ice
 c ---        = Qsw+Qlw across the atmosphere to ocean or sea-ice interface
 #ifdef NUOPC
-        if(cpl_lwflx) then
+        if(cpl_swflx .and. cpl_lwmdnflx .and. cpl_lwmupflx) then
           radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
      &          +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
      &          +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
 
         else
+          if     (mnproc.eq.1) then
+            write (lp,'(a,a)') 'NUOPC: not all net_sw_flx, dn_lw_flx,',
+     & 'and up_lw_flx are provided.'
+          endif !1st tile
           radfl=radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
      &       +radflx(i,j,l2)*w2+radflx(i,j,l3)*w3
         endif

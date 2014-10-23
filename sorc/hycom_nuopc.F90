@@ -238,7 +238,7 @@ module hycom
     type(ESMF_CALKIND_FLAG)     :: calkind
 #ifdef HYCOM_IN_CESM            
     type(ESMF_State)            :: import_state, export_state
-    type(ESMF_Mesh)             :: mesh
+    type(ESMF_Mesh)             :: mesh, meshIn, meshOut
     type(ESMF_DistGrid)         :: distgrid
     type(ESMF_Array)            :: o2x, x2o, dom
     type(ESMF_ArraySpec)        :: arrayspec
@@ -516,6 +516,13 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
+    meshIn = ESMF_MeshCreate(distgrid, nodalDistgrid=distgrid, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    meshOut = meshIn
+
     !-----------------------------------------
     !  Set arrayspec for dom, o2x and x2o
     !-----------------------------------------
@@ -623,7 +630,7 @@ module hycom
 
     !! Create and Realize Importable fields
     call esmfshr_nuopc_create_fields( &
-      ocn_import_fields, mesh, importState, tag='HYCOM import', rc=rc)
+      ocn_import_fields, meshIn, importState, tag='HYCOM import', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -631,14 +638,14 @@ module hycom
 
     !! Create and Realize Exportable fields
     call esmfshr_nuopc_create_fields( &
-      ocn_export_fields, mesh, exportState, tag='HYCOM export', rc=rc)
+      ocn_export_fields, meshOut, exportState, tag='HYCOM export', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
 
     ! Provide static forcing to dynamic ice
-    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_init.raw', rc=rc)
+    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_r3.raw', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -650,6 +657,13 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
+    call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
+      timeslice=1, relaxedFlag=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
 #endif
     
   end subroutine
@@ -658,6 +672,21 @@ module hycom
   !-----------------------------------------------------------------------------
 
   subroutine ModelAdvance(gcomp, rc)
+    type(ESMF_GridComp)  :: gcomp
+    integer, intent(out) :: rc
+
+    rc = ESMF_SUCCESS
+#ifndef HYCOM_IN_CESM
+    call HYCOM_ModelAdvance(gcomp, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+#endif
+
+  end subroutine
+
+  subroutine HYCOM_ModelAdvance(gcomp, rc)
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
     
@@ -719,42 +748,25 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+
 #ifdef HYCOM_IN_CESM
-    !call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
-    !  timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
+    !call esmfshr_nuopc_copy(ocn_import_fields, importState, 'x2d', rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
-    !  return  ! bail out
-#else
-    ! write out the Fields in the importState
-    call NUOPC_StateWrite(importState, filePrefix="field_ocn_import_", &
-      timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-#endif
-    
-    !TODO: don't need the additional initialization step once data-dependency
-    !TODO: is taken care of during initialize.
-    initFlag = .false.
-    if (is%wrap%slice==1) initFlag = .true.
+    !return ! bail out
 
-#ifdef HYCOM_IN_CESM
     ! Redistribute CESM input to HYCOM field stored in glue import fieldbundle
-
     call ESMF_StatePrint(importState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
-    call ESMF_FieldBundlePrint(is%wrap%glue%importFields, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_FieldBundlePrint(is%wrap%glue%importFields, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
     call ESMF_FieldBundleGet(is%wrap%glue%importFields, fieldCount=fieldCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -800,7 +812,27 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
+      timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#else
+    ! write out the Fields in the importState
+    call NUOPC_StateWrite(importState, filePrefix="field_ocn_import_", &
+      timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 #endif
+    
+    !TODO: don't need the additional initialization step once data-dependency
+    !TODO: is taken care of during initialize.
+    initFlag = .false.
+    if (is%wrap%slice==1) initFlag = .true.
 
     ! Import data to HYCOM native structures through glue fields.
     call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
@@ -846,15 +878,18 @@ module hycom
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !  return  ! bail out
-#endif
-    
-#ifdef HYCOM_IN_CESM
-    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
-    !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+
+    !call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
-    !  return  ! bail out
+
+    call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
+      timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 #else
     ! write out the Fields in the exportState
     call NUOPC_StateWrite(exportState, filePrefix="field_ocn_export_", &
@@ -938,7 +973,55 @@ module hycom
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
 
+    ! local variables
+    type(ESMF_Clock)              :: compclock
+    logical                       :: ocn_present
+    logical                       :: ocnrun_alarm
+    logical                       :: tight_coupling
+    type(ESMF_Array)              :: d2x
+
     rc = ESMF_SUCCESS
+    tight_coupling = .false.
+
+    call ESMF_GridCompGet(gcomp, clock=compclock, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(importState, name="ocean_tight_coupling", &
+      value=tight_coupling, defaultvalue=.false., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(exportState, &
+      name="ocn_present", value=ocn_present, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(exportState, &
+      name="ocnrun_alarm", value=ocnrun_alarm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    if (ocn_present  .and.  ocnrun_alarm  .and.  tight_coupling) then
+      call ESMF_LogWrite(trim('HYCOM RUN2 --->'), ESMF_LOGMSG_INFO, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      call HYCOM_ModelAdvance(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+    endif
 
   end subroutine
 
@@ -951,7 +1034,48 @@ module hycom
     type(ESMF_Clock)     :: clock
     integer, intent(out) :: rc
 
+    logical                       :: ocn_present
+    logical                       :: ocnrun_alarm
+    logical                       :: tight_coupling
+    type(ESMF_Array)              :: d2x
+    real(ESMF_KIND_R8), pointer   :: rawdata(:,:)
+
     rc = ESMF_SUCCESS
+    tight_coupling = .false.
+
+    call ESMF_AttributeGet(importState, name="ocean_tight_coupling", &
+      value=tight_coupling, defaultvalue=.false., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(exportState, &
+      name="ocn_present", value=ocn_present, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(exportState, &
+      name="ocnrun_alarm", value=ocnrun_alarm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    if (ocn_present  .and.  ocnrun_alarm  .and.  (.not. tight_coupling)) then
+      call ESMF_LogWrite(trim('HYCOM RUN3 --->'), ESMF_LOGMSG_INFO, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      call HYCOM_ModelAdvance(gcomp, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+    endif
 
   end subroutine
   !-----------------------------------------------------------------------------
@@ -1034,6 +1158,7 @@ module hycom
     character(len=80)               :: fileName
     character(len=80), allocatable  :: fieldNameList_loc(:)
     type(ESMF_Field)                :: dst2DField
+    real(ESMF_KIND_R8), pointer     :: ptr1D(:), ptr2D(:,:)
 
     if (present(rc)) rc = ESMF_SUCCESS
 
@@ -1083,6 +1208,17 @@ module hycom
         else
           write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
         endif
+
+        call ESMF_FieldGet(field, farrayPtr=ptr1D, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+        return ! bail out
+        call ESMF_FieldGet(dst2Dfield, farrayPtr=ptr2D, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+        return ! bail out
 
         call ESMF_FieldRedist(field, dst2DField, routehandle=CESM2HYCOM_RHR8, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1233,6 +1369,13 @@ module hycom
     return ! bail out
 
     call ESMF_AttributeSet(hycom_field, name="HYCOM_IN_CESM_Connected", value=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_LogWrite(trim('HYCOM_RedistCESM2HYCOM: '// trim(cesm_field_stdname) // '--->' //trim(l_hycom_field_shortname)), &
+      ESMF_LOGMSG_INFO, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1483,11 +1626,6 @@ module hycom
     write(msg, *) 'lon1d: ', elb1, eub1
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-
-!    allocate(HYCOM2CESM_RHR8)   ! 2D->1D
-!    allocate(HYCOM2CESM_RHI4)   ! 2D->1D
-!    allocate(CESM2HYCOM_RHR8)   ! 1D->2D
-!    allocate(CESM2HYCOM_RHI4)   ! 1D->2D
 
     call ESMF_ArrayRedistStore(plon, lon1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

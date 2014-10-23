@@ -438,7 +438,8 @@ module hycom_nuopc_glue
     cpl_airtmp    =.false.
     cpl_vapmix    =.false.
     cpl_swflx     =.false.
-    cpl_lwflx     =.false.
+    cpl_lwmdnflx  =.false.
+    cpl_lwmupflx  =.false.
     cpl_precip    =.false.
     cpl_surtmp    =.false.
     cpl_seatmp    =.false.
@@ -791,15 +792,15 @@ module hycom_nuopc_glue
         impPtr2 => imp_ustara
         twoLevel = .true.
       elseif (fieldStdName == "mean_net_sw_flx") then
-        cpl_swdnflx = .not.initFlag
+        cpl_swflx = .not.initFlag
         impPtr2 => imp_swflx
         twoLevel = .true. 
       elseif (fieldStdName == "mean_down_lw_flx") then
-        cpl_swflx = .not.initFlag
+        cpl_lwmdnflx = .not.initFlag
         impPtr2 => imp_lwdflx
         twoLevel = .true.
       elseif (fieldStdName == "mean_up_lw_flx") then
-        cpl_lwflx = .not.initFlag
+        cpl_lwmupflx = .not.initFlag
         impPtr2 => imp_lwuflx
         twoLevel = .true.
       elseif (fieldStdName == "inst_temp_height2m") then
@@ -875,13 +876,10 @@ module hycom_nuopc_glue
           enddo
         else
           ! shift #1 -> #2
-          ! Fei: talk to Alex
-          !do j=lbound(impPtr,2), ubound(impPtr,2)
-          !do i=lbound(impPtr,1), ubound(impPtr,1)
-          do j = 1,jj
-           do i = 1,ii
+          do j=lbound(impPtr2,2), ubound(impPtr2,2)
+           do i=lbound(impPtr2,1), ubound(impPtr2,1)
             impPtr2(i,j,2) = impPtr2(i,j,1)
-          enddo
+           enddo
           enddo
         endif
         ! fill #1

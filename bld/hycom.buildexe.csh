@@ -14,7 +14,7 @@ else
   exit 1
 endif
 
-gmake ARCH=intelIFC TYPE=nuopc USER_DEFS=-DHYCOM_IN_CESM nuopc
+gmake ARCH=intelIFC TYPE=nuopc USER_DEFS="-DHYCOM_IN_CESM -convert big_endian" nuopc
 if ($status) then
    echo "error executing gmake ARCH=intelIFC TYPE=nuopc USER_DEFS=-DHYCOM_IN_CESM nuopc"
    exit 2
