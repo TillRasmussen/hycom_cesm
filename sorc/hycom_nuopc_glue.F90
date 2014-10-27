@@ -440,6 +440,8 @@ module hycom_nuopc_glue
     cpl_swflx     =.false.
     cpl_lwmdnflx  =.false.
     cpl_lwmupflx  =.false.
+    cpl_latflx    =.false.
+    cpl_sensflx   =.false.
     cpl_precip    =.false.
     cpl_surtmp    =.false.
     cpl_seatmp    =.false.
@@ -802,6 +804,14 @@ module hycom_nuopc_glue
       elseif (fieldStdName == "mean_up_lw_flx") then
         cpl_lwmupflx = .not.initFlag
         impPtr2 => imp_lwuflx
+        twoLevel = .true.
+      elseif (fieldStdName == "mean_lat_flx") then
+        cpl_latflx = .not.initFlag
+        impPtr2 => imp_latflx
+        twoLevel = .true.
+      elseif (fieldStdName == "mean_sens_flx") then
+        cpl_sensflx = .not.initFlag
+        impPtr2 => imp_sensflx
         twoLevel = .true.
       elseif (fieldStdName == "inst_temp_height2m") then
         cpl_airtmp = .not.initFlag
