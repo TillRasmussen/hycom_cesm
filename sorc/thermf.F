@@ -1016,7 +1016,7 @@ c ---   Sensible Heat flux (W/m2) (from the coupler)
 #endif
 
 #ifdef NUOPC
-          if(cpl_swfl   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
+          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
      &       cpl_latflx .and. cpl_sensflx ) then
               surflx(i,j) = radfl + snsibl + evap
           else 
@@ -1072,7 +1072,7 @@ c ---   Sensible Heat flux (W/m2) (from the coupler)
 #endif
 
 #ifdef NUOPC
-          if(cpl_swfl   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
+          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
      &       cpl_latflx .and. cpl_sensflx ) then
               surflx(i,j) = radfl + snsibl + evap
           else 
@@ -1192,7 +1192,7 @@ c ---   Sensible Heat flux (W/m2) (from the coupler)
 #endif
 
 #ifdef NUOPC
-          if(cpl_swfl   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
+          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
      &       cpl_latflx .and. cpl_sensflx ) then
               surflx(i,j) = radfl + snsibl + evap
           else 

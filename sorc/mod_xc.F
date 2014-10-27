@@ -107,7 +107,7 @@ c==>  import from atm
       real, target, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) ::
      & imp_taux, imp_tauy, imp_wndspd, imp_ustara,
      & imp_airtmp, imp_vapmix, imp_swflx, imp_lwdflx, imp_lwuflx,
-     & imp_latflx, imp_sensflx
+     & imp_latflx, imp_sensflx,
      & imp_precip, imp_surtmp, imp_seatmp
 
 c==>  import from ice
