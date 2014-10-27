@@ -48,6 +48,17 @@ module hycom
   public SetServices
 
 #ifdef HYCOM_IN_CESM
+
+  type HYCOM_CESM_FIELD_TABLE_ENTRY
+    character(len=128)              :: hycom_stdname
+    character(len=128)              :: cesm_stdname
+    character(len=32)               :: unit
+    logical                         :: connected
+  end type
+
+  type(HYCOM_CESM_FIELD_TABLE_ENTRY):: hycom2cesm_table(30)
+  type(HYCOM_CESM_FIELD_TABLE_ENTRY):: cesm2hycom_table(30)
+
   public loadHycomDictionary
 
   type(mct_gsMap), public, pointer  :: gsmap_o
@@ -55,6 +66,8 @@ module hycom
   integer                           :: OCNID      
   type(ESMF_Routehandle), save      :: HYCOM2CESM_RHR8, CESM2HYCOM_RHR8
   type(ESMF_Routehandle), save      :: HYCOM2CESM_RHI4, CESM2HYCOM_RHI4
+  integer, parameter, public        :: number_import_fields = 27
+  integer, parameter, public        :: number_export_fields = 7
 #endif
   
   !-----------------------------------------------------------------------------
@@ -208,6 +221,12 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+
+    call initialize_HYCOM_CESM_tables(rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
 #endif
       
   end subroutine
@@ -239,11 +258,12 @@ module hycom
 #ifdef HYCOM_IN_CESM            
     type(ESMF_State)            :: import_state, export_state
     type(ESMF_Mesh)             :: mesh, meshIn, meshOut
-    type(ESMF_DistGrid)         :: distgrid
+    type(ESMF_DistGrid)         :: distgrid, distgrid2D
     type(ESMF_Array)            :: o2x, x2o, dom
     type(ESMF_ArraySpec)        :: arrayspec
     type(ESMF_Delayout)         :: delayout
     integer                     :: ldeCount, eleCount, lsize, mpicom_ocn, nfields, lde
+    integer                     :: maxIndex(2, 1)
 #endif
     
     rc = ESMF_SUCCESS
@@ -297,7 +317,7 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
       
-    print *, " HYCOM_INIT -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
+    !print *, " HYCOM_INIT -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
 
     call ESMF_LOGWRITE("BEFORE HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -542,7 +562,7 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
-    print *, 'HYCOM DG DELAYOUT localDECount: ', ldeCount
+    !print *, 'HYCOM DG DELAYOUT localDECount: ', ldeCount
 
     lsize = 0
     do lde = 0, ldeCount-1
@@ -554,7 +574,7 @@ module hycom
       lsize = lsize + eleCount
     enddo
 
-    print *, 'HYCOM DG DELAYOUT lsize: ', lsize
+    !print *, 'HYCOM DG DELAYOUT lsize: ', lsize
 
     !-----------------------------------------
     ! Create dom 
@@ -623,9 +643,21 @@ module hycom
     call esmf2mct_init(dom, dom_o, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
-    print *, 'HYCOM GSMAP gsize: ', mct_gsMap_gsize(gsmap_o)
+    !print *, 'HYCOM GSMAP gsize: ', mct_gsMap_gsize(gsmap_o)
 
+    call ESMF_GridGet(is%wrap%glue%grid, distgrid=distgrid2D, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    call ESMF_DistGridGet(distgrid2D, maxIndexPTile=maxIndex, rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
     call ESMF_AttributeSet(export_state, name="gsize", value=mct_gsMap_gsize(gsmap_o), rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    call ESMF_AttributeSet(export_state, name="ocn_prognostic", value=.true., rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    call ESMF_AttributeSet(export_state, name="ocnrof_prognostic", value=.true., rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    call ESMF_AttributeSet(export_state, name="ocn_nx", value=maxIndex(1,1), rc=rc)
+    if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    call ESMF_AttributeSet(export_state, name="ocn_ny", value=maxIndex(2,1), rc=rc)
     if (rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
     !! Create and Realize Importable fields
@@ -755,6 +787,11 @@ module hycom
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !return ! bail out
+    !call dumpRawData(importState, 'hycom_import_all_fields_r3.raw', 'x2d', seq_flds_x2o_fields, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
     ! Redistribute CESM input to HYCOM field stored in glue import fieldbundle
     call ESMF_StatePrint(importState, rc=rc)
@@ -805,13 +842,23 @@ module hycom
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !return ! bail out
+    !call HYCOM_RedistCESM2HYCOM(importState, 'Foxx_surface_net_shortwave_flux', &
+    !  is%wrap%glue%importFields, 'mean_net_sw_flx', hycom_field_shortname="mnswfx", rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 
-    call HYCOM_RedistCESM2HYCOM(importState, 'Foxx_surface_net_shortwave_flux', &
-      is%wrap%glue%importFields, 'mean_net_sw_flx', hycom_field_shortname="mnswfx", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    do i  = 1, number_import_fields
+      if(cesm2hycom_table(i)%connected) then
+        call HYCOM_RedistCESM2HYCOM(importState, cesm2hycom_table(i)%cesm_stdname, &
+          is%wrap%glue%importFields, cesm2hycom_table(i)%hycom_stdname, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+    enddo
 
     call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
@@ -859,8 +906,8 @@ module hycom
       ! ...on return the end-of-run flags indicate whether HYCOM has advanced
       ! far enough...
       call HYCOM_Run(endtime=stepTime_r8) ! -->> call into HYCOM <<--
-      print *, "HYCOM_Run returned with end_of_run, end_of_run_cpl:", &
-        end_of_run, end_of_run_cpl
+      !print *, "HYCOM_Run returned with end_of_run, end_of_run_cpl:", &
+      !  end_of_run, end_of_run_cpl
       if (end_of_run .or. end_of_run_cpl) exit
     enddo
 
@@ -1107,7 +1154,7 @@ module hycom
     return ! bail out
 
     nfields = shr_string_listGetNum(trim(seq_flds_o2x_fields))
-    print *, 'ocn_forcing nfields: ', nfields, ' gsize: ', gsize
+    !print *, 'ocn_forcing nfields: ', nfields, ' gsize: ', gsize
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1214,13 +1261,21 @@ module hycom
           line=__LINE__, &
           file=__FILE__)) &
         return ! bail out
+
         call ESMF_FieldGet(dst2Dfield, farrayPtr=ptr2D, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
         return ! bail out
+        ptr2D = 0.0_ESMF_KIND_R8
 
         call ESMF_FieldRedist(field, dst2DField, routehandle=CESM2HYCOM_RHR8, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+        return ! bail out
+        
+        call ESMF_LogWrite(trim('RedistAndWriteField: '//fieldNameList_loc(i)), ESMF_LOGMSG_INFO, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -1374,12 +1429,19 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    call ESMF_LogWrite(trim('HYCOM_RedistCESM2HYCOM: '// trim(cesm_field_stdname) // '--->' //trim(l_hycom_field_shortname)), &
+    call ESMF_LogWrite(trim('HYCOM_RedistCESM2HYCOM: '// trim(cesm_field_stdname) // ' : ' // trim(cesm_field_shortname) //' ---> ' //trim(hycom_field_stdname)//' : '//trim(l_hycom_field_shortname)), &
       ESMF_LOGMSG_INFO, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+
+    !call ESMF_FieldWrite(hycom_field, file='swnet.nc', variableName=trim(l_hycom_field_shortname), &
+    !  overwrite=.true., timeslice=1, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 
   end subroutine
 
@@ -1702,6 +1764,248 @@ module hycom
 !EOC
 
   end subroutine ocn_domain_esmf
+
+  subroutine initialize_HYCOM_CESM_tables(rc)
+
+    integer, intent(out) :: rc
+
+    integer              :: n_entries, i
+
+    rc = ESMF_SUCCESS
+
+    do i = 1, 30
+      hycom2cesm_table(i)%connected = .true.
+      hycom2cesm_table(i)%unit = ''
+      cesm2hycom_table(i)%connected = .true.
+      cesm2hycom_table(i)%unit = ''
+    enddo
+
+    cesm2hycom_table(1)%hycom_stdname  = "surface_downward_eastward_stress"
+    cesm2hycom_table(1)%cesm_stdname   = "Foxx_surface_downward_eastward_stress"
+    cesm2hycom_table(1)%unit           = "Pa"
+
+    cesm2hycom_table(2)%hycom_stdname  = "surface_downward_northward_stress"
+    cesm2hycom_table(2)%cesm_stdname   = "Foxx_surface_downward_northward_stress"
+    cesm2hycom_table(2)%unit           = "Pa"
+
+    cesm2hycom_table(3)%hycom_stdname  = "wind_speed_height10m"
+    cesm2hycom_table(3)%cesm_stdname   = "Sx_10m_wind"
+    cesm2hycom_table(3)%unit           = "m/s"
+    cesm2hycom_table(3)%connected      = .false.
+
+    cesm2hycom_table(4)%hycom_stdname  = "friction_speed"
+    cesm2hycom_table(4)%cesm_stdname   = "fraction_velocity"
+    cesm2hycom_table(4)%unit           = "m/s"
+    cesm2hycom_table(4)%connected      = .false.
+
+    cesm2hycom_table(5)%hycom_stdname  = "mean_down_sw_flx"                      
+    cesm2hycom_table(5)%cesm_stdname   = ""
+    cesm2hycom_table(5)%unit           = "W/m^2"
+    cesm2hycom_table(5)%connected      = .false.
+
+    cesm2hycom_table(6)%hycom_stdname  = "mean_net_sw_flx"
+    cesm2hycom_table(6)%cesm_stdname   = "Foxx_surface_net_shortwave_flux"
+    cesm2hycom_table(6)%unit           = "W/m^2"
+
+    cesm2hycom_table(7)%hycom_stdname  = "mean_net_lw_flx"
+    cesm2hycom_table(7)%cesm_stdname   = ""
+    cesm2hycom_table(7)%unit           = "W/m^2"
+    cesm2hycom_table(7)%connected      = .false.
+
+    cesm2hycom_table(8)%hycom_stdname  = "mean_down_lw_flx"
+    cesm2hycom_table(8)%cesm_stdname   = "downwelling_longwave_flux"
+    cesm2hycom_table(8)%unit           = "W/m^2"
+
+    cesm2hycom_table(8)%hycom_stdname  = "mean_up_lw_flx"
+    cesm2hycom_table(8)%cesm_stdname   = "Foxx_surface_net_upward_longwave_flux"
+    cesm2hycom_table(8)%unit           = "W/m^2"
+
+    cesm2hycom_table(9)%hycom_stdname  = "inst_temp_height2m"
+    cesm2hycom_table(9)%cesm_stdname   = "air_temperature"
+    cesm2hycom_table(9)%unit           = "K"
+    cesm2hycom_table(9)%connected      = .false.
+
+    cesm2hycom_table(10)%hycom_stdname = "mean_prec_rate"
+    cesm2hycom_table(10)%cesm_stdname  = "precipitation_flux"
+    cesm2hycom_table(10)%unit          = "Kg/m^2/s"
+
+    cesm2hycom_table(11)%hycom_stdname = "inst_spec_humid_height2m"
+    cesm2hycom_table(11)%cesm_stdname  = "specific_humidity"
+    cesm2hycom_table(11)%unit          = "Kg/Kg"
+    cesm2hycom_table(11)%connected     = .false.
+
+    cesm2hycom_table(12)%hycom_stdname = "sea_surface_temperature"
+    cesm2hycom_table(12)%cesm_stdname  = "air_potential_temperature"
+    cesm2hycom_table(12)%unit          = "K"
+    cesm2hycom_table(12)%connected     = .false.
+
+    cesm2hycom_table(13)%hycom_stdname = "sea_ice_area_fraction"
+    cesm2hycom_table(13)%cesm_stdname  = "Si_sea_ice_area_fraction"
+    cesm2hycom_table(13)%unit          = "1"
+
+    cesm2hycom_table(14)%hycom_stdname = "downward_x_stress_at_sea_ice_base"
+    cesm2hycom_table(14)%cesm_stdname  = "Fioi_surface_downward_eastward_stress_ioi"
+    cesm2hycom_table(14)%unit          = "Pa"
+
+    cesm2hycom_table(15)%hycom_stdname = "downward_y_stress_at_sea_ice_base"
+    cesm2hycom_table(15)%cesm_stdname  = "Fioi_surface_downward_northward_stress_ioi"
+    cesm2hycom_table(15)%unit          = "Pa"
+
+    cesm2hycom_table(16)%hycom_stdname = "downward_sea_ice_basal_solar_heat_flux"
+    cesm2hycom_table(16)%cesm_stdname  = ""
+    cesm2hycom_table(16)%unit          = "W/m^2"
+    cesm2hycom_table(16)%connected     = .false.
+
+    cesm2hycom_table(17)%hycom_stdname = "upward_sea_ice_basal_heat_flux"
+    cesm2hycom_table(17)%cesm_stdname  = "surface_snow_melt_heat_flux"
+    cesm2hycom_table(17)%unit          = "W/^2"
+
+    cesm2hycom_table(18)%hycom_stdname = "downward_sea_ice_basal_salt_flux"
+    cesm2hycom_table(18)%cesm_stdname  = "virtual_salt_flux_into_sea_water"
+    cesm2hycom_table(18)%unit          = "Kg/m^2/s"
+
+    cesm2hycom_table(19)%hycom_stdname = "downward_sea_ice_basal_water_flux"
+    cesm2hycom_table(19)%cesm_stdname  = "surface_melt_flux"
+    cesm2hycom_table(19)%unit          = "Kg/m^2/s"
+
+    cesm2hycom_table(20)%hycom_stdname = "sea_ice_temperature"
+    cesm2hycom_table(20)%cesm_stdname  = ""
+    cesm2hycom_table(20)%unit          = "K"
+    cesm2hycom_table(20)%connected     = .false.
+
+    cesm2hycom_table(21)%hycom_stdname = "sea_ice_thickness"
+    cesm2hycom_table(21)%cesm_stdname  = ""
+    cesm2hycom_table(21)%unit          = "m"
+    cesm2hycom_table(21)%connected     = .false.
+
+    cesm2hycom_table(22)%hycom_stdname = "sea_ice_x_velocity"
+    cesm2hycom_table(22)%cesm_stdname  = ""
+    cesm2hycom_table(22)%unit          = "m/s"
+    cesm2hycom_table(22)%connected     = .false.
+
+    cesm2hycom_table(23)%hycom_stdname = "sea_ice_y_velocity"
+    cesm2hycom_table(23)%cesm_stdname  = ""
+    cesm2hycom_table(23)%unit          = "m/s"
+    cesm2hycom_table(23)%connected     = .false.
+
+    cesm2hycom_table(24)%hycom_stdname = "downward_x_stress_ocean"
+    cesm2hycom_table(24)%cesm_stdname  = "Faox_surface_downward_eastward_stress"
+    cesm2hycom_table(24)%unit          = "Pa"
+    cesm2hycom_table(24)%connected     = .false.
+
+    cesm2hycom_table(25)%hycom_stdname = "downward_y_stress_ocean"
+    cesm2hycom_table(25)%cesm_stdname  = "Faox_surface_downward_northward_stress"
+    cesm2hycom_table(25)%unit          = "Pa"
+    cesm2hycom_table(25)%connected     = .false.
+
+    cesm2hycom_table(26)%hycom_stdname = "mean_lat_flx"
+    cesm2hycom_table(26)%cesm_stdname  = "Foxx_surface_upward_latent_heat_flux"
+    cesm2hycom_table(26)%unit          = "W/m^2"
+
+    cesm2hycom_table(27)%hycom_stdname = "mean_sens_flx"
+    cesm2hycom_table(27)%cesm_stdname  = "Foxx_surface_upward_sensible_heat_flux"
+    cesm2hycom_table(27)%unit          = "W/m^2"
+
+    ! --------------------------------------------------------------------------
+    hycom2cesm_table(1)%hycom_stdname = "sea_surface_temperature"
+    hycom2cesm_table(1)%cesm_stdname  = "surface_temperature"
+    hycom2cesm_table(1)%unit          = "K"
+
+    hycom2cesm_table(2)%hycom_stdname = "sea_surface_salinity"
+    hycom2cesm_table(2)%cesm_stdname  = "sea_surface_salinity"
+    hycom2cesm_table(2)%unit          = "g/Kg"
+
+    hycom2cesm_table(3)%hycom_stdname = "sea_water_x_velocity"
+    hycom2cesm_table(3)%cesm_stdname  = "eastward_sea_water_velocity"
+    hycom2cesm_table(3)%unit          = "m/s"
+
+    hycom2cesm_table(4)%hycom_stdname = "sea_water_y_velocity"
+    hycom2cesm_table(4)%cesm_stdname  = "northward_sea_water_velocity"
+    hycom2cesm_table(4)%unit          = "m/s"
+
+    hycom2cesm_table(5)%hycom_stdname = "sea_surface_height_above_sea_level"
+    hycom2cesm_table(5)%cesm_stdname  = ""
+    hycom2cesm_table(5)%unit          = "m"
+    hycom2cesm_table(5)%connected     = .false.
+
+    hycom2cesm_table(6)%hycom_stdname = "upward_sea_ice_basal_available_heat_flux"
+    hycom2cesm_table(6)%cesm_stdname  = "surface_snow_and_ice_melt_heat_flux"
+    hycom2cesm_table(6)%unit          = "W/m^2"
+
+    hycom2cesm_table(7)%hycom_stdname = "ocean_mixed_layer_thickness"
+    hycom2cesm_table(7)%cesm_stdname  = "ocean_boundary_layer_depth"
+    hycom2cesm_table(7)%unit          = "m"
+
+end subroutine
+
+  subroutine dumpRawData(state, filename, distArrayName, fieldlist, rc)
+
+    use shr_string_mod
+
+    type(ESMF_State), intent(in)    :: state
+    character(len=*), intent(in)    :: filename
+    character(len=*), intent(in)    :: distArrayName
+    character(len=*), intent(in)    :: fieldlist
+    integer, intent(out)            :: rc
+
+    type(ESMF_Array)                :: d2x
+    real(ESMF_KIND_R8), allocatable :: rawdata(:,:)
+    integer                         :: gsize, nfields, elb(2,1), eub(2,1), lpet, rec_len
+    type(ESMF_VM)                   :: vm
+
+    rc = ESMF_SUCCESS
+
+    call ESMF_StateGet(state, itemName=distArrayName, array=d2x, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_AttributeGet(state, name="gsize", value=gsize, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_ArrayGet(d2x, exclusiveLBound=elb, exclusiveUBound=eub, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    nfields = shr_string_listGetNum(trim(fieldlist))
+    !nfields = eub(2,1)
+    print *, 'dumpRawData: nfields: ', nfields
+
+    call ESMF_VMGetCurrent(vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_VMGet(vm, localPet=lpet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    if(lpet == 0) allocate(rawdata(nfields, gsize))
+
+    call ESMF_ArrayGather(d2x, rawdata, 0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    if(lpet == 0) then
+      inquire (IOLENGTH=rec_len) rawdata
+      open(1901,file=filename,status = 'unknown', form='unformatted', access='direct',recl=rec_len)
+      write(1901,rec=1) rawdata
+      close(1901)
+    endif
+
+    if(lpet == 0) deallocate(rawdata)
+
+  end subroutine
 
   ! compute regridding weights for all regridding pairs
   subroutine HYCOM_CESM_REGRID_TOOCN(srcGridFile, dstGrid, weightFile, regridMethod, rc)
@@ -2225,6 +2529,32 @@ module hycom
         canonicalUnits="m s-1", &
         defaultLongName="ocean current meridional component", &
         defaultShortName="ocncm", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "downward_x_stress_ocean")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="downward_x_stress_ocean", &
+        canonicalUnits="Pa", &
+        defaultLongName="ocean downward eastward stress", &
+        defaultShortName="sotx", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "downward_y_stress_ocean")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="downward_y_stress_ocean", &
+        canonicalUnits="Pa", &
+        defaultLongName="ocean downward northward stress", &
+        defaultShortName="soty", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
