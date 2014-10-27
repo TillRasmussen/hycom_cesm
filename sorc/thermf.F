@@ -992,11 +992,39 @@ c ---   snsibl = sensible heat flux  into atmos from ocean.
           evape = ctl*airdns*evaplh*wind*
      &            max(0.,0.97*qsatur(esst)-vpmx)
         endif
-        evap  =ctl*airdns*evaplh*wind*
+#ifdef NUOPC
+c ---   Latent Heat flux (W/m2) (from the coupler)
+          if(cpl_latflx) then
+              evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
+          else 
+              evap= ctl*airdns*evaplh*wind*
      &         max(0.,0.97*qsatur(temp(i,j,1,n))-vpmx)
-        snsibl=csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
-c ---   surflx = thermal energy flux (W/m^2) into ocean
-        surflx(i,j)=radfl - snsibl - evap
+          endif
+#else
+          evap= ctl*airdns*evaplh*wind*
+     &         max(0.,0.97*qsatur(temp(i,j,1,n))-vpmx)
+#endif 
+#ifdef NUOPC
+c ---   Sensible Heat flux (W/m2) (from the coupler)
+          if(cpl_sensflx) then
+              snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
+          else 
+              snsibl = csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
+          endif
+#else
+          snsibl = csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
+#endif
+
+#ifdef NUOPC
+          if(cpl_swfl   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
+     &       cpl_latflx .and. cpl_sensflx ) then
+              surflx(i,j) = radfl + snsibl + evap
+          else 
+              surflx(i,j) = radfl - snsibl - evap
+          endif 
+#else
+              surflx(i,j) = radfl - snsibl - evap
+#endif
       elseif (flxflg.eq.2) then
 c
 c ---    Cl (and Cs) depend on wind speed and Ta-Ts.
@@ -1022,9 +1050,37 @@ c ---   surflx = thermal energy flux (W/m^2) into ocean
         if     (empflg.lt.0) then
           evape = slat*clh*wind*(0.97*qsatur(esst)-vpmx)
         endif
-        evap   = slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
-        snsibl = ssen*csh*wind* tdif
-        surflx(i,j) = radfl - snsibl - evap
+#ifdef NUOPC
+c ---   Latent Heat flux (W/m2) (from the coupler)
+          if(cpl_latflx) then
+              evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
+          else 
+              evap= slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
+          endif
+#else
+          evap= slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
+#endif 
+#ifdef NUOPC
+c ---   Sensible Heat flux (W/m2) (from the coupler)
+          if(cpl_sensflx) then
+              snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
+          else 
+              snsibl = ssen*csh*wind* tdif
+          endif
+#else
+          snsibl = ssen*csh*wind* tdif
+#endif
+
+#ifdef NUOPC
+          if(cpl_swfl   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
+     &       cpl_latflx .and. cpl_sensflx ) then
+              surflx(i,j) = radfl + snsibl + evap
+          else 
+              surflx(i,j) = radfl - snsibl - evap
+          endif 
+#else
+              surflx(i,j) = radfl - snsibl - evap
+#endif
 c
 cdiag   if     (i.eq.itest.and.j.eq.jtest) then
 cdiag     write(lp,'(i9,2i5,a,4f8.5)')
@@ -1114,9 +1170,37 @@ c ---   surflx = thermal energy flux (W/m^2) into ocean
         if     (empflg.lt.0) then
           evape = slat*clh*wind*(0.97*qsatur(esst)-vpmx)
         endif
-        evap   = slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
-        snsibl = ssen*csh*wind* tdif
-        surflx(i,j) = radfl - snsibl - evap
+#ifdef NUOPC
+c ---   Latent Heat flux (W/m2) (from the coupler)
+          if(cpl_latflx) then
+              evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
+          else 
+              evap= slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
+          endif
+#else
+          evap= slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
+#endif 
+#ifdef NUOPC
+c ---   Sensible Heat flux (W/m2) (from the coupler)
+          if(cpl_sensflx) then
+              snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
+          else 
+              snsibl = ssen*csh*wind* tdif
+          endif
+#else
+          snsibl = ssen*csh*wind* tdif
+#endif
+
+#ifdef NUOPC
+          if(cpl_swfl   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
+     &       cpl_latflx .and. cpl_sensflx ) then
+              surflx(i,j) = radfl + snsibl + evap
+          else 
+              surflx(i,j) = radfl - snsibl - evap
+          endif 
+#else
+              surflx(i,j) = radfl - snsibl - evap
+#endif
 c
 cdiag   if     (i.eq.itest.and.j.eq.jtest) then
 cdiag     write(lp,'(i9,2i5,a,3f8.5)')
