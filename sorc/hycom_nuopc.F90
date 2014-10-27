@@ -1331,6 +1331,13 @@ module hycom
 
     rc = ESMF_SUCCESS
 
+    call ESMF_LogWrite(trim('HYCOM_RedistHYCOM2CESM '// trim(hycom_field_stdname) // ' ---> ' //trim(cesm_field_stdname)), &
+      ESMF_LOGMSG_INFO, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
     ! retrieve 1D field from cesm export State
     call NUOPC_FieldDictionaryGetEntry(standardName=trim(cesm_field_stdname), &
       defaultShortName=cesm_field_shortname, rc=rc)
@@ -1365,6 +1372,13 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+
+    call ESMF_LogWrite(trim('HYCOM_RedistHYCOM2CESM: '// trim(hycom_field_stdname) // ' : ' // trim(l_hycom_field_shortname) //' ---> ' //trim(cesm_field_stdname)//' : '//trim(cesm_field_shortname)), &
+      ESMF_LOGMSG_INFO, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
     
   end subroutine
 
@@ -1391,6 +1405,13 @@ module hycom
     character(len=256)                                     :: l_hycom_field_shortname
 
     rc = ESMF_SUCCESS
+
+    call ESMF_LogWrite(trim('HYCOM_RedistCESM2HYCOM: '// trim(cesm_field_stdname) // ' ---> ' //trim(hycom_field_stdname)), &
+      ESMF_LOGMSG_INFO, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
 
     ! retrieve 1D field from cesm import State
     call NUOPC_FieldDictionaryGetEntry(standardName=trim(cesm_field_stdname), &
@@ -1850,10 +1871,12 @@ module hycom
     cesm2hycom_table(14)%hycom_stdname = "downward_x_stress_at_sea_ice_base"
     cesm2hycom_table(14)%cesm_stdname  = "Fioi_surface_downward_eastward_stress_ioi"
     cesm2hycom_table(14)%unit          = "Pa"
+    cesm2hycom_table(14)%connected     = .false.
 
     cesm2hycom_table(15)%hycom_stdname = "downward_y_stress_at_sea_ice_base"
     cesm2hycom_table(15)%cesm_stdname  = "Fioi_surface_downward_northward_stress_ioi"
     cesm2hycom_table(15)%unit          = "Pa"
+    cesm2hycom_table(15)%connected     = .false.
 
     cesm2hycom_table(16)%hycom_stdname = "downward_sea_ice_basal_solar_heat_flux"
     cesm2hycom_table(16)%cesm_stdname  = ""
@@ -2243,6 +2266,18 @@ end subroutine
         file=__FILE__)) &
         return  ! bail out
     endif
+    if (.not.NUOPC_FieldDictionaryHasEntry( &
+      "mean_up_lw_flx")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="mean_up_lw_flx", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Mean Upward Long Wave Radiation Flux", &
+        defaultShortName="mulwfx", rc=rc);
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "mean_net_lw_flx")) then
       call NUOPC_FieldDictionaryAddEntry( &
@@ -2250,6 +2285,32 @@ end subroutine
         canonicalUnits="W m-2", &
         defaultLongName="Mean Net Long Wave Radiation Flux", &
         defaultShortName="mnlwfx", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "mean_lat_flx")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="mean_lat_flx", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Mean Latent Heat Flux", &
+        defaultShortName="mnlatfx", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "mean_sens_flx")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="mean_sens_flx", &
+        canonicalUnits="W m-2", &
+        defaultLongName="Mean Sensible Heat Flux", &
+        defaultShortName="mnsenfx", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
