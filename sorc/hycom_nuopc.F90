@@ -224,6 +224,7 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
+    ! Initialize 2-way connection tables between 1D and 2D layers
     call initialize_HYCOM_CESM_tables(rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -439,20 +440,20 @@ module hycom
       return  ! bail out
 
     !! exportable fields:
-    !call HYCOM_GlueFieldsRealize(is%wrap%glue, exportState, &
-    !  StandardNames=(/ &
-    !  "sea_surface_temperature                  ",    &
-    !  "upward_sea_ice_basal_available_heat_flux ",    &
-    !  "sea_lev                                  ",    &
-    !  "mixed_layer_depth                        ",    &
-    !  "s_surf                                   ",    &
-    !  "ocn_current_zonal                        ",    &
-    !  "ocn_current_merid                        "/),  &
-    !  rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
+    call HYCOM_GlueFieldsRealize(is%wrap%glue, exportState, &
+      StandardNames=(/ &
+      "sea_surface_temperature                  ",    &
+      "upward_sea_ice_basal_available_heat_flux ",    &
+      "sea_lev                                  ",    &
+      "mixed_layer_depth                        ",    &
+      "s_surf                                   ",    &
+      "ocn_current_zonal                        ",    &
+      "ocn_current_merid                        "/),  &
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
     ! Import data to HYCOM native structures through glue fields.
     call HYCOM_GlueFieldsDataImport(is%wrap%glue, .true., rc=rc)
@@ -681,12 +682,21 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    ! Provide static forcing to dynamic ice
+    ! Provide static forcing to dynamic ice, read static forcing into o2x Array
     call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_r3.raw', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+
+    ! Copy data in o2x Array to individual 1D Fields
+    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+!    ! Redist Export Fields from internal HYCOM to CESM
 !    do i  = 1, number_export_fields
 !      if(hycom2cesm_table(i)%connected) then
 !        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
@@ -698,12 +708,7 @@ module hycom
 !      endif
 !    enddo
 
-!    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!    return ! bail out
-
+    ! Redist 1D Field to 2D Field and write result in .nc Files
     call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
       timeslice=1, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -797,6 +802,7 @@ module hycom
       return  ! bail out
 
 #ifdef HYCOM_IN_CESM
+    !! Copy import 1D Fields into x2o Array
     !call esmfshr_nuopc_copy(ocn_import_fields, importState, 'x2d', rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -808,7 +814,7 @@ module hycom
     !  file=__FILE__)) &
     !return ! bail out
 
-    ! Redistribute CESM input to HYCOM field stored in glue import fieldbundle
+    ! Redistribute 1D CESM import Fields to HYCOM Fields stored in glue import fieldbundle
     call ESMF_StatePrint(importState, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -864,6 +870,7 @@ module hycom
     !  file=__FILE__)) &
     !  return  ! bail out
 
+    ! Redistribute 1D CESM import Fields to HYCOM Fields stored in glue import fieldbundle
     do i  = 1, number_import_fields
       if(cesm2hycom_table(i)%connected) then
         call HYCOM_RedistCESM2HYCOM(importState, cesm2hycom_table(i)%cesm_stdname, &
@@ -875,6 +882,7 @@ module hycom
       endif
     enddo
 
+    ! Redistribute 1D CESM import Fields to 2D Fields and write to .nc files
     call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -934,18 +942,20 @@ module hycom
       return  ! bail out
 
 #ifdef HYCOM_IN_CESM
-    ! Redistribute HYCOM field stored in glue export fieldbundle to CESM output
+    ! Redistribute HYCOM field stored in glue export fieldbundle to CESM 1D Fields
     !call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom_field_name, exportState, cesm_field_name, rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !  return  ! bail out
 
+    !! Copy o2x Array to CESM 1D Fields if forcing is used.
     !call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
 
+    ! Redistribute HYCOM field stored in glue export fieldbundle to CESM 1D Fields
 !    do i  = 1, number_export_fields
 !      if(hycom2cesm_table(i)%connected) then
 !        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
@@ -966,7 +976,6 @@ module hycom
 #else
     ! write out the Fields in the exportState
     call NUOPC_StateWrite(exportState, filePrefix="field_ocn_export_", &
-      !timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
       timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1780,10 +1789,10 @@ module hycom
       if (frac > 1.0_ESMF_KIND_R8) frac = 1.0_ESMF_KIND_R8
       fptr(kfrac, n)          = frac
       fptr(kmask, n)          = frac
-      write(msg, '(I4,A1,I8,A7,I8,2F10.3,E15.7,2F10.3)') lpet, ' ', n, ' INDEX=',indexlist(n), fptr(klon, n), &
-        fptr(klat , n), fptr(karea, n), fptr(kfrac, n), fptr(kmask, n)
-      call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+      !write(msg, '(I4,A1,I8,A7,I8,2F10.3,E15.7,2F10.3)') lpet, ' ', n, ' INDEX=',indexlist(n), fptr(klon, n), &
+      !  fptr(klat , n), fptr(karea, n), fptr(kfrac, n), fptr(kmask, n)
+      !call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+      !if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
     enddo
 
     write(msg, *) 'DUMPING HYCOM INDICES ENDS:'
@@ -1816,19 +1825,19 @@ module hycom
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
-    do i = elb(1,1), eub(1,1)
-      do j = elb(2,1), eub(2,1) 
-        write(msg, '(2I6,2F10.3)') i, j, fptrLon(i,j), fptrLat(i,j)
-        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-        if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-      enddo
-    enddo
+    !do i = elb(1,1), eub(1,1)
+    !  do j = elb(2,1), eub(2,1) 
+    !    write(msg, '(2I6,2F10.3)') i, j, fptrLon(i,j), fptrLat(i,j)
+    !    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    !    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    !  enddo
+    !enddo
 
-    do n = 1, n_elem
-      write(msg, '(I6,I8)') n, fptrSeqIndex(n)
-      call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-    enddo
+    !do n = 1, n_elem
+    !  write(msg, '(I6,I8)') n, fptrSeqIndex(n)
+    !  call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    !  if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    !enddo
 
     deallocate(indexlist)
     deallocate(fptrSeqIndex)
