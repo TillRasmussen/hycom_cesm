@@ -1054,6 +1054,7 @@ module hycom_nuopc_glue
     type(ESMF_StateIntent_Flag)       :: stateIntent
     real(kind=ESMF_KIND_R8), pointer  :: farrayPtr(:,:)
     integer                           :: i,j
+    logical                           :: isConnected
     
     real(kind=ESMF_KIND_R8) :: hfrz, t2f, tfrz, smxl, tmxl, ssfi
     
@@ -1084,12 +1085,27 @@ module hycom_nuopc_glue
       field = fieldList(iField)
       fieldName = fieldNameList(iField)
     
+#ifdef HYCOM_IN_CESM
+      call ESMF_AttributeGet(field, name="StandardName", value=fieldStdName, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      isConnected = .false.
+      call ESMF_AttributeGet(field, name="HYCOM_IN_CESM_Connected", value=isConnected, defaultValue=.false., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      if(.not. isConnected) cycle
+#else
       call NUOPC_FieldAttributeGet(field, name="StandardName", &
         value=fieldStdName, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
         return  ! bail out
+#endif
       
       call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
         trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)

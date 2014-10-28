@@ -264,7 +264,7 @@ module hycom
     type(ESMF_Array)            :: o2x, x2o, dom
     type(ESMF_ArraySpec)        :: arrayspec
     type(ESMF_Delayout)         :: delayout
-    integer                     :: ldeCount, eleCount, lsize, mpicom_ocn, nfields, lde
+    integer                     :: ldeCount, eleCount, lsize, mpicom_ocn, nfields, lde, i
     integer                     :: maxIndex(2, 1)
 #endif
     
@@ -595,7 +595,8 @@ module hycom
 
     ! Set values of dom (needs ocn initialization info)
 
-    call ocn_domain_esmf(dom, is%wrap%glue%grid)
+    call ocn_domain_esmf(dom, is%wrap%glue%grid, rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
    
     !----------------------------------------- 
     !  Create o2x 
@@ -686,12 +687,22 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+!    do i  = 1, number_export_fields
+!      if(hycom2cesm_table(i)%connected) then
+!        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+!          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!          line=__LINE__, &
+!          file=__FILE__)) &
+!          return  ! bail out
+!      endif
+!    enddo
 
-    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+!    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!    return ! bail out
 
     call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
       timeslice=1, relaxedFlag=.true., rc=rc)
@@ -934,6 +945,17 @@ module hycom
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
+
+!    do i  = 1, number_export_fields
+!      if(hycom2cesm_table(i)%connected) then
+!        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+!          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!          line=__LINE__, &
+!          file=__FILE__)) &
+!          return  ! bail out
+!      endif
+!    enddo
 
     call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
@@ -1475,7 +1497,7 @@ module hycom
 ! !IROUTINE: ocn_domain_esmf
 ! !INTERFACE:
 
- subroutine ocn_domain_esmf( dom, grid )
+ subroutine ocn_domain_esmf( dom, grid, rc)
 
 ! !DESCRIPTION:
 !  This routine creates the ocean domain and necessary communication routehandles
@@ -1488,6 +1510,7 @@ module hycom
     implicit none
     type(ESMF_Array), intent(inout)     :: dom      ! CESM DOMAIN INFO
     type(ESMF_Grid),  intent(in)        :: grid     ! Native HYCOM 2D Grid
+    integer, intent(out)                :: rc
 
 !EOP
 !BOC
@@ -1497,7 +1520,6 @@ module hycom
 !
 !-----------------------------------------------------------------------
 
-    integer :: rc
 
     integer ::   &
       i,j, n, iblock
@@ -1520,12 +1542,14 @@ module hycom
     type(ESMF_Array)     :: lon1d, lat1d, area1d, mask1d
     type(ESMF_Array)     :: plon, plat, area, mask, area2d, mask2d
     integer              :: elb(2,1), eub(2,1), elb1(1,1), eub1(1,1)
-    real(ESMF_KIND_R8), pointer  :: tlon(:), tlat(:), tarea(:)
-    integer(ESMF_KIND_I4), pointer :: tmask(:)
+    real(ESMF_KIND_R8), pointer  :: tlon(:), tlat(:), tarea(:), fptrLon(:,:), fptrLat(:,:)
+    integer(ESMF_KIND_I4), pointer :: tmask(:), fptrSeqIndex(:)
     real(ESMF_KIND_R8)   :: radian, radius, pi
     type(ESMF_TYPEKIND_FLAG)  :: tkf
 
 !-----------------------------------------------------------------------
+
+    rc = ESMF_SUCCESS
 
     ! Retrieve domain data pointer
     call ESMF_ArrayGet(dom, localDe=0, farrayPtr=fptr, rc=rc)
@@ -1762,11 +1786,52 @@ module hycom
       if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
     enddo
 
-    deallocate(indexlist)
-
     write(msg, *) 'DUMPING HYCOM INDICES ENDS:'
     call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
     if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    call ESMF_ArrayGet(plon, farrayPtr=fptrLon, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_ArrayGet(plat, farrayPtr=fptrLat, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_DistGridGet(distgrid, 0, arbSeqIndexFlag=arbIndexFlag, elementCount=n_elem, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    allocate(fptrSeqIndex(n_elem))
+    call ESMF_DistGridGet(distgrid2D, 0, seqIndexList=fptrSeqIndex, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    write(msg, *) 'HYCOM 2D distribution is arbitrary? ', arbIndexFlag, n_elem
+    call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+    if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+
+    do i = elb(1,1), eub(1,1)
+      do j = elb(2,1), eub(2,1) 
+        write(msg, '(2I6,2F10.3)') i, j, fptrLon(i,j), fptrLat(i,j)
+        call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+        if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+      enddo
+    enddo
+
+    do n = 1, n_elem
+      write(msg, '(I6,I8)') n, fptrSeqIndex(n)
+      call ESMF_LogWrite(trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+      if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
+    enddo
+
+    deallocate(indexlist)
+    deallocate(fptrSeqIndex)
 
     call ESMF_ArrayRedistStore(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1935,22 +2000,22 @@ module hycom
 
     ! --------------------------------------------------------------------------
     hycom2cesm_table(1)%hycom_stdname = "sea_surface_temperature"
-    hycom2cesm_table(1)%cesm_stdname  = "surface_temperature"
+    hycom2cesm_table(1)%cesm_stdname  = "surface_temperature_o"
     hycom2cesm_table(1)%unit          = "K"
 
-    hycom2cesm_table(2)%hycom_stdname = "sea_surface_salinity"
+    hycom2cesm_table(2)%hycom_stdname = "s_surf"
     hycom2cesm_table(2)%cesm_stdname  = "sea_surface_salinity"
     hycom2cesm_table(2)%unit          = "g/Kg"
 
-    hycom2cesm_table(3)%hycom_stdname = "sea_water_x_velocity"
+    hycom2cesm_table(3)%hycom_stdname = "ocn_current_zonal"
     hycom2cesm_table(3)%cesm_stdname  = "eastward_sea_water_velocity"
     hycom2cesm_table(3)%unit          = "m/s"
 
-    hycom2cesm_table(4)%hycom_stdname = "sea_water_y_velocity"
+    hycom2cesm_table(4)%hycom_stdname = "ocn_current_merid"
     hycom2cesm_table(4)%cesm_stdname  = "northward_sea_water_velocity"
     hycom2cesm_table(4)%unit          = "m/s"
 
-    hycom2cesm_table(5)%hycom_stdname = "sea_surface_height_above_sea_level"
+    hycom2cesm_table(5)%hycom_stdname = "sea_lev"
     hycom2cesm_table(5)%cesm_stdname  = ""
     hycom2cesm_table(5)%unit          = "m"
     hycom2cesm_table(5)%connected     = .false.
@@ -1959,11 +2024,11 @@ module hycom
     hycom2cesm_table(6)%cesm_stdname  = "surface_snow_and_ice_melt_heat_flux"
     hycom2cesm_table(6)%unit          = "W/m^2"
 
-    hycom2cesm_table(7)%hycom_stdname = "ocean_mixed_layer_thickness"
+    hycom2cesm_table(7)%hycom_stdname = "mixed_layer_depth"
     hycom2cesm_table(7)%cesm_stdname  = "ocean_boundary_layer_depth"
     hycom2cesm_table(7)%unit          = "m"
 
-end subroutine
+  end subroutine
 
   subroutine dumpRawData(state, filename, distArrayName, fieldlist, rc)
 
@@ -2170,8 +2235,6 @@ end subroutine
       return  ! bail out
 
   end subroutine
-
-#endif
 
   subroutine loadHycomDictionary(rc)
     integer, intent(out)                     :: rc
@@ -2628,5 +2691,7 @@ end subroutine
     endif 
 
   end subroutine
+
+#endif
   
 end module
