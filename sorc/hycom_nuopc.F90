@@ -683,30 +683,30 @@ module hycom
     return ! bail out
 
     ! Provide static forcing to dynamic ice, read static forcing into o2x Array
-    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_r3.raw', rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+!    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_r3.raw', rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!    return ! bail out
+!
+!    ! Copy data in o2x Array to individual 1D Fields
+!    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!    return ! bail out
 
-    ! Copy data in o2x Array to individual 1D Fields
-    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-
-!    ! Redist Export Fields from internal HYCOM to CESM
-!    do i  = 1, number_export_fields
-!      if(hycom2cesm_table(i)%connected) then
-!        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-!          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!          line=__LINE__, &
-!          file=__FILE__)) &
-!          return  ! bail out
-!      endif
-!    enddo
+    ! Redist Export Fields from internal HYCOM to CESM 1D Fields
+    do i  = 1, number_export_fields
+      if(hycom2cesm_table(i)%connected) then
+        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+    enddo
 
     ! Redist 1D Field to 2D Field and write result in .nc Files
     call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
@@ -956,16 +956,23 @@ module hycom
     !  file=__FILE__)) &
 
     ! Redistribute HYCOM field stored in glue export fieldbundle to CESM 1D Fields
-!    do i  = 1, number_export_fields
-!      if(hycom2cesm_table(i)%connected) then
-!        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-!          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!          line=__LINE__, &
-!          file=__FILE__)) &
-!          return  ! bail out
-!      endif
-!    enddo
+    do i  = 1, number_export_fields
+      if(hycom2cesm_table(i)%connected) then
+        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+    enddo
+
+    call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_export_", &
+      timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
     call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
@@ -1221,6 +1228,86 @@ module hycom
 
   end subroutine
 
+  subroutine HYCOM_WriteFieldBundle(grid, fieldbundle, fieldNameList, filePrefix, overwrite, &
+    status, timeslice, relaxedflag, rc)
+    type(ESMF_Grid),            intent(in)            :: grid
+    type(ESMF_FieldBundle),     intent(in)            :: fieldbundle
+    character(len=*),           intent(in),  optional :: fieldNameList(:)
+    character(len=*),           intent(in),  optional :: filePrefix
+    logical,                    intent(in),  optional :: overwrite
+    type(ESMF_FileStatus_Flag), intent(in),  optional :: status
+    integer,                    intent(in),  optional :: timeslice
+    logical,                    intent(in),  optional :: relaxedflag
+    integer,                    intent(out), optional :: rc
+  !-----------------------------------------------------------------------------
+    ! local variables
+    integer                         :: i, itemCount
+    type(ESMF_Field)                :: field
+    type(ESMF_StateItem_Flag)       :: itemType
+    character(len=80)               :: fileName
+    character(len=80), allocatable  :: fieldNameList_loc(:)
+    type(ESMF_Field)                :: dst2DField
+    real(ESMF_KIND_R8), pointer     :: ptr1D(:), ptr2D(:,:)
+
+    if (present(rc)) rc = ESMF_SUCCESS
+
+    if (present(fieldNameList)) then
+      allocate(fieldNameList_loc(size(fieldNameList)))
+      do i=1, size(fieldNameList)
+        fieldNameList_loc(i) = trim(fieldNameList(i))
+      enddo
+    else
+      call ESMF_FieldBundleGet(fieldbundle, fieldCount=itemCount, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      allocate(fieldNameList_loc(itemCount))
+      call ESMF_FieldBundleGet(fieldbundle, fieldNameList=fieldNameList_loc, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
+
+    do i=1, size(fieldNameList_loc)
+      call ESMF_FieldBundleGet(fieldbundle, fieldName=fieldNameList_loc(i), field=field, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=FILENAME)) &
+        return  ! bail out
+      ! -> output to file
+      if (present(filePrefix)) then
+        write (fileName,"(A)") filePrefix//trim(fieldNameList_loc(i))//".nc"
+      else
+        write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
+      endif
+
+      call ESMF_FieldGet(field, farrayPtr=ptr2D, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      
+      call ESMF_LogWrite(trim('HYCOM_RedistAndWriteField: '//fieldNameList_loc(i)), ESMF_LOGMSG_INFO, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+
+      call ESMF_FieldWrite(field, file=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
+        overwrite=overwrite, status=status, timeslice=timeslice, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=FILENAME)) &
+        return  ! bail out
+
+    enddo
+
+    if(.not. present(fieldNameList)) deallocate(fieldNameList_loc)
+
+  end subroutine
+
   subroutine RedistAndWriteField(grid, state, fieldNameList, filePrefix, overwrite, &
     status, timeslice, relaxedflag, rc)
     type(ESMF_Grid),            intent(in)            :: grid
@@ -1326,7 +1413,7 @@ module hycom
       endif
     enddo
 
-    deallocate(fieldNameList_loc)
+    if(.not. present(fieldNameList)) deallocate(fieldNameList_loc)
 
     call ESMF_FieldDestroy(dst2DField, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
