@@ -1049,7 +1049,7 @@ module hycom_nuopc_glue
     integer                           :: fieldCount, iField, stat
     type(ESMF_Field), allocatable     :: fieldList(:)
     character(len=80), allocatable    :: fieldNameList(:)
-    character(len=80)                 :: fieldName, fieldStdName
+    character(len=80)                 :: fieldName, fieldStdName, msg
     type(ESMF_Field)                  :: field, shadow
     type(ESMF_StateIntent_Flag)       :: stateIntent
     real(kind=ESMF_KIND_R8), pointer  :: farrayPtr(:,:)
@@ -1078,6 +1078,10 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    write(msg, *) 'Number of fields in export Fields', fieldCount
+    call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
+      trim(msg), ESMF_LOGMSG_INFO)
     
     ! loop over all of the export Fields and fill in the data
     do iField=1, fieldCount
@@ -1097,6 +1101,9 @@ module hycom_nuopc_glue
         line=__LINE__, &
         file=__FILE__)) &
       return ! bail out
+      write(msg, *) trim(fieldStdName), ' connected: ', isConnected
+      call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
+        trim(msg), ESMF_LOGMSG_INFO)
       if(.not. isConnected) cycle
 #else
       call NUOPC_FieldAttributeGet(field, name="StandardName", &
@@ -1189,6 +1196,12 @@ module hycom_nuopc_glue
         do i=1,ii
           farrayPtr(i,j) = 0.5*(v(i,j,1,2)+v(i,j,1,1)) &
             + (vbavg(i,j,2)+vbavg(i,j,1))
+        enddo
+        enddo
+      elseif (fieldStdName == "surface_snow_and_ice_melt_heat_flux") then
+        do j=1,jj
+        do i=1,ii
+          farrayPtr(i,j) = 0.
         enddo
         enddo
       endif
