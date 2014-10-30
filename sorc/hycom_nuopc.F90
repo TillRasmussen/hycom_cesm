@@ -1443,7 +1443,7 @@ module hycom
         return ! bail out
 
         !call ESMF_FieldRedist(field, dst2DField, routehandle=CESM2HYCOM_RHR8, rc=rc)
-        call copy_1D_to_2D(field, dst2DField, rc=rc)
+        !call copy_1D_to_2D(field, dst2DField, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -1614,7 +1614,7 @@ module hycom
 
     if(.not. l_connectOnly) then
       !call ESMF_FieldRedist(hycom_field, cesm_field, routehandle=HYCOM2CESM_RHR8, rc=rc)
-      call copy_2D_to_1D(hycom_field, cesm_field, rc=rc)
+      !call copy_2D_to_1D(hycom_field, cesm_field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -1694,7 +1694,7 @@ module hycom
     return ! bail out
 
     !call ESMF_FieldRedist(cesm_field, hycom_field, routehandle=CESM2HYCOM_RHR8, rc=rc)
-    call copy_1D_to_2D(cesm_field, hycom_field, rc=rc)
+    !call copy_1D_to_2D(cesm_field, hycom_field, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -2069,98 +2069,98 @@ module hycom
     deallocate(indexlist)
     deallocate(fptrSeqIndex)
 
-    call ESMF_ArrayRedistStore(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayRedistStore(mask1D, mask2d, routehandle=CESM2HYCOM_RHI4, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    !call ESMF_ArrayRedistStore(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
+    !call ESMF_ArrayRedistStore(mask1D, mask2d, routehandle=CESM2HYCOM_RHI4, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 
-    call ESMF_ArrayRedist(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_ArrayRedist(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    dummy1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-    dummy2D = ESMF_ArrayCreate(distgrid2d, typekind=ESMF_TYPEKIND_R8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !dummy1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
+    !dummy2D = ESMF_ArrayCreate(distgrid2d, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    call ESMF_ArrayGet(dummy2D, farrayPtr=fptr2D, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_ArrayGet(dummy2D, farrayPtr=fptr2D, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    fptr2D(:,:) = lpet
+    !fptr2D(:,:) = lpet
 
-    call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
-      overwrite=.true., timeslice=1, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
+    !  overwrite=.true., timeslice=1, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    call ESMF_ArrayRedist(dummy2D, dummy1D, routehandle=HYCOM2CESM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_ArrayRedist(dummy2D, dummy1D, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    call ESMF_ArrayRedist(dummy1D, dummy2D, routehandle=CESM2HYCOM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_ArrayRedist(dummy1D, dummy2D, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
-      overwrite=.true., timeslice=2, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
+    !  overwrite=.true., timeslice=2, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    fptr1D(:) = fptrSeqIndex(:)
+    !fptr1D(:) = fptrSeqIndex(:)
 
-    allocate(fptr2D_new(ubound(fptr2D, 1), ubound(fptr2D, 2)))
-    call C_F_POINTER (C_LOC(fptr1D), fptr2D_new, [ubound(fptr2D, 1), ubound(fptr2D, 2)])
-    fptr2D(:,:) = fptr2D_new(:,:)
+    !allocate(fptr2D_new(ubound(fptr2D, 1), ubound(fptr2D, 2)))
+    !call C_F_POINTER (C_LOC(fptr1D), fptr2D_new, [ubound(fptr2D, 1), ubound(fptr2D, 2)])
+    !fptr2D(:,:) = fptr2D_new(:,:)
 
-    call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
-      overwrite=.true., timeslice=3, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
+    !call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
+    !  overwrite=.true., timeslice=3, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
 
-    call ESMF_ArrayRedist(dummy2D, dummy1D, routehandle=HYCOM2CESM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_ArrayRedist(dummy2D, dummy1D, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    call ESMF_ArrayRedist(dummy1D, dummy2D, routehandle=CESM2HYCOM_RHR8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_ArrayRedist(dummy1D, dummy2D, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
-    call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
-      overwrite=.true., timeslice=4, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
+    !  overwrite=.true., timeslice=4, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
 !-----------------------------------------------------------------------
 !EOC
