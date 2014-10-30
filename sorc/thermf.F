@@ -1191,16 +1191,16 @@ c ---   Sensible Heat flux (W/m2) (from the coupler)
           snsibl = ssen*csh*wind* tdif
 #endif
 
-#ifdef NUOPC
-          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
-     &       cpl_latflx .and. cpl_sensflx ) then
-              surflx(i,j) = radfl + snsibl + evap
-          else 
+!#ifdef NUOPC
+!          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
+!     &       cpl_latflx .and. cpl_sensflx ) then
+!              surflx(i,j) = radfl + snsibl + evap
+!          else 
+!              surflx(i,j) = radfl - snsibl - evap
+!          endif 
+!#else
               surflx(i,j) = radfl - snsibl - evap
-          endif 
-#else
-              surflx(i,j) = radfl - snsibl - evap
-#endif
+!#endif
 c
 cdiag   if     (i.eq.itest.and.j.eq.jtest) then
 cdiag     write(lp,'(i9,2i5,a,3f8.5)')

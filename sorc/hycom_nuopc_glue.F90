@@ -12,7 +12,7 @@ module hycom_nuopc_glue
 
   implicit none
   
-  private
+  PRIVATE
   
   type hycom_nuopc_glue_type
     ! native grid:
