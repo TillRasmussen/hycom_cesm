@@ -1443,7 +1443,7 @@ module hycom
         return ! bail out
 
         !call ESMF_FieldRedist(field, dst2DField, routehandle=CESM2HYCOM_RHR8, rc=rc)
-        !call copy_1D_to_2D(field, dst2DField, rc=rc)
+        call copy_1D_to_2D(field, dst2DField, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -1482,7 +1482,7 @@ module hycom
     integer, intent(out)               :: rc
 
     real(ESMF_KIND_R8), pointer        :: fptr1D(:), fptr2D(:,:), fptr2D_new(:,:)
-    integer                            :: i,j
+    integer                            :: i,j,k
 
     rc = ESMF_SUCCESS
 
@@ -1496,11 +1496,18 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+    k = 1
+    do j = 1, ubound(fptr2D, 2)
+      do i = 1, ubound(fptr2D, 1)
+        fptr2D(i, j) = fptr1D(k)
+        k = k + 1
+      enddo
+    enddo
 
-    allocate(fptr2D_new(ubound(fptr2D, 1), ubound(fptr2D, 2)))
-    call C_F_POINTER (C_LOC(fptr1D), fptr2D_new, [ubound(fptr2D, 1), ubound(fptr2D, 2)])
-    fptr2D = fptr2D_new
-    deallocate(fptr2D_new)
+    !allocate(fptr2D_new(ubound(fptr2D, 1), ubound(fptr2D, 2)))
+    !call C_F_POINTER (C_LOC(fptr1D), fptr2D_new, [ubound(fptr2D, 1), ubound(fptr2D, 2)])
+    !fptr2D = fptr2D_new
+    !deallocate(fptr2D_new)
 
     return
   end subroutine
@@ -1512,7 +1519,7 @@ module hycom
     integer, intent(out)               :: rc
 
     real(ESMF_KIND_R8), pointer        :: fptr1D(:), fptr2D(:,:), fptr1D_new(:)
-    integer                            :: i,j
+    integer                            :: i,j,k
 
     rc = ESMF_SUCCESS
 
@@ -1527,10 +1534,18 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    allocate(fptr1D_new(ubound(fptr1D, 1)))
-    call C_F_POINTER (C_LOC(fptr2D), fptr1D_new, [ubound(fptr1D, 1)])
-    fptr1D = fptr1D_new
-    deallocate(fptr1D_new)
+    k = 1
+    do j = 1, ubound(fptr2D, 2)
+      do i = 1, ubound(fptr2D, 1)
+        fptr1D(k) = fptr2D(i,j)
+        k = k + 1
+      enddo
+    enddo
+
+    !allocate(fptr1D_new(ubound(fptr1D, 1)))
+    !call C_F_POINTER (C_LOC(fptr2D), fptr1D_new, [ubound(fptr1D, 1)])
+    !fptr1D = fptr1D_new
+    !deallocate(fptr1D_new)
 
     return
   end subroutine
