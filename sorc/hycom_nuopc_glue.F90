@@ -12,7 +12,7 @@ module hycom_nuopc_glue
 
   implicit none
   
-  PRIVATE
+  private
   
   type hycom_nuopc_glue_type
     ! native grid:
@@ -538,6 +538,12 @@ module hycom_nuopc_glue
         file=__FILE__)) &
         return  ! bail out
 #ifdef HYCOM_IN_CESM
+      call ESMF_FieldGet(field, farrayPtr=farrayPtr, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      farrayPtr = -302039293330.3032393848  ! initiaize to some terrible value to expose problems in coupling
       call ESMF_AttributeSet(field, name="StandardName", value=standardName, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &

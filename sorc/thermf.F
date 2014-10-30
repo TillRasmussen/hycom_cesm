@@ -788,7 +788,8 @@ c ---        = Qsw+Qlw across the atmosphere to ocean or sea-ice interface
           radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
      &          +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
      &          +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
-
+            write (lp,'(a,a)') 'NUOPC: all net_sw_flx, dn_lw_flx,',
+     & 'and up_lw_flx are provided.'
         else
           if     (mnproc.eq.1) then
             write (lp,'(a,a)') 'NUOPC: not all net_sw_flx, dn_lw_flx,',
@@ -1191,16 +1192,16 @@ c ---   Sensible Heat flux (W/m2) (from the coupler)
           snsibl = ssen*csh*wind* tdif
 #endif
 
-!#ifdef NUOPC
-!          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
-!     &       cpl_latflx .and. cpl_sensflx ) then
-!              surflx(i,j) = radfl + snsibl + evap
-!          else 
-!              surflx(i,j) = radfl - snsibl - evap
-!          endif 
-!#else
+#ifdef NUOPC
+          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
+     &       cpl_latflx .and. cpl_sensflx ) then
+              surflx(i,j) = radfl + snsibl + evap
+          else 
               surflx(i,j) = radfl - snsibl - evap
-!#endif
+          endif 
+#else
+              surflx(i,j) = radfl - snsibl - evap
+#endif
 c
 cdiag   if     (i.eq.itest.and.j.eq.jtest) then
 cdiag     write(lp,'(i9,2i5,a,3f8.5)')

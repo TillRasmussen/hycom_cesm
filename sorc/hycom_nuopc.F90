@@ -66,7 +66,7 @@ module hycom
   integer                           :: OCNID      
   type(ESMF_Routehandle), save      :: HYCOM2CESM_RHR8, CESM2HYCOM_RHR8
   type(ESMF_Routehandle), save      :: HYCOM2CESM_RHI4, CESM2HYCOM_RHI4
-  integer, parameter, public        :: number_import_fields = 27
+  integer, parameter, public        :: number_import_fields = 28
   integer, parameter, public        :: number_export_fields = 7
 #endif
   
@@ -949,7 +949,8 @@ module hycom
     if (is%wrap%slice==1) initFlag = .true.
 
     ! Import data to HYCOM native structures through glue fields.
-    call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
+    ! call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
+    call HYCOM_GlueFieldsDataImport(is%wrap%glue, .true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1475,14 +1476,16 @@ module hycom
 
   end subroutine
 
-  subroutine copy_1D_to_2D(field1D, field2D, rc)
+  subroutine copy_1D_to_2D(field1D, field2D, zeroDst, rc)
     use iso_c_binding
 
     type(ESMF_Field), intent(inout)    :: field1D, field2D
+    logical, intent(in), optional      :: zeroDst
     integer, intent(out)               :: rc
 
     real(ESMF_KIND_R8), pointer        :: fptr1D(:), fptr2D(:,:), fptr2D_new(:,:)
     integer                            :: i,j,k
+    logical                            :: l_zeroDst
 
     rc = ESMF_SUCCESS
 
@@ -1496,13 +1499,20 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
-    k = 1
-    do j = 1, ubound(fptr2D, 2)
-      do i = 1, ubound(fptr2D, 1)
-        fptr2D(i, j) = fptr1D(k)
-        k = k + 1
+
+    l_zeroDst = .false.
+    if(present(zeroDst)) l_zeroDst = zeroDst
+    if(l_zeroDst) then
+      fptr2D = 0.
+    else 
+      k = 1
+      do j = 1, ubound(fptr2D, 2)
+        do i = 1, ubound(fptr2D, 1)
+          fptr2D(i, j) = fptr1D(k)
+          k = k + 1
+        enddo
       enddo
-    enddo
+    endif
 
     !allocate(fptr2D_new(ubound(fptr2D, 1), ubound(fptr2D, 2)))
     !call C_F_POINTER (C_LOC(fptr1D), fptr2D_new, [ubound(fptr2D, 1), ubound(fptr2D, 2)])
@@ -1709,7 +1719,7 @@ module hycom
     return ! bail out
 
     !call ESMF_FieldRedist(cesm_field, hycom_field, routehandle=CESM2HYCOM_RHR8, rc=rc)
-    !call copy_1D_to_2D(cesm_field, hycom_field, rc=rc)
+    !call copy_1D_to_2D(cesm_field, hycom_field, zeroDst=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1784,7 +1794,7 @@ module hycom
     type(ESMF_DistGrid)  :: distgrid, distgrid2d
     type(ESMF_VM)        :: vm
     character(len=256)   :: msg
-    integer              :: n_elem, n_pet, lpet
+    integer              :: n_elem, n_pet, lpet, k
     integer, pointer     :: indexlist(:)
     logical              :: arbIndexFlag
     type(ESMF_Array)     :: lon1d, lat1d, area1d, mask1d
@@ -2148,9 +2158,14 @@ module hycom
 
     !fptr1D(:) = fptrSeqIndex(:)
 
-    !allocate(fptr2D_new(ubound(fptr2D, 1), ubound(fptr2D, 2)))
-    !call C_F_POINTER (C_LOC(fptr1D), fptr2D_new, [ubound(fptr2D, 1), ubound(fptr2D, 2)])
-    !fptr2D(:,:) = fptr2D_new(:,:)
+    !  k = 1
+    !  do j = 1, ubound(fptr2D, 2)
+    !    do i = 1, ubound(fptr2D, 1)
+    !      fptr2D(i, j) = fptr1D(k)
+    !      k = k + 1
+    !    enddo
+    !  enddo
+
 
     !call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
     !  overwrite=.true., timeslice=3, rc=rc)
@@ -2176,6 +2191,8 @@ module hycom
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !return ! bail out
+
+    !return
 
 !-----------------------------------------------------------------------
 !EOC
@@ -2233,97 +2250,97 @@ module hycom
     cesm2hycom_table(8)%cesm_stdname   = "downwelling_longwave_flux"
     cesm2hycom_table(8)%unit           = "W/m^2"
 
-    cesm2hycom_table(8)%hycom_stdname  = "mean_up_lw_flx"
-    cesm2hycom_table(8)%cesm_stdname   = "Foxx_surface_net_upward_longwave_flux"
-    cesm2hycom_table(8)%unit           = "W/m^2"
+    cesm2hycom_table(9)%hycom_stdname  = "mean_up_lw_flx"
+    cesm2hycom_table(9)%cesm_stdname   = "Foxx_surface_net_upward_longwave_flux"
+    cesm2hycom_table(9)%unit           = "W/m^2"
 
-    cesm2hycom_table(9)%hycom_stdname  = "inst_temp_height2m"
-    cesm2hycom_table(9)%cesm_stdname   = "air_temperature"
-    cesm2hycom_table(9)%unit           = "K"
-    cesm2hycom_table(9)%connected      = .false.
+    cesm2hycom_table(10)%hycom_stdname  = "inst_temp_height2m"
+    cesm2hycom_table(10)%cesm_stdname   = "air_temperature"
+    cesm2hycom_table(10)%unit           = "K"
+    cesm2hycom_table(10)%connected      = .false.
 
-    cesm2hycom_table(10)%hycom_stdname = "mean_prec_rate"
-    cesm2hycom_table(10)%cesm_stdname  = "precipitation_flux"
-    cesm2hycom_table(10)%unit          = "Kg/m^2/s"
+    cesm2hycom_table(11)%hycom_stdname = "mean_prec_rate"
+    cesm2hycom_table(11)%cesm_stdname  = "precipitation_flux"
+    cesm2hycom_table(11)%unit          = "Kg/m^2/s"
 
-    cesm2hycom_table(11)%hycom_stdname = "inst_spec_humid_height2m"
-    cesm2hycom_table(11)%cesm_stdname  = "specific_humidity"
-    cesm2hycom_table(11)%unit          = "Kg/Kg"
-    cesm2hycom_table(11)%connected     = .false.
-
-    cesm2hycom_table(12)%hycom_stdname = "sea_surface_temperature"
-    cesm2hycom_table(12)%cesm_stdname  = "air_potential_temperature"
-    cesm2hycom_table(12)%unit          = "K"
+    cesm2hycom_table(12)%hycom_stdname = "inst_spec_humid_height2m"
+    cesm2hycom_table(12)%cesm_stdname  = "specific_humidity"
+    cesm2hycom_table(12)%unit          = "Kg/Kg"
     cesm2hycom_table(12)%connected     = .false.
 
-    cesm2hycom_table(13)%hycom_stdname = "sea_ice_area_fraction"
-    cesm2hycom_table(13)%cesm_stdname  = "Si_sea_ice_area_fraction"
-    cesm2hycom_table(13)%unit          = "1"
+    cesm2hycom_table(13)%hycom_stdname = "sea_surface_temperature"
+    cesm2hycom_table(13)%cesm_stdname  = "air_potential_temperature"
+    cesm2hycom_table(13)%unit          = "K"
+    cesm2hycom_table(13)%connected     = .false.
 
-    cesm2hycom_table(14)%hycom_stdname = "downward_x_stress_at_sea_ice_base"
-    cesm2hycom_table(14)%cesm_stdname  = "Fioi_surface_downward_eastward_stress_ioi"
-    cesm2hycom_table(14)%unit          = "Pa"
-    cesm2hycom_table(14)%connected     = .false.
+    cesm2hycom_table(14)%hycom_stdname = "sea_ice_area_fraction"
+    cesm2hycom_table(14)%cesm_stdname  = "Si_sea_ice_area_fraction"
+    cesm2hycom_table(14)%unit          = "1"
 
-    cesm2hycom_table(15)%hycom_stdname = "downward_y_stress_at_sea_ice_base"
-    cesm2hycom_table(15)%cesm_stdname  = "Fioi_surface_downward_northward_stress_ioi"
+    cesm2hycom_table(15)%hycom_stdname = "downward_x_stress_at_sea_ice_base"
+    cesm2hycom_table(15)%cesm_stdname  = "Fioi_surface_downward_eastward_stress_ioi"
     cesm2hycom_table(15)%unit          = "Pa"
     cesm2hycom_table(15)%connected     = .false.
 
-    cesm2hycom_table(16)%hycom_stdname = "downward_sea_ice_basal_solar_heat_flux"
-    cesm2hycom_table(16)%cesm_stdname  = ""
-    cesm2hycom_table(16)%unit          = "W/m^2"
+    cesm2hycom_table(16)%hycom_stdname = "downward_y_stress_at_sea_ice_base"
+    cesm2hycom_table(16)%cesm_stdname  = "Fioi_surface_downward_northward_stress_ioi"
+    cesm2hycom_table(16)%unit          = "Pa"
     cesm2hycom_table(16)%connected     = .false.
 
-    cesm2hycom_table(17)%hycom_stdname = "upward_sea_ice_basal_heat_flux"
-    cesm2hycom_table(17)%cesm_stdname  = "surface_snow_melt_heat_flux"
-    cesm2hycom_table(17)%unit          = "W/^2"
+    cesm2hycom_table(17)%hycom_stdname = "downward_sea_ice_basal_solar_heat_flux"
+    cesm2hycom_table(17)%cesm_stdname  = ""
+    cesm2hycom_table(17)%unit          = "W/m^2"
+    cesm2hycom_table(17)%connected     = .false.
 
-    cesm2hycom_table(18)%hycom_stdname = "downward_sea_ice_basal_salt_flux"
-    cesm2hycom_table(18)%cesm_stdname  = "virtual_salt_flux_into_sea_water"
-    cesm2hycom_table(18)%unit          = "Kg/m^2/s"
+    cesm2hycom_table(18)%hycom_stdname = "upward_sea_ice_basal_heat_flux"
+    cesm2hycom_table(18)%cesm_stdname  = "surface_snow_melt_heat_flux"
+    cesm2hycom_table(18)%unit          = "W/^2"
 
-    cesm2hycom_table(19)%hycom_stdname = "downward_sea_ice_basal_water_flux"
-    cesm2hycom_table(19)%cesm_stdname  = "surface_melt_flux"
+    cesm2hycom_table(19)%hycom_stdname = "downward_sea_ice_basal_salt_flux"
+    cesm2hycom_table(19)%cesm_stdname  = "virtual_salt_flux_into_sea_water"
     cesm2hycom_table(19)%unit          = "Kg/m^2/s"
 
-    cesm2hycom_table(20)%hycom_stdname = "sea_ice_temperature"
-    cesm2hycom_table(20)%cesm_stdname  = ""
-    cesm2hycom_table(20)%unit          = "K"
-    cesm2hycom_table(20)%connected     = .false.
+    cesm2hycom_table(20)%hycom_stdname = "downward_sea_ice_basal_water_flux"
+    cesm2hycom_table(20)%cesm_stdname  = "surface_melt_flux"
+    cesm2hycom_table(20)%unit          = "Kg/m^2/s"
 
-    cesm2hycom_table(21)%hycom_stdname = "sea_ice_thickness"
+    cesm2hycom_table(21)%hycom_stdname = "sea_ice_temperature"
     cesm2hycom_table(21)%cesm_stdname  = ""
-    cesm2hycom_table(21)%unit          = "m"
+    cesm2hycom_table(21)%unit          = "K"
     cesm2hycom_table(21)%connected     = .false.
 
-    cesm2hycom_table(22)%hycom_stdname = "sea_ice_x_velocity"
+    cesm2hycom_table(22)%hycom_stdname = "sea_ice_thickness"
     cesm2hycom_table(22)%cesm_stdname  = ""
-    cesm2hycom_table(22)%unit          = "m/s"
+    cesm2hycom_table(22)%unit          = "m"
     cesm2hycom_table(22)%connected     = .false.
 
-    cesm2hycom_table(23)%hycom_stdname = "sea_ice_y_velocity"
+    cesm2hycom_table(23)%hycom_stdname = "sea_ice_x_velocity"
     cesm2hycom_table(23)%cesm_stdname  = ""
     cesm2hycom_table(23)%unit          = "m/s"
     cesm2hycom_table(23)%connected     = .false.
 
-    cesm2hycom_table(24)%hycom_stdname = "downward_x_stress_ocean"
-    cesm2hycom_table(24)%cesm_stdname  = "Faox_surface_downward_eastward_stress"
-    cesm2hycom_table(24)%unit          = "Pa"
+    cesm2hycom_table(24)%hycom_stdname = "sea_ice_y_velocity"
+    cesm2hycom_table(24)%cesm_stdname  = ""
+    cesm2hycom_table(24)%unit          = "m/s"
     cesm2hycom_table(24)%connected     = .false.
 
-    cesm2hycom_table(25)%hycom_stdname = "downward_y_stress_ocean"
-    cesm2hycom_table(25)%cesm_stdname  = "Faox_surface_downward_northward_stress"
+    cesm2hycom_table(25)%hycom_stdname = "downward_x_stress_ocean"
+    cesm2hycom_table(25)%cesm_stdname  = "Faox_surface_downward_eastward_stress"
     cesm2hycom_table(25)%unit          = "Pa"
     cesm2hycom_table(25)%connected     = .false.
 
-    cesm2hycom_table(26)%hycom_stdname = "mean_lat_flx"
-    cesm2hycom_table(26)%cesm_stdname  = "Foxx_surface_upward_latent_heat_flux"
-    cesm2hycom_table(26)%unit          = "W/m^2"
+    cesm2hycom_table(26)%hycom_stdname = "downward_y_stress_ocean"
+    cesm2hycom_table(26)%cesm_stdname  = "Faox_surface_downward_northward_stress"
+    cesm2hycom_table(26)%unit          = "Pa"
+    cesm2hycom_table(26)%connected     = .false.
 
-    cesm2hycom_table(27)%hycom_stdname = "mean_sens_flx"
-    cesm2hycom_table(27)%cesm_stdname  = "Foxx_surface_upward_sensible_heat_flux"
+    cesm2hycom_table(27)%hycom_stdname = "mean_lat_flx"
+    cesm2hycom_table(27)%cesm_stdname  = "Foxx_surface_upward_latent_heat_flux"
     cesm2hycom_table(27)%unit          = "W/m^2"
+
+    cesm2hycom_table(28)%hycom_stdname = "mean_sens_flx"
+    cesm2hycom_table(28)%cesm_stdname  = "Foxx_surface_upward_sensible_heat_flux"
+    cesm2hycom_table(28)%unit          = "W/m^2"
 
     ! --------------------------------------------------------------------------
     hycom2cesm_table(1)%hycom_stdname = "sea_surface_temperature"
