@@ -540,17 +540,17 @@ module hycom
       return  ! bail out
 
     ! Fold DistGrid from HYCOM GRID into 1D arb DistGrid on Mesh
-    !mesh = ESMF_GridToMesh(is%wrap%glue%grid, ESMF_STAGGERLOC_CENTER, 1, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
-
-    !call ESMF_MeshGet(Mesh, nodalDistgrid=distgrid, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
+!    mesh = ESMF_GridToMesh(is%wrap%glue%grid, ESMF_STAGGERLOC_CENTER, 1, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!
+!    call ESMF_MeshGet(Mesh, nodalDistgrid=distgrid, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
 
     call ESMF_GridGet(is%wrap%glue%grid, distgrid=distgrid2D, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -575,6 +575,8 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+    
+    deallocate(fptrSeqIndex)
 
     meshIn = ESMF_MeshCreate(distgrid, nodalDistgrid=distgrid, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1369,7 +1371,7 @@ module hycom
     character(len=80)               :: fileName, msg
     character(len=80), allocatable  :: fieldNameList_loc(:)
     type(ESMF_Field)                :: dst2DField
-    real(ESMF_KIND_R8), pointer     :: ptr1D(:), ptr2D(:,:), new_ptr2D(:,:)
+    real(ESMF_KIND_R8), pointer     :: ptr1D(:), ptr2D(:,:)
 
     if (present(rc)) rc = ESMF_SUCCESS
 
@@ -1728,6 +1730,8 @@ module hycom
 
  subroutine ocn_domain_esmf( dom, grid, rc)
 
+    use iso_c_binding
+
 ! !DESCRIPTION:
 !  This routine creates the ocean domain and necessary communication routehandles
 !
@@ -1775,6 +1779,9 @@ module hycom
     integer(ESMF_KIND_I4), pointer :: tmask(:), fptrSeqIndex(:)
     real(ESMF_KIND_R8)   :: radian, radius, pi
     type(ESMF_TYPEKIND_FLAG)  :: tkf
+
+    type(ESMF_Array)     :: dummy1D, dummy2D
+    real(ESMF_KIND_R8), pointer     :: fptr2D(:,:), fptr1D(:), fptr2D_new(:,:)
 
 !-----------------------------------------------------------------------
 
@@ -2029,7 +2036,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
-    call ESMF_DistGridGet(distgrid, 0, arbSeqIndexFlag=arbIndexFlag, elementCount=n_elem, rc=rc)
+    call ESMF_DistGridGet(distgrid2D, 0, arbSeqIndexFlag=arbIndexFlag, elementCount=n_elem, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -2074,6 +2081,82 @@ module hycom
       return  ! bail out
 
     call ESMF_ArrayRedist(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    dummy1D = ESMF_ArrayCreate(distgrid, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    dummy2D = ESMF_ArrayCreate(distgrid2d, typekind=ESMF_TYPEKIND_R8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_ArrayGet(dummy2D, farrayPtr=fptr2D, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    fptr2D(:,:) = lpet
+
+    call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
+      overwrite=.true., timeslice=1, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_ArrayRedist(dummy2D, dummy1D, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_ArrayRedist(dummy1D, dummy2D, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
+      overwrite=.true., timeslice=2, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    fptr1D(:) = fptrSeqIndex(:)
+
+    allocate(fptr2D_new(ubound(fptr2D, 1), ubound(fptr2D, 2)))
+    call C_F_POINTER (C_LOC(fptr1D), fptr2D_new, [ubound(fptr2D, 1), ubound(fptr2D, 2)])
+    fptr2D(:,:) = fptr2D_new(:,:)
+
+    call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
+      overwrite=.true., timeslice=3, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+
+    call ESMF_ArrayRedist(dummy2D, dummy1D, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_ArrayRedist(dummy1D, dummy2D, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
+      overwrite=.true., timeslice=4, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
