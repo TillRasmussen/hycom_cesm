@@ -1629,7 +1629,7 @@ module hycom
 
     if(.not. l_connectOnly) then
       !call ESMF_FieldRedist(hycom_field, cesm_field, routehandle=HYCOM2CESM_RHR8, rc=rc)
-      !call copy_2D_to_1D(hycom_field, cesm_field, rc=rc)
+      call copy_2D_to_1D(hycom_field, cesm_field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
