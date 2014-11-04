@@ -395,13 +395,13 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
+#endif
 
     call ESMF_OutputScripGridFile("hycom_1xv6_grid.nc", gridIn, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       call ESMF_Finalize(endflag=ESMF_END_ABORT)
-#endif
 
     
     ! conditionally realize or remove Fields in import and export States
@@ -464,16 +464,16 @@ module hycom
       return  ! bail out
 
     ! Export HYCOM native data into the glue fields.
-    do i  = 1, number_export_fields
-      if(hycom2cesm_table(i)%connected) then
-        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-          exportState, hycom2cesm_table(i)%cesm_stdname, connectOnly=.true., rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
-      endif
-    enddo
+!    do i  = 1, number_export_fields
+!      if(hycom2cesm_table(i)%connected) then
+!        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+!          exportState, hycom2cesm_table(i)%cesm_stdname, connectOnly=.true., rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!          line=__LINE__, &
+!          file=__FILE__)) &
+!          return  ! bail out
+!      endif
+!    enddo
     call HYCOM_GlueFieldsDataExport(is%wrap%glue, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -720,31 +720,31 @@ module hycom
     return ! bail out
 
     ! Provide static forcing to dynamic ice, read static forcing into o2x Array
-!    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_r3.raw', rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!    return ! bail out
-!
-!    ! Copy data in o2x Array to individual 1D Fields
-!    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!    return ! bail out
+    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_r3.raw', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    ! Copy data in o2x Array to individual 1D Fields
+    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
 
     ! Redist Export Fields from internal HYCOM to CESM 1D Fields
-    do i  = 1, number_export_fields
-      if(hycom2cesm_table(i)%connected) then
-        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
-      endif
-    enddo
-
+!    do i  = 1, number_export_fields
+!      if(hycom2cesm_table(i)%connected) then
+!        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+!          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
+!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!          line=__LINE__, &
+!          file=__FILE__)) &
+!          return  ! bail out
+!      endif
+!    enddo
+!
     ! Redist 1D Field to 2D Field and write result in .nc Files
     call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
       timeslice=1, relaxedFlag=.true., rc=rc)
@@ -987,30 +987,23 @@ module hycom
       return  ! bail out
 
 #ifdef HYCOM_IN_CESM
-    ! Redistribute HYCOM field stored in glue export fieldbundle to CESM 1D Fields
-    !call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom_field_name, exportState, cesm_field_name, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
-
     !! Copy o2x Array to CESM 1D Fields if forcing is used.
-    !call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
+    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
 
     ! Redistribute HYCOM field stored in glue export fieldbundle to CESM 1D Fields
-    do i  = 1, number_export_fields
-      if(hycom2cesm_table(i)%connected) then
-        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-          return  ! bail out
-      endif
-    enddo
+    !do i  = 1, number_export_fields
+    !  if(hycom2cesm_table(i)%connected) then
+    !    call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+    !      exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
+    !    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !      line=__LINE__, &
+    !      file=__FILE__)) &
+    !      return  ! bail out
+    !  endif
+    !enddo
 
     call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_export_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
@@ -1807,6 +1800,8 @@ module hycom
 
     type(ESMF_Array)     :: dummy1D, dummy2D
     real(ESMF_KIND_R8), pointer     :: fptr2D(:,:), fptr1D(:), fptr2D_new(:,:)
+
+    type(ESMF_RouteHandle)          :: redist_padding_rh
 
 !-----------------------------------------------------------------------
 
