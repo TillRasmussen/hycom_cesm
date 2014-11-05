@@ -865,8 +865,7 @@ module hycom
     if (is%wrap%slice==1) initFlag = .true.
 
     ! Import data to HYCOM native structures through glue fields.
-    ! call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
-    call HYCOM_GlueFieldsDataImport(is%wrap%glue, .true., rc=rc)
+    call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1642,7 +1641,6 @@ module hycom
     return ! bail out
 
     !call ESMF_FieldRedist(cesm_field, hycom_field, routehandle=CESM2HYCOM_RHR8, rc=rc)
-    !call copy_1D_to_2D(cesm_field, hycom_field, zeroDst=.true., rc=rc)
     call copy_1D_to_2D(cesm_field, hycom_field, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
