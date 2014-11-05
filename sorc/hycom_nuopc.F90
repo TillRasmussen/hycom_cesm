@@ -146,12 +146,6 @@ module hycom
     
     rc = ESMF_SUCCESS
 
-    call loadHycomDictionary(rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-
     ! importable fields:
     !call NUOPC_StateAdvertiseFields(importState, &
     !  StandardNames=(/ &
@@ -208,7 +202,22 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 #ifdef HYCOM_IN_CESM
-    !! Setup import-able fields
+    ! Load HYCOM Field dictionary into CESM NUOPC framework, should be done at driver level
+    call loadHycomDictionary(rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    ! Initialize 2-way connection tables between HYCOM 2D and CESM 1D layers
+    call initialize_HYCOM_CESM_tables(rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    !! Setup import-able CESM 1D fields according to names in ocn_import_fields
+    ! Same names are used in HYCOM_CESM_tables
     call esmfshr_nuopc_advertise_fields( &
       ocn_import_fields, importState, tag='HYCOM import', rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -216,16 +225,9 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    !! Setup export-able fields
+    !! Setup export-able CESM 1D fields according to names in ocn_export_fields
     call esmfshr_nuopc_advertise_fields( &
       ocn_export_fields, exportState, tag='HYCOM export', rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-
-    ! Initialize 2-way connection tables between 1D and 2D layers
-    call initialize_HYCOM_CESM_tables(rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -349,60 +351,6 @@ module hycom
     ! use the HYCOM Grid that was setup inside of the glue structure
     gridIn  = is%wrap%glue%grid ! for imported Fields
     gridOut = is%wrap%glue%grid ! for exported Fields
-
-#if 0
-    ! dump the HYCOM Grid coordinate and mask arrays for reference      
-    call ESMF_GridGetCoord(gridIn, coordDim=1, array=array, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayWrite(array, file="array_hycom_grid_coord1.nc", overwrite=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    call ESMF_GridGetCoord(gridIn, coordDim=2, array=array, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayWrite(array, file="array_hycom_grid_coord2.nc", overwrite=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-    call ESMF_GridGetItem(gridIn, staggerLoc=ESMF_STAGGERLOC_CENTER, &
-      itemflag=ESMF_GRIDITEM_MASK, array=array, rc=rc)    
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayWrite(array, file="array_hycom_grid_mask.nc", overwrite=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
-    call ESMF_GridGetItem(gridIn, staggerLoc=ESMF_STAGGERLOC_CENTER, &
-      itemflag=ESMF_GRIDITEM_AREA, array=array, rc=rc)    
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_ArrayWrite(array, file="array_hycom_grid_area.nc", overwrite=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-#endif
-
-    call ESMF_OutputScripGridFile("hycom_1xv6_grid.nc", gridIn, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
-
     
     ! conditionally realize or remove Fields in import and export States
     ! also keep track of these Fields on the glue layer
@@ -483,45 +431,14 @@ module hycom
     ! Reset the slice counter
     is%wrap%slice = 1
 
-#if 0
-    ! Compute regridding weights ATM->OCN/ICE
-    ! ATM2OCN CONSV, FIX THIS AFTER CORNER STAGGER COORDINATES ARE ADDED
-    call HYCOM_CESM_REGRID_TOOCN("/glade/p/cesm/cseg/mapping/grids/T62_040121.nc", &
-      !is%wrap%glue%grid, "map_T62_TO_gx1v6_aave.130322.nc", ESMF_REGRIDMETHOD_CONSERVE, &
-      is%wrap%glue%grid, "map_T62_TO_gx1v6_aave.130322.nc", ESMF_REGRIDMETHOD_BILINEAR, &
-      rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    ! ATM2OCN BILINEAR
-    call HYCOM_CESM_REGRID_TOOCN("/glade/p/cesm/cseg/mapping/grids/T62_040121.nc", &
-      is%wrap%glue%grid, "map_T62_TO_gx1v6_blin.130322.nc", ESMF_REGRIDMETHOD_BILINEAR, &
-      rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    ! ATM2OCN PATCH
-    call HYCOM_CESM_REGRID_TOOCN("/glade/p/cesm/cseg/mapping/grids/T62_040121.nc", &
-      is%wrap%glue%grid, "map_T62_TO_gx1v6_patc.130322.nc", ESMF_REGRIDMETHOD_BILINEAR, &
-      rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    ! OCN/ICE->ATM CONS
-    call HYCOM_CESM_REGRID_FROMOCN(is%wrap%glue%grid, "/glade/p/cesm/cseg/mapping/grids/T62_040121.nc", &
-      "map_gx1v6_TO_T62_aave.130322.nc", ESMF_REGRIDMETHOD_BILINEAR, &
-      rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-#endif
-
 #ifdef HYCOM_IN_CESM
+    ! Dump out the hycom grid for offline use.
+    call ESMF_OutputScripGridFile("hycom_1xv6_grid.nc", gridIn, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+
     ! Prepare for CESM SPECIFIC DATA STRUCTURES
     import_state = importState
     export_state = exportState
@@ -895,24 +812,6 @@ module hycom
       return ! bail out
     end do
     deallocate(fieldNameList)
-
-    !field = ESMF_FieldCreate(is%wrap%glue%grid, typekind=ESMF_TYPEKIND_R8, name="swflx", rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !return ! bail out
-
-    !call ESMF_FieldBundleAdd(is%wrap%glue%importFields, (/field/), rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !return ! bail out
-    !call HYCOM_RedistCESM2HYCOM(importState, 'Foxx_surface_net_shortwave_flux', &
-    !  is%wrap%glue%importFields, 'mean_net_sw_flx', hycom_field_shortname="mnswfx", rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
 
     ! Redistribute 1D CESM import Fields to HYCOM Fields stored in glue import fieldbundle
     do i  = 1, number_import_fields
@@ -1507,11 +1406,6 @@ module hycom
       enddo
     endif
 
-    !allocate(fptr2D_new(ubound(fptr2D, 1), ubound(fptr2D, 2)))
-    !call C_F_POINTER (C_LOC(fptr1D), fptr2D_new, [ubound(fptr2D, 1), ubound(fptr2D, 2)])
-    !fptr2D = fptr2D_new
-    !deallocate(fptr2D_new)
-
     return
   end subroutine
 
@@ -1544,11 +1438,6 @@ module hycom
         k = k + 1
       enddo
     enddo
-
-    !allocate(fptr1D_new(ubound(fptr1D, 1)))
-    !call C_F_POINTER (C_LOC(fptr2D), fptr1D_new, [ubound(fptr1D, 1)])
-    !fptr1D = fptr1D_new
-    !deallocate(fptr1D_new)
 
     return
   end subroutine
@@ -1713,6 +1602,7 @@ module hycom
 
     !call ESMF_FieldRedist(cesm_field, hycom_field, routehandle=CESM2HYCOM_RHR8, rc=rc)
     !call copy_1D_to_2D(cesm_field, hycom_field, zeroDst=.true., rc=rc)
+    call copy_1D_to_2D(cesm_field, hycom_field, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -2086,19 +1976,40 @@ module hycom
     !  if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
     !enddo
 
-    deallocate(indexlist)
-    deallocate(fptrSeqIndex)
+    ! Release these routehandles because they have paddings(halo) in hycom memory
+    call ESMF_RouteHandleRelease(HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_RouteHandleRelease(HYCOM2CESM_RHI4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
 
-    !call ESMF_ArrayRedistStore(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
-    !call ESMF_ArrayRedistStore(mask1D, mask2d, routehandle=CESM2HYCOM_RHI4, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
+    ! Recompute routehandles that has no paddings. 
+
+    call ESMF_ArrayRedistStore(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedistStore(mask1D, mask2d, routehandle=CESM2HYCOM_RHI4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedistStore(area2d, area1d, routehandle=HYCOM2CESM_RHR8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_ArrayRedistStore(mask2D, mask1d, routehandle=HYCOM2CESM_RHI4, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
     !call ESMF_ArrayRedist(area1d, area2d, routehandle=CESM2HYCOM_RHR8, rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2151,16 +2062,13 @@ module hycom
     !  file=__FILE__)) &
     !return ! bail out
 
-    !fptr1D(:) = fptrSeqIndex(:)
-
-    !  k = 1
-    !  do j = 1, ubound(fptr2D, 2)
-    !    do i = 1, ubound(fptr2D, 1)
-    !      fptr2D(i, j) = fptr1D(k)
-    !      k = k + 1
-    !    enddo
+    !k = 1
+    !do j = 1, ubound(fptr2D, 2)
+    !  do i = 1, ubound(fptr2D, 1)
+    !    fptr2D(i, j) = fptrSeqIndex(k)
+    !    k = k + 1
     !  enddo
-
+    !enddo
 
     !call ESMF_ArrayWrite(dummy2D, file='scramble.nc', variableName='dummy2D', &
     !  overwrite=.true., timeslice=3, rc=rc)
@@ -2187,7 +2095,10 @@ module hycom
     !  file=__FILE__)) &
     !return ! bail out
 
-    !return
+    deallocate(indexlist)
+    deallocate(fptrSeqIndex)
+
+    return
 
 !-----------------------------------------------------------------------
 !EOC
