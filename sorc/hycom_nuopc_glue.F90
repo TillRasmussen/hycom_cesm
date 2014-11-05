@@ -543,7 +543,7 @@ module hycom_nuopc_glue
         line=__LINE__, &
         file=__FILE__)) &
       return ! bail out
-      farrayPtr = -302039293330.3032393848  ! initiaize to some terrible value to expose problems in coupling
+      farrayPtr = -999999999999999999.9999999999999 
       call ESMF_AttributeSet(field, name="StandardName", value=standardName, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &

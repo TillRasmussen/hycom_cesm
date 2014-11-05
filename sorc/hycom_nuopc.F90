@@ -67,7 +67,7 @@ module hycom
   type(ESMF_Routehandle), save      :: HYCOM2CESM_RHR8, CESM2HYCOM_RHR8
   type(ESMF_Routehandle), save      :: HYCOM2CESM_RHI4, CESM2HYCOM_RHI4
   integer, parameter, public        :: number_import_fields = 28
-  integer, parameter, public        :: number_export_fields = 7
+  integer, parameter, public        :: number_export_fields = 8
 #endif
   
   !-----------------------------------------------------------------------------
@@ -187,6 +187,8 @@ module hycom
     !  "sea_lev                                  ",    &
     !  "mixed_layer_depth                        ",    &
     !  "s_surf                                   ",    &
+    !  "eastward_sea_surface_slope               ",    &
+    !  "northward_sea_surface_slope              ",    &
     !  "ocn_current_zonal                        ",    &
     !  "ocn_current_merid                        "/),  &
     !  rc=rc)
@@ -396,6 +398,8 @@ module hycom
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
+      "eastward_sea_surface_slope               ",    &
+      "northward_sea_surface_slope              ",    &
       "ocn_current_zonal                        ",    &
       "ocn_current_merid                        "/),  &
       rc=rc)
@@ -410,18 +414,20 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
-    ! Export HYCOM native data into the glue fields.
-!    do i  = 1, number_export_fields
-!      if(hycom2cesm_table(i)%connected) then
-!        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-!          exportState, hycom2cesm_table(i)%cesm_stdname, connectOnly=.true., rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!          line=__LINE__, &
-!          file=__FILE__)) &
-!          return  ! bail out
-!      endif
-!    enddo
+#ifdef HYCOM_IN_CESM
+    ! Connect 2D glue layer with 1D cap so internal HYCOM data will be copied to 2D Fields in glue layer
+    do i  = 1, number_export_fields
+      if(hycom2cesm_table(i)%connected) then
+        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+          exportState, hycom2cesm_table(i)%cesm_stdname, connectOnly=.true., rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+    enddo
+#endif
+    ! Export HYCOM native structures to data through glue fields.
     call HYCOM_GlueFieldsDataExport(is%wrap%glue, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -637,31 +643,42 @@ module hycom
     return ! bail out
 
     ! Provide static forcing to dynamic ice, read static forcing into o2x Array
-    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_r3.raw', rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-
-    ! Copy data in o2x Array to individual 1D Fields
-    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-
-    ! Redist Export Fields from internal HYCOM to CESM 1D Fields
-!    do i  = 1, number_export_fields
-!      if(hycom2cesm_table(i)%connected) then
-!        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-!          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-!        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!          line=__LINE__, &
-!          file=__FILE__)) &
-!          return  ! bail out
-!      endif
-!    enddo
+!    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_r3.raw', rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!    return ! bail out
 !
+!    ! Copy data in o2x Array to individual 1D Fields
+!    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!    return ! bail out
+
+    ! Redist Export Fields from internal HYCOM to CESM 1D Fields, but zero dhdx, dhdy, Fioo_q, u, v, bldepth
+    do i  = 1, number_export_fields
+      if(hycom2cesm_table(i)%connected) then
+        if(i .ge. 3) then
+          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+            exportState, hycom2cesm_table(i)%cesm_stdname, zeroDst=.true., rc=rc)
+        else
+          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+            exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
+        endif
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+    enddo
+    ! Copy data in individual 1D Fields to o2x Array. Need this during Initialization as CESM Driver accesses this directly.
+    call esmfshr_nuopc_copy(ocn_export_fields, exportState, 'd2x', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
     ! Redist 1D Field to 2D Field and write result in .nc Files
     call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
       timeslice=1, relaxedFlag=.true., rc=rc)
@@ -887,22 +904,32 @@ module hycom
 
 #ifdef HYCOM_IN_CESM
     !! Copy o2x Array to CESM 1D Fields if forcing is used.
-    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
+    !call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
 
     ! Redistribute HYCOM field stored in glue export fieldbundle to CESM 1D Fields
-    !do i  = 1, number_export_fields
-    !  if(hycom2cesm_table(i)%connected) then
-    !    call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-    !      exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-    !    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !      line=__LINE__, &
-    !      file=__FILE__)) &
-    !      return  ! bail out
-    !  endif
-    !enddo
+    do i  = 1, number_export_fields
+      if(hycom2cesm_table(i)%connected) then
+        if(i .ge. 3) then
+          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+            exportState, hycom2cesm_table(i)%cesm_stdname, zeroDst=.true., rc=rc)
+        else
+          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+            exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
+        endif
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      endif
+    enddo
+    ! Don't need this during Run Phase, no secret data flow during run phase
+    !call esmfshr_nuopc_copy(ocn_export_fields, exportState, 'd2x', rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
 
     call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_export_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
@@ -1447,7 +1474,7 @@ module hycom
   ! redist hycom 2d data to cesm 1d data
   subroutine HYCOM_RedistHYCOM2CESM(exportFields, hycom_field_stdname, &
     exportState, cesm_field_stdname, hycom_field_shortname, &
-    initFlag, fptr, twolevel, connectOnly, rc)
+    initFlag, fptr, twolevel, connectOnly, zeroDst, rc)
 
     type(ESMF_FieldBundle)     , intent(in)                :: exportFields 
     character(len=*)           , intent(in)                :: hycom_field_stdname
@@ -1462,6 +1489,7 @@ module hycom
     logical                    , intent(in) , optional     :: twolevel
 
     logical                    , intent(in) , optional     :: connectOnly
+    logical                    , intent(in) , optional     :: zeroDst
 
     integer                    , intent(out), optional     :: rc
 
@@ -1470,7 +1498,8 @@ module hycom
     type(ESMF_Field)                                       :: hycom_field ! hycom field
     character(len=256)                                     :: cesm_field_shortname
     character(len=256)                                     :: l_hycom_field_shortname
-    logical                                                :: l_connectOnly
+    logical                                                :: l_connectOnly, l_zeroDst
+    real(ESMF_KIND_R8), pointer                            :: fptr1D(:)
 
     rc = ESMF_SUCCESS
 
@@ -1509,6 +1538,18 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+
+    l_zeroDst = .false.
+    if(present(zeroDst)) l_zeroDst = zeroDst
+    if(l_zeroDst) then
+      call ESMF_FieldGet(cesm_field, farrayPtr=fptr1D, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+      fptr1D = 0.
+      return
+    endif
 
     l_connectOnly = .false.
     if(present(connectOnly)) l_connectOnly = connectOnly
@@ -2265,18 +2306,21 @@ module hycom
     hycom2cesm_table(4)%cesm_stdname  = "northward_sea_water_velocity"
     hycom2cesm_table(4)%unit          = "m/s"
 
-    hycom2cesm_table(5)%hycom_stdname = "sea_lev"
-    hycom2cesm_table(5)%cesm_stdname  = ""
-    hycom2cesm_table(5)%unit          = "m"
-    hycom2cesm_table(5)%connected     = .false.
+    hycom2cesm_table(5)%hycom_stdname = "eastward_sea_surface_slope"
+    hycom2cesm_table(5)%cesm_stdname  = "sea_surface_eastward_slope"
+    hycom2cesm_table(5)%unit          = ""
 
-    hycom2cesm_table(6)%hycom_stdname = "upward_sea_ice_basal_available_heat_flux"
-    hycom2cesm_table(6)%cesm_stdname  = "surface_snow_and_ice_melt_heat_flux"
-    hycom2cesm_table(6)%unit          = "W/m^2"
+    hycom2cesm_table(6)%hycom_stdname = "northward_sea_surface_slope"
+    hycom2cesm_table(6)%cesm_stdname  = "sea_surface_northward_slope"
+    hycom2cesm_table(6)%unit          = ""
 
-    hycom2cesm_table(7)%hycom_stdname = "mixed_layer_depth"
-    hycom2cesm_table(7)%cesm_stdname  = "ocean_boundary_layer_depth"
-    hycom2cesm_table(7)%unit          = "m"
+    hycom2cesm_table(7)%hycom_stdname = "upward_sea_ice_basal_available_heat_flux"
+    hycom2cesm_table(7)%cesm_stdname  = "surface_snow_and_ice_melt_heat_flux"
+    hycom2cesm_table(7)%unit          = "W/m^2"
+
+    hycom2cesm_table(8)%hycom_stdname = "mixed_layer_depth"
+    hycom2cesm_table(8)%cesm_stdname  = "ocean_boundary_layer_depth"
+    hycom2cesm_table(8)%unit          = "m"
 
   end subroutine
 
@@ -2933,6 +2977,32 @@ module hycom
         canonicalUnits="Pa", &
         defaultLongName="ocean downward northward stress", &
         defaultShortName="soty", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "eastward_sea_surface_slope")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="eastward_sea_surface_slope", &
+        canonicalUnits="", &
+        defaultLongName="eastward sea surface slope", &
+        defaultShortName="esss", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "northward_sea_surface_slope")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="northward_sea_surface_slope", &
+        canonicalUnits="", &
+        defaultLongName="northward sea surface slope", &
+        defaultShortName="nsss", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
