@@ -55,6 +55,10 @@
         public srfhgt         ! sea surface height, g*ssh(m)
         public dpbl           ! turbulent boundary layer depth
         public saln           ! salinity
+!!Alex add sea surface slope
+        public dhdx           ! eastward sea surface slope (m/m)
+        public dhdy           ! northward sea surface slope (m/m)
+        public pang           ! ANGLET
         
         ! native imports
         public covice         ! ice coverage (rel.units)

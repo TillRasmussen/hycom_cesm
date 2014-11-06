@@ -971,6 +971,44 @@ module hycom_nuopc_glue
             enddo
             enddo
           endif
+
+        ! special treatment for latent heat flux
+        else if (fieldStdName=="mean_lat_flx") then
+          if (initFlag) then
+            ! put it in the  sign convention of HYCOM
+            do j=1,jj
+            do i=1,ii
+              impPtr2(i,j,1) = -impPtr2(i,j,1) 
+              impPtr2(i,j,2) = -impPtr2(i,j,2) 
+            enddo
+            enddo
+          else
+            ! put it in the  sign convention of HYCOM
+            do j=1,jj
+            do i=1,ii
+              impPtr2(i,j,1) = -impPtr2(i,j,1) 
+            enddo
+            enddo
+          endif
+       
+        ! special treatment for sensible heat flux
+        else if (fieldStdName=="mean_sens_flx") then
+          if (initFlag) then
+            ! put it in the  sign convention of HYCOM
+            do j=1,jj
+            do i=1,ii
+              impPtr2(i,j,1) = -impPtr2(i,j,1) 
+              impPtr2(i,j,2) = -impPtr2(i,j,2) 
+            enddo
+            enddo
+          else
+            ! put it in the  sign convention of HYCOM
+            do j=1,jj
+            do i=1,ii
+              impPtr2(i,j,1) = -impPtr2(i,j,1) 
+            enddo
+            enddo
+          endif
         endif
         
       else ! single-level imports
@@ -1048,8 +1086,9 @@ module hycom_nuopc_glue
   end subroutine
 
   !-----------------------------------------------------------------------------
-  subroutine HYCOM_GlueFieldsDataExport(glue, rc)
+  subroutine HYCOM_GlueFieldsDataExport(glue, initFlag, rc)
     type(hycom_nuopc_glue_type), intent(inout)  :: glue
+    logical                                     :: initFlag
     integer, intent(out), optional              :: rc
     
     integer                           :: fieldCount, iField, stat
@@ -1062,7 +1101,8 @@ module hycom_nuopc_glue
     integer                           :: i,j
     logical                           :: isConnected
     
-    real(kind=ESMF_KIND_R8) :: hfrz, t2f, tfrz, smxl, tmxl, ssfi
+    REAL(kind=ESMF_KIND_R8) :: hfrz, t2f, tfrz, smxl, tmxl, ssfi
+    REAL(kind=ESMF_KIND_R8) :: usur1, usur2, vsur1, vsur2, utot, vtot
     
     if (present(rc)) rc = ESMF_SUCCESS
 
@@ -1157,31 +1197,43 @@ module hycom_nuopc_glue
       elseif (fieldStdName == "upward_sea_ice_basal_available_heat_flux") then
         do j=1,jj
         do i=1,ii
+           if (.not. initFlag) then 
 ! ---     quantities for available freeze/melt heat flux
 ! ---     relax to tfrz with e-folding time of icefrq time steps
 ! ---     assuming the effective surface layer thickness is hfrz
 ! ---     multiply by dpbl(i,j)/hfrz to get the actual e-folding time
-          hfrz = min( thkfrz*onem, dpbl(i,j) )
-          t2f  = (spcifh*hfrz)/(baclin*icefrq*g)
-! ---     average both available time steps, to avoid time splitting.
-          smxl = 0.5*(saln(i,j,1,2)+saln(i,j,1,1))
-          tmxl = 0.5*(temp(i,j,1,2)+temp(i,j,1,1))
-          tfrz = tfrz_0 + smxl*tfrz_s  !salinity dependent freezing point
-          ssfi = (tfrz-tmxl)*t2f       !W/m^2 into ocean
+              hfrz = min( thkfrz*onem, dpbl(i,j) )
+              t2f  = (spcifh*hfrz)/(baclin*icefrq*g)
+              ! ---     average both available time steps, to avoid time splitting.
+              smxl = 0.5*(saln(i,j,1,2)+saln(i,j,1,1))
+              tmxl = 0.5*(temp(i,j,1,2)+temp(i,j,1,1))
+              tfrz = tfrz_0 + smxl*tfrz_s  !salinity dependent freezing point
+              ssfi = (tfrz-tmxl)*t2f       !W/m^2 into ocean
         
-          farrayPtr(i,j) = max(-1000.0,min(1000.0,ssfi))
+              farrayPtr(i,j) = max(-1000.0,min(1000.0,ssfi))
+           else
+              farrayPtr(i,j) = 0.
+           endif
         enddo
-        enddo
+        enddo        
       elseif (fieldStdName == "sea_lev") then
         do j=1,jj
         do i=1,ii
-          farrayPtr(i,j) = 1./g * srfhgt(i,j)
+           if (.not. initFlag) then 
+              farrayPtr(i,j) = 1./g * srfhgt(i,j)
+           else
+              farrayPtr(i,j) = 0.
+           endif
         enddo
         enddo
       elseif (fieldStdName == "mixed_layer_depth") then
         do j=1,jj
         do i=1,ii
-          farrayPtr(i,j) = dpbl(i,j) * qonem
+           if (.not. initFlag) then 
+              farrayPtr(i,j) = dpbl(i,j) * qonem
+           else
+              farrayPtr(i,j) = 0.
+           endif
         enddo
         enddo
       elseif (fieldStdName == "s_surf") then
@@ -1193,22 +1245,71 @@ module hycom_nuopc_glue
       elseif (fieldStdName == "ocn_current_zonal") then
         do j=1,jj
         do i=1,ii
-          farrayPtr(i,j) = 0.5*(u(i,j,1,2)+u(i,j,1,1)) &
-            + (ubavg(i,j,2)+ubavg(i,j,1))
+           if (.not. initFlag) then 
+              usur1 = 0.5*(u    (i  ,j  ,1, 1)+ubavg(i  ,j  ,  1) &
+                        +  u    (i  ,j  ,1, 2)+ubavg(i  ,j  ,  2))
+ 
+              usur2 = 0.5*(u    (i+1,j  ,1, 1)+ubavg(i+1,j  ,  1) &
+                        +  u    (i+1,j  ,1, 2)+ubavg(i+1,j  ,  2))
+              
+              vsur1 = 0.5*(v    (i  ,j  ,1, 1)+vbavg(i  ,j  ,  1) &
+                        +  v    (i  ,j  ,1, 2)+vbavg(i  ,j  ,  2))
+
+              vsur2 = 0.5*(v    (i  ,j+1,1, 1)+vbavg(i  ,j+1,  1) &
+                        +  v    (i  ,j+1,1, 2)+vbavg(i  ,j+1,  2))
+              
+              utot = 0.5*(usur1 + usur2)
+              vtot = 0.5*(vsur1 + vsur2)
+              farrayPtr(i,j) = utot*cos(pang(i,j)) - vtot*sin(pang(i,j))
+           else
+              farrayPtr(i,j) = 0.
+           endif
         enddo
         enddo
       elseif (fieldStdName == "ocn_current_merid") then
         do j=1,jj
         do i=1,ii
-          farrayPtr(i,j) = 0.5*(v(i,j,1,2)+v(i,j,1,1)) &
-            + (vbavg(i,j,2)+vbavg(i,j,1))
+           if (.not. initFlag) then 
+              usur1 = 0.5*(u    (i  ,j  ,1, 1)+ubavg(i  ,j  ,  1) &
+                        +  u    (i  ,j  ,1, 2)+ubavg(i  ,j  ,  2))
+ 
+              usur2 = 0.5*(u    (i+1,j  ,1, 1)+ubavg(i+1,j  ,  1) &
+                        +  u    (i+1,j  ,1, 2)+ubavg(i+1,j  ,  2))
+              
+              vsur1 = 0.5*(v    (i  ,j  ,1, 1)+vbavg(i  ,j  ,  1) &
+                        +  v    (i  ,j  ,1, 2)+vbavg(i  ,j  ,  2))
+
+              vsur2 = 0.5*(v    (i  ,j+1,1, 1)+vbavg(i  ,j+1,  1) &
+                        +  v    (i  ,j+1,1, 2)+vbavg(i  ,j+1,  2))
+              
+              utot = 0.5*(usur1 + usur2)
+              vtot = 0.5*(vsur1 + vsur2)
+              farrayPtr(i,j) = vtot*cos(pang(i,j)) + utot*sin(pang(i,j))
+           else
+              farrayPtr(i,j) = 0.
+           endif
         enddo
         enddo
-      elseif (fieldStdName == "surface_snow_and_ice_melt_heat_flux") then
+!!Alex add sea surface slope to export
+      elseif (fieldStdName == "eastward_sea_surface_slope") then
         do j=1,jj
         do i=1,ii
-          farrayPtr(i,j) = 0.
+           if (.not. initFlag) then 
+              farrayPtr(i,j) = dhdx(i,j)*cos(pang(i,j))-dhdy(i,j)*sin(pang(i,j))
+           else
+              farrayPtr(i,j) = 0.
+           endif
+         enddo
         enddo
+      elseif (fieldStdName == "northward_sea_surface_slope") then
+        do j=1,jj
+        do i=1,ii
+           if (.not. initFlag) then 
+              farrayPtr(i,j) = dhdy(i,j)*cos(pang(i,j))+dhdx(i,j)*sin(pang(i,j))
+           else
+              farrayPtr(i,j) = 0.
+           endif
+         enddo
         enddo
       endif
       

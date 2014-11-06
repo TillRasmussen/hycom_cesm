@@ -307,7 +307,8 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_TimeSet(hycomRefTime, yy=1900, mm=12, dd=31, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
+!    call ESMF_TimeSet(hycomRefTime, yy=1900, mm=12, dd=31, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
+    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -428,7 +429,7 @@ module hycom
     enddo
 #endif
     ! Export HYCOM native structures to data through glue fields.
-    call HYCOM_GlueFieldsDataExport(is%wrap%glue, rc=rc)
+    CALL HYCOM_GlueFieldsDataExport(is%wrap%glue, .true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -659,13 +660,13 @@ module hycom
     ! Redist Export Fields from internal HYCOM to CESM 1D Fields, but zero dhdx, dhdy, Fioo_q, u, v, bldepth
     do i  = 1, number_export_fields
       if(hycom2cesm_table(i)%connected) then
-        if(i .ge. 3) then
-          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-            exportState, hycom2cesm_table(i)%cesm_stdname, zeroDst=.true., rc=rc)
-        else
+!        if(i .ge. 3) then
+!          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+!            exportState, hycom2cesm_table(i)%cesm_stdname, zeroDst=.true., rc=rc)
+!        else
           call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
             exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-        endif
+!        endif
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -872,7 +873,7 @@ module hycom
       return  ! bail out
     
     ! Translate currTime + timeStep into HYCOM format
-    call ESMF_TimeSet(hycomRefTime, yy=1900, mm=12, dd=31, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
+    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -895,7 +896,7 @@ module hycom
     enddo
 
     ! Export HYCOM native data through the glue fields.
-    call HYCOM_GlueFieldsDataExport(is%wrap%glue, rc=rc)
+    call HYCOM_GlueFieldsDataExport(is%wrap%glue, initFlag, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -911,13 +912,13 @@ module hycom
     ! Redistribute HYCOM field stored in glue export fieldbundle to CESM 1D Fields
     do i  = 1, number_export_fields
       if(hycom2cesm_table(i)%connected) then
-        if(i .ge. 3) then
-          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-            exportState, hycom2cesm_table(i)%cesm_stdname, zeroDst=.true., rc=rc)
-        else
+!        if(i .ge. 3) then
+!          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+!            exportState, hycom2cesm_table(i)%cesm_stdname, zeroDst=.true., rc=rc)
+!        else
           call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
             exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-        endif
+!        endif
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -2987,7 +2988,7 @@ module hycom
         standardName="eastward_sea_surface_slope", &
         canonicalUnits="", &
         defaultLongName="eastward sea surface slope", &
-        defaultShortName="esss", &
+        defaultShortName="dhdx", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -3000,7 +3001,7 @@ module hycom
         standardName="northward_sea_surface_slope", &
         canonicalUnits="", &
         defaultLongName="northward sea surface slope", &
-        defaultShortName="nsss", &
+        defaultShortName="dhdy", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &

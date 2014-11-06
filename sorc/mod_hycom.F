@@ -119,6 +119,9 @@ c
 
       integer      i,j,k,l,nm
       character*80 flnm,flnmra,flnmrb
+
+!!Alex add variable for calculation of dhdx and dhdy
+      real            :: ssh_n,ssh_s,ssh_e,ssh_w
 c
       include 'stmt_fns.h'
 
@@ -1040,6 +1043,41 @@ c
       m=mod(nstep0  ,2)+1
       n=mod(nstep0+1,2)+1
       call momtum_hs(n,m)
+
+!!Alex add calculation of seas surface slope for CICE (NUOPC)
+      call xctilr(srfhgt( 1-nbdy,1-nbdy),1,   3, 6,6, halo_ps)
+
+      do j=1,jj
+        do i=1,ii
+          if     (ip(i,j).eq.1) then
+            if     (ip(i+1,j)  .eq.1) then
+              ssh_e = srfhgt(i+1,j)
+            else
+              ssh_e = srfhgt(i,  j)
+            endif
+            if     (ip(i-1,j)  .eq.1) then
+              ssh_w = srfhgt(i-1,j)
+            else
+              ssh_w = srfhgt(i,  j)
+            endif
+            if     (ip(i,  j+1).eq.1) then
+              ssh_n = srfhgt(i,  j+1)
+            else
+              ssh_n = srfhgt(i,  j)
+            endif
+            if     (ip(i,  j-1).eq.1) then
+              ssh_s = srfhgt(i,  j-1)
+            else
+              ssh_s = srfhgt(i,  j)
+            endif
+            dhdx(i,j)=(ssh_e-ssh_w)/(scux(i+1,j)+scux(i,j))
+            dhdy(i,j)=(ssh_n-ssh_s)/(scvy(i,j+1)+scvy(i,j))
+          else
+            dhdx(i,j)=0.0
+            dhdy(i,j)=0.0
+          endif
+        enddo !i
+      enddo !j
 c
 c --- report initialization time.
 c
@@ -1061,6 +1099,8 @@ c
       integer      i,j,jja,k,ktr,l,nm
       character*80 flnmra,flnmrb
 
+!!Alex add variable for calculation of dhdx and dhdy
+      real            :: ssh_n,ssh_s,ssh_e,ssh_w
 c
       logical hycom_isnaninf  !function to detect NaN and Inf
 c
@@ -1496,6 +1536,41 @@ c
             call xctmr0(49)
             call xctmr1(49)
       endif !hybrid:isopyc
+
+!!Alex add calculation of seas surface slope for CICE (NUOPC)
+      call xctilr(srfhgt( 1-nbdy,1-nbdy),1,   3, 6,6, halo_ps)
+
+      do j=1,jj
+        do i=1,ii
+          if     (ip(i,j).eq.1) then
+            if     (ip(i+1,j)  .eq.1) then
+              ssh_e = srfhgt(i+1,j)
+            else
+              ssh_e = srfhgt(i,  j)
+            endif
+            if     (ip(i-1,j)  .eq.1) then
+              ssh_w = srfhgt(i-1,j)
+            else
+              ssh_w = srfhgt(i,  j)
+            endif
+            if     (ip(i,  j+1).eq.1) then
+              ssh_n = srfhgt(i,  j+1)
+            else
+              ssh_n = srfhgt(i,  j)
+            endif
+            if     (ip(i,  j-1).eq.1) then
+              ssh_s = srfhgt(i,  j-1)
+            else
+              ssh_s = srfhgt(i,  j)
+            endif
+            dhdx(i,j)=(ssh_e-ssh_w)/(scux(i+1,j)+scux(i,j))
+            dhdy(i,j)=(ssh_n-ssh_s)/(scvy(i,j+1)+scvy(i,j))
+          else
+            dhdx(i,j)=0.0
+            dhdy(i,j)=0.0
+          endif
+        enddo !i
+      enddo !j
 c
 c --- update floats/moorings
       if     (synflt) then

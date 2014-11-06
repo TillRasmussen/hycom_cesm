@@ -744,6 +744,11 @@ c
      &  am5_12=        - au5_12*0.75 + au5_22*0.75**2
 c
       real qsatur
+
+!!Alex add Stephan Boltzmann constant 
+      REAL       sb_cst
+      PARAMETER (sb_cst=5.67e-8)
+
       include 'stmt_fns.h'
 c
 c --- saturation mixing ratio (kg/kg), from a polynominal approximation
@@ -797,10 +802,14 @@ c ---        = Qsw+Qlw across the atmosphere to ocean or sea-ice interface
           endif !1st tile
           radfl=radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
      &       +radflx(i,j,l2)*w2+radflx(i,j,l3)*w3
+!!Alex add the longwave up part
+          radfl=radfl - sb_cst*(temp(i,j,1,n)+tzero)**4
         endif
 #else
         radfl=radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
      &       +radflx(i,j,l2)*w2+radflx(i,j,l3)*w3
+!!Alex add the longwave up part
+          radfl=radfl - sb_cst*(temp(i,j,1,n)+tzero)**4
 #endif
 c ---   swfl = shortwave radiative thermal flux (W/m^2) +ve into ocean/ice
 c ---          Qsw includes the atmos. model's surface albedo,
@@ -1016,16 +1025,8 @@ c ---   Sensible Heat flux (W/m2) (from the coupler)
           snsibl = csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
 #endif
 
-#ifdef NUOPC
-          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
-     &       cpl_latflx .and. cpl_sensflx ) then
-              surflx(i,j) = radfl + snsibl + evap
-          else 
-              surflx(i,j) = radfl - snsibl - evap
-          endif 
-#else
-              surflx(i,j) = radfl - snsibl - evap
-#endif
+          surflx(i,j) = radfl - snsibl - evap
+
       elseif (flxflg.eq.2) then
 c
 c ---    Cl (and Cs) depend on wind speed and Ta-Ts.
@@ -1072,16 +1073,7 @@ c ---   Sensible Heat flux (W/m2) (from the coupler)
           snsibl = ssen*csh*wind* tdif
 #endif
 
-#ifdef NUOPC
-          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
-     &       cpl_latflx .and. cpl_sensflx ) then
-              surflx(i,j) = radfl + snsibl + evap
-          else 
-              surflx(i,j) = radfl - snsibl - evap
-          endif 
-#else
-              surflx(i,j) = radfl - snsibl - evap
-#endif
+          surflx(i,j) = radfl - snsibl - evap
 c
 cdiag   if     (i.eq.itest.and.j.eq.jtest) then
 cdiag     write(lp,'(i9,2i5,a,4f8.5)')
@@ -1192,16 +1184,7 @@ c ---   Sensible Heat flux (W/m2) (from the coupler)
           snsibl = ssen*csh*wind* tdif
 #endif
 
-#ifdef NUOPC
-          if(cpl_swflx   .and. cpl_lwmdnflx .and. cpl_lwmupflx .and.
-     &       cpl_latflx .and. cpl_sensflx ) then
-              surflx(i,j) = radfl + snsibl + evap
-          else 
-              surflx(i,j) = radfl - snsibl - evap
-          endif 
-#else
-              surflx(i,j) = radfl - snsibl - evap
-#endif
+          surflx(i,j) = radfl - snsibl - evap
 c
 cdiag   if     (i.eq.itest.and.j.eq.jtest) then
 cdiag     write(lp,'(i9,2i5,a,3f8.5)')

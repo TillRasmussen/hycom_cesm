@@ -28,7 +28,10 @@ c-----------------------------------------------------------------------------
      & sshgmn,        !   mean sea surface height, g*mssh(m)
      & thmean,        !   mean depth averaged density
      & montg1,        ! layer 1 montgomery potential
-     & skap           ! thermobaric scale factor between reference states
+     & skap,          ! thermobaric scale factor between reference states
+     & dhdx,          ! eastward sea surface slope (m/m) !!Alex 
+     & dhdy           ! northward sea surface slope (m/m) !!Alex 
+
 
       real, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) ::
      & psikk,         ! montg.pot. in bottom layer
@@ -37,7 +40,7 @@ c-----------------------------------------------------------------------------
 
       common/hycom1r/ u,v,dp,dpold,dpoldm,dpu,dpv,p,pu,pv,
      &                corio,psikk,thkk,potvor,
-     &                srfhgt,steric,sshgmn,thmean,montg1,
+     &                srfhgt,steric,sshgmn,thmean,montg1,dhdx,dhdy,
      &                temp,saln,th3d,thstar,skap,theta,diaflx,tracer
       save  /hycom1r/
 c                                                                   
@@ -81,6 +84,7 @@ c
      & qlon, qlat,    ! lon,lat at q pts
      & ulon, ulat,    ! lon,lat at u pts
      & vlon, vlat,    ! lon,lat at v pts
+     & pang,          ! ANGLET
      & scux, scuy,    ! mesh size at u pts in x,y dir.
      & scvx, scvy,    ! mesh size at v pts in x,y dir.
      & scpx, scpy,    ! mesh size at p pts in x,y dir.
@@ -109,9 +113,10 @@ c
      & diwbot,        ! background/internal wave diffusivity at the bottom
      & diwqh0,        ! background/internal wave diffusivity vertical scale
      & sssrmx         ! maximum SSS difference for relaxation (psu)
+    
 
       common/hycom3r/ util1,util2,util3,util4,util5,util6,
-     &                plon,plat,qlon,qlat,ulon,ulat,vlon,vlat,
+     &                plon,plat,qlon,qlat,ulon,ulat,vlon,vlat,pang,
      &                scux,scuy,scvx,scvy,scuxi,scvyi,
      &                scpx,scpy,scqx,scqy,
      &                scu2,scv2,scp2,scq2,scp2i,scq2i,
