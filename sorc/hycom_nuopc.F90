@@ -660,13 +660,8 @@ module hycom
     ! Redist Export Fields from internal HYCOM to CESM 1D Fields, but zero dhdx, dhdy, Fioo_q, u, v, bldepth
     do i  = 1, number_export_fields
       if(hycom2cesm_table(i)%connected) then
-!        if(i .ge. 3) then
-!          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-!            exportState, hycom2cesm_table(i)%cesm_stdname, zeroDst=.true., rc=rc)
-!        else
-          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-            exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-!        endif
+        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -680,20 +675,20 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    ! Redist 1D Field to 2D Field and write result in .nc Files
-    call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
-      timeslice=1, relaxedFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    !! Redist 1D Field to 2D Field and write result in .nc Files
+    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
+    !  timeslice=1, relaxedFlag=.true., rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 
-    call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_init_export_", &
-      timeslice=1, relaxedFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_init_export_", &
+    !  timeslice=1, relaxedFlag=.true., rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 
 #endif
     
@@ -843,13 +838,13 @@ module hycom
       endif
     enddo
 
-    ! Redistribute 1D CESM import Fields to 2D Fields and write to .nc files
-    call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
-      timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    !! Redistribute 1D CESM import Fields to 2D Fields and write to .nc files
+    !call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
+    !  timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 #else
     ! write out the Fields in the importState
     call NUOPC_StateWrite(importState, filePrefix="field_ocn_import_", &
@@ -912,13 +907,8 @@ module hycom
     ! Redistribute HYCOM field stored in glue export fieldbundle to CESM 1D Fields
     do i  = 1, number_export_fields
       if(hycom2cesm_table(i)%connected) then
-!        if(i .ge. 3) then
-!          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-!            exportState, hycom2cesm_table(i)%cesm_stdname, zeroDst=.true., rc=rc)
-!        else
-          call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
-            exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
-!        endif
+        call HYCOM_RedistHYCOM2CESM(is%wrap%glue%exportFields, hycom2cesm_table(i)%hycom_stdname, &
+          exportState, hycom2cesm_table(i)%cesm_stdname, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
           file=__FILE__)) &
@@ -931,19 +921,19 @@ module hycom
     !  line=__LINE__, &
     !  file=__FILE__)) &
 
-    call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_export_", &
-      timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_export_", &
+    !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 
-    call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
-      timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
+    !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !  return  ! bail out
 #else
     ! write out the Fields in the exportState
     call NUOPC_StateWrite(exportState, filePrefix="field_ocn_export_", &
