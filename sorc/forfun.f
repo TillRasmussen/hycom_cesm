@@ -48,6 +48,13 @@ c
         iday  =  dtime - dtim1 + 1.001d0
         ihour = (dtime - dtim1 + 1.001d0 - iday)*24.d0
 c
+!!Alex add a calendar of 365 days for CESM
+      elseif (yrflag.eq.4) then
+c ---   365 days per model year, starting Jan 01 -No Leap year-
+        iyear =  int((dtime+ 0.001d0)/365.d0) + 1
+        iday  =  mod( dtime+ 0.001d0 ,365.d0) + 1
+        ihour = (mod( dtime+ 0.001d0 ,365.d0) + 1.d0 - iday)*24.d0
+c
       else
         if     (mnproc.eq.1) then
         write(lp,*)
@@ -605,7 +612,8 @@ c ---   skip ahead to the start time.
           endif
           i = index(cline,'=')
           read (cline(i+1:),*) dtime1
-          if     (yrflag.eq.2) then
+!!Alex add calendar 
+          if     (yrflag.eq.2 .or. yrflag.eq.4) then
             if     (nrec.eq.1 .and. abs(dtime1-1096.0d0).gt.0.01) then
 c
 c ---         climatology must start on wind day 1096.0, 01/01/1904.
@@ -664,12 +672,13 @@ c
         endif
         dtime1 = huge(dtime1)
         call rdpall(dtime0,dtime1)
-        if     (yrflag.eq.2) then
+!!Alex add calendar
+        if     (yrflag.eq.2 .or. yrflag.eq.4) then
           dtime1 = (dtime1 - 1096.0d0) + 
      &             wndrep*int((dtime+0.00001d0)/wndrep)
         endif
         call rdpall(dtime0,dtime1)
-        if     (yrflag.eq.2) then
+        if     (yrflag.eq.2 .or. yrflag.eq.4) then
           dtime1 = (dtime1 - 1096.0d0) + 
      &             wndrep*int((dtime+0.00001d0)/wndrep)  !wndrep=366 or 732
           if     (dtime1.lt.dtime0) then
@@ -728,7 +737,8 @@ c ---   get the next set of fields.
 *           endif !1st tile
 *           call xcsync(flush_lp)
         call rdpall(dtime0,dtime1)
-        if     (yrflag.eq.2) then
+!!Alex add calendar
+        if     (yrflag.eq.2 .or. yrflag.eq.4) then
           dtime1 = (dtime1 - 1096.0d0) + 
      &             wndrep*int((dtime+0.00001d0)/wndrep)  !wndrep=366 or 732
           if     (dtime1.lt.dtime0) then
@@ -1864,7 +1874,8 @@ c
 c
       call zagetc(cline,ios, uoff+iunit)
       if     (ios.lt.0) then  ! e-o-f
-        if     (yrflag.eq.2) then
+!!Alex add calendar
+        if     (yrflag.eq.2 .or. yrflag.eq.4) then
           if     (mnproc.eq.1) then  ! .b file from 1st tile only
 *           write(lp,*) 'rdpall1 - rewind unit ',iunit
 *           call flush(lp)

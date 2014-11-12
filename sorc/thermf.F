@@ -23,11 +23,23 @@ c
           do l=1,isp(j)
             do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
 #ifdef NUOPC
-              surflx(i,j) = surflx(i,j) + flxice(i,j)   !cell average
+          if ( cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
+     &                    .and. cpl_precip     ) then
+
+              sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
+              surflx(i,j) = surflx(i,j) + flxice(i,j)       !cell average
+              salflx(i,j) = salflx(i,j) + sflice(i,j) +     !cell average
+     &                                    sssflx(i,j)       !relax everywhere
+          else 
+              sswflx(i,j) = (1.0-covice(i,j))*sswflx(i,j) +
+     &                                        fswice(i,j)   !cell average
+              surflx(i,j) = (1.0-covice(i,j))*surflx(i,j) +
+     &                                        flxice(i,j)   !cell average
               sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
               salflx(i,j) = (1.0-covice(i,j))*salflx(i,j) +
      &                                        sflice(i,j) + !cell average
      &                                        sssflx(i,j)   !relax everywhere
+          endif
 #else
 c
               sswflx(i,j) = (1.0-covice(i,j))*sswflx(i,j) +
@@ -793,8 +805,8 @@ c ---        = Qsw+Qlw across the atmosphere to ocean or sea-ice interface
           radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
      &          +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
      &          +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
-            write (lp,'(a,a)') 'NUOPC: all net_sw_flx, dn_lw_flx,',
-     & 'and up_lw_flx are provided.'
+!!Alex            write (lp,'(a,a)') 'NUOPC: all net_sw_flx, dn_lw_flx,',
+!     & 'and up_lw_flx are provided.'
         else
           if     (mnproc.eq.1) then
             write (lp,'(a,a)') 'NUOPC: not all net_sw_flx, dn_lw_flx,',
@@ -1185,6 +1197,12 @@ c ---   Sensible Heat flux (W/m2) (from the coupler)
 #endif
 
           surflx(i,j) = radfl - snsibl - evap
+
+!!Alex debug get radiative, sensible and latent heat flux in the output
+          radfla(i,j) = radfl
+          snsfla(i,j) = snsibl
+          evafla(i,j) = evap
+
 c
 cdiag   if     (i.eq.itest.and.j.eq.jtest) then
 cdiag     write(lp,'(i9,2i5,a,3f8.5)')
@@ -1260,6 +1278,9 @@ c --- allow for rivers as a precipitation bogas
       endif
 c --- salflx = salt flux (10**-3 kg/m**2/sec) into ocean
       salflx(i,j)=emnp*(saln(i,j,1,n)*qthref)
+!!Alex add pcip in output debug (in kg/m2/s)
+      pcip(i,j)=qthref*prcp
+
 c --- relax to surface salinity
       if     (srelax) then
 c ---   use a reference relaxation thickness (min. mixed layer depth)

@@ -22,8 +22,8 @@
         public scp2     ! grid cell area at the p pts
         
         ! import from ATM
-        public cpl_taux,    imp_taux      ! xstress [Pa]
-        public cpl_tauy,    imp_tauy      ! ystress [Pa]
+        public cpl_taux,    imp_taux, imp_taue ! xstress [Pa], eastward stress [Pa]
+        public cpl_tauy,    imp_tauy, imp_taun ! ystress [Pa], northward stress [Pa]
         public cpl_wndspd,  imp_wndspd    ! wind speed [m s-1]
         public cpl_ustara,  imp_ustara    ! friction speed [m s-1]
         public cpl_airtmp,  imp_airtmp    ! air temperature [K]
