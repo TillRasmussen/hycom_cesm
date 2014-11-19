@@ -440,11 +440,11 @@ module hycom
 
 #ifdef HYCOM_IN_CESM
     ! Dump out the hycom grid for offline use.
-    call ESMF_OutputScripGridFile("hycom_1xv6_grid.nc", gridIn, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      call ESMF_Finalize(endflag=ESMF_END_ABORT)
+!    call ESMF_OutputScripGridFile("hycom_1xv6_grid.nc", gridIn, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
     ! Prepare for CESM SPECIFIC DATA STRUCTURES
     import_state = importState
