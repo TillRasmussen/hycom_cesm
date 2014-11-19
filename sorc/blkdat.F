@@ -628,7 +628,8 @@ c
       write(lp,'(a,i10)') 'icefrq =',icefrq
       endif !1st tile
 c
-      if (yrflag.lt.0 .or. yrflag.gt.3) then
+!!Alex NEW calendar
+      if (yrflag.lt.0 .or. yrflag.gt.4) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
      &    'error - yrflag must be between 0 and 3'

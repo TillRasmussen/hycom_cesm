@@ -114,7 +114,7 @@ c
           call zaiord(vlon, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.8) then
           call zaiord(vlat, ip,.false., hmina,hmaxa, 9)
-          call zagetc(cline,ios, uoff+9)
+!          call zagetc(cline,ios, uoff+9)
 !          if     (ios.ne.0) then
 !            if     (mnproc.eq.1) then
 !              write(lp,'(/ a,i4,i9 /)')

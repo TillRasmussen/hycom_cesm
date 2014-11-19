@@ -158,7 +158,11 @@ c
      &   si_u,        ! ice u-velocity      on p-grid from coupler
      &   si_v,        ! ice v-velocity      on p-grid from coupler
      &  si_tx,        ! x-stress  under ice on p-grid from coupler
-     &  si_ty         ! y-stesss  under ice on p-grid from coupler
+     &  si_ty,        ! y-stesss  under ice on p-grid from coupler
+     & radfla,        ! surface net radiative flux !!Alex
+     & snsfla,        ! surface sensible heat flux !!Alex
+     & evafla,        ! surface latent heat flux   !!Alex
+     & pcip           ! total precipitation    !!Alex
 
       common/hycom4r/ uja,ujb,via,vib,pbot,
      &                sgain,surtx,surty,surflx,sswflx,mixflx,
@@ -166,7 +170,8 @@ c
      &                ustar,ustarb,turgen,
      &                thkice,covice,temice,
      &                flxice,fswice,sflice,
-     &                si_c,si_h,si_t,si_u,si_v,si_tx,si_ty
+     &                si_c,si_h,si_t,si_u,si_v,si_tx,si_ty,
+     &                radfla,snsfla,evafla,pcip
       save  /hycom4r/
 c
       integer, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::

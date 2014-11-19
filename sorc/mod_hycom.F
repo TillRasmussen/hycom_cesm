@@ -305,6 +305,16 @@ c ---   also implies high frequency atmospheric forcing
         dmonth = dyear/12.d0
         dbimon = dyear/ 6.d0
         dyear0 = -15.0d0+dyear
+
+!!Alex add calendar for CESM
+      elseif (yrflag.eq.4) then
+c ---   366 days, starting Jan 1
+c ---   also implies high frequency atmospheric forcing
+        dyear  = 365.0d0
+        dmonth = dyear/12.d0
+        dbimon = dyear/ 6.d0
+        dyear  = 365.0d0
+        dyear0 = -15.0d0+dyear
       else
         if (mnproc.eq.1) then
         write(lp,*)
@@ -537,7 +547,8 @@ c
         endif
       endif !initial conditions
 #else
-      if (linit .and. yrflag.lt.3) then
+      if ((linit .and. yrflag.lt.3) .or. 
+     &    (linit .and. yrflag.eq.4)) then
 c
 c ---   set up initial conditions
 c
@@ -1045,39 +1056,33 @@ c
       call momtum_hs(n,m)
 
 !!Alex add calculation of seas surface slope for CICE (NUOPC)
-      call xctilr(srfhgt( 1-nbdy,1-nbdy),1,   3, 6,6, halo_ps)
+c
+c --- Calculation of the x and y slope at the p-point
+c
+      call xctilr(srfhgt( 1-nbdy,1-nbdy), 1, 1, 6, 6, halo_ps)
+c
+c --- Initialization of the slopes
+c
+      dhdx(:,:)=0.
+      dhdy(:,:)=0.
 
-      do j=1,jj
-        do i=1,ii
-          if     (ip(i,j).eq.1) then
-            if     (ip(i+1,j)  .eq.1) then
-              ssh_e = srfhgt(i+1,j)
-            else
-              ssh_e = srfhgt(i,  j)
-            endif
-            if     (ip(i-1,j)  .eq.1) then
-              ssh_w = srfhgt(i-1,j)
-            else
-              ssh_w = srfhgt(i,  j)
-            endif
-            if     (ip(i,  j+1).eq.1) then
-              ssh_n = srfhgt(i,  j+1)
-            else
-              ssh_n = srfhgt(i,  j)
-            endif
-            if     (ip(i,  j-1).eq.1) then
-              ssh_s = srfhgt(i,  j-1)
-            else
-              ssh_s = srfhgt(i,  j)
-            endif
-            dhdx(i,j)=(ssh_e-ssh_w)/(scux(i+1,j)+scux(i,j))
-            dhdy(i,j)=(ssh_n-ssh_s)/(scvy(i,j+1)+scvy(i,j))
-          else
-            dhdx(i,j)=0.0
-            dhdy(i,j)=0.0
-          endif
+!$OMP   PARALLEL DO PRIVATE(j,k,l,i)
+!$OMP&           SCHEDULE(STATIC,jblk)
+      do j=1-margin,jj+margin
+        do l=1,isp(j)
+          do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+            ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j)) 
+            ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j)) 
+            dhdx(i,j)=0.5*(ssh_e+ssh_w) !! on the p-grid
+
+            ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  )) 
+            ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1)) 
+            dhdy(i,j)=0.5*(ssh_n+ssh_s) !! on the p-grid
         enddo !i
+       enddo !l
       enddo !j
+!$OMP     END PARALLEL DO
+
 c
 c --- report initialization time.
 c
@@ -1116,6 +1121,8 @@ c
 C
       m=mod(nstep  ,2)+1
       n=mod(nstep+1,2)+1
+
+      margin = nbdy
 c
 #if defined(USE_CCSM3)
       k1m=m              !NOT k1m=1+mm (DBI)
@@ -1267,8 +1274,16 @@ cdiag   endif !1st tile
 c
 c ---   set weights and fields for high frequency atmospheric forcing.
 c ---   only two fields are used (linear interpolation in time).
-        call forfunh(dtime)
+#ifdef NUOPC
+          if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
+     &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip)) 
+     &         then
+              call forfunh(dtime)
+          endif
+#else
+          call forfunh(dtime)
 
+#endif 
 c     !Debugging
       if(mnproc.eq.1) then
 c        print *,"mod_hycom,time,nstep=",
@@ -1538,39 +1553,33 @@ c
       endif !hybrid:isopyc
 
 !!Alex add calculation of seas surface slope for CICE (NUOPC)
-      call xctilr(srfhgt( 1-nbdy,1-nbdy),1,   3, 6,6, halo_ps)
+c
+c --- Calculation of the x and y slope at the p-point
+c
+      call xctilr(srfhgt( 1-nbdy,1-nbdy), 1, 1, 6, 6, halo_ps)
+c
+c --- Initialization of the slopes
+c
+      dhdx(:,:)=0.
+      dhdy(:,:)=0.
 
-      do j=1,jj
-        do i=1,ii
-          if     (ip(i,j).eq.1) then
-            if     (ip(i+1,j)  .eq.1) then
-              ssh_e = srfhgt(i+1,j)
-            else
-              ssh_e = srfhgt(i,  j)
-            endif
-            if     (ip(i-1,j)  .eq.1) then
-              ssh_w = srfhgt(i-1,j)
-            else
-              ssh_w = srfhgt(i,  j)
-            endif
-            if     (ip(i,  j+1).eq.1) then
-              ssh_n = srfhgt(i,  j+1)
-            else
-              ssh_n = srfhgt(i,  j)
-            endif
-            if     (ip(i,  j-1).eq.1) then
-              ssh_s = srfhgt(i,  j-1)
-            else
-              ssh_s = srfhgt(i,  j)
-            endif
-            dhdx(i,j)=(ssh_e-ssh_w)/(scux(i+1,j)+scux(i,j))
-            dhdy(i,j)=(ssh_n-ssh_s)/(scvy(i,j+1)+scvy(i,j))
-          else
-            dhdx(i,j)=0.0
-            dhdy(i,j)=0.0
-          endif
+!$OMP   PARALLEL DO PRIVATE(j,k,l,i)
+!$OMP&           SCHEDULE(STATIC,jblk)
+      do j=1-margin,jj+margin
+        do l=1,isp(j)
+          do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+            ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j)) 
+            ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j)) 
+            dhdx(i,j)=0.5*(ssh_e+ssh_w) !! on the p-grid
+
+            ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  )) 
+            ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1)) 
+            dhdy(i,j)=0.5*(ssh_n+ssh_s) !! on the p-grid
         enddo !i
+       enddo !l
       enddo !j
+!$OMP     END PARALLEL DO
+
 c
 c --- update floats/moorings
       if     (synflt) then
@@ -1597,6 +1606,11 @@ c
       lfatal    = .false.
       diag_tide = tidflg.gt.0 .and.
      &            mod(dtime+dsmall,hours1).lt.dsmall2  !at least hourly
+!!Alex debug
+!      IF (mnproc.eq.1) THEN 
+!          PRINT*,'dtime,nstep:',dtime,nstep
+!          PRINT*,'dtime,endtime:',dtime,endtime
+!      ENDIF 
       if (diagno .or.
      &    histry .or. hiprof .or. hitile .or. hisurf .or. histmn .or.
      &    nstep.eq.nstep0+1 .or.
@@ -1604,6 +1618,10 @@ c
      &    mod(dtime+dsmall,ddsurf).lt.dsmall2 .or.
      &    mod(dtime+dsmall, days1).lt.dsmall2     ) then     ! at least daily
 c
+!      IF (mnproc.eq.1) THEN 
+!          PRINT*,'dtime,summary:',dtime
+!      ENDIF 
+
 #if defined(ARCTIC)
 c ---   Arctic (tripole) domain, top row is replicated (ignore it)
         jja = min( jj, jtdm-1-j0 )

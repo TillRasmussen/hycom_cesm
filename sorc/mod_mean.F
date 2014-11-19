@@ -27,7 +27,15 @@ c
      &         save, private ::
      &   ubaro_m,vbaro_m,kebaro_m,
      &   montg_m,srfht_m,steric_m,dpbl_m,dpmixl_m,
-     &   surflx_m,salflx_m, covice_m,thkice_m,temice_m
+     &   surflx_m,salflx_m, covice_m,thkice_m,temice_m,
+     &   radfla_m,snsfla_m,evafla_m,surtx_m,surty_m,sssflx_m
+!!Alex output radiative, evap and latent
+
+      real,    allocatable, dimension(:,:),
+     &         save, private ::
+     &   kmelth_m,kmeltw_m,
+     &   eice_m,pice_m,pcip_m
+!!Alex output debug
 
       contains
 
@@ -62,7 +70,21 @@ c
       allocate( covice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       allocate( thkice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       allocate( temice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+!!Alex add rad, sns eva
+      allocate( sssflx_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      allocate( radfla_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      allocate( snsfla_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      allocate( evafla_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      allocate(  surtx_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      allocate(  surty_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
 c
+!!Alex add eice, pice,...
+      allocate( pice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      allocate( eice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      allocate( pcip_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      allocate( kmelth_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      allocate( kmeltw_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+
       return
       end subroutine mean_allocate
 
@@ -96,6 +118,20 @@ c
           temice_m(i,j) = 0.0
            ubaro_m(i,j) = 0.0
            vbaro_m(i,j) = 0.0
+!!Alex
+          sssflx_m(i,j) = 0.0
+          radfla_m(i,j) = 0.0
+          snsfla_m(i,j) = 0.0
+          evafla_m(i,j) = 0.0
+           surtx_m(i,j) = 0.0
+           surty_m(i,j) = 0.0
+!!Alex
+          eice_m(i,j) = 0.0
+          pice_m(i,j) = 0.0
+          pcip_m(i,j) = 0.0
+          kmelth_m(i,j) = 0.0
+          kmeltw_m(i,j) = 0.0
+
         enddo !i
         do k= 1,kk
           do i=1,ii
@@ -157,8 +193,21 @@ c
             surflx_m(i,j) = surflx_m(i,j) + s*surflx(i,j)
             salflx_m(i,j) = salflx_m(i,j) + s*salflx(i,j)
             covice_m(i,j) = covice_m(i,j) + s*covice(i,j)
-            thkice_m(i,j) = thkice_m(i,j) + s*thkice(i,j)
-            temice_m(i,j) = temice_m(i,j) + s*temice(i,j)
+
+            thkice_m(i,j) = thkice_m(i,j) + s*flxice(i,j)
+            temice_m(i,j) = temice_m(i,j) + s*sflice(i,j)
+!!Alex
+            sssflx_m(i,j) = sssflx_m(i,j) + s*sssflx(i,j)
+            radfla_m(i,j) = radfla_m(i,j) + s*radfla(i,j)
+            snsfla_m(i,j) = snsfla_m(i,j) + s*snsfla(i,j)
+            evafla_m(i,j) = evafla_m(i,j) + s*evafla(i,j)
+!!Alex
+            pcip_m(i,j) = pcip_m(i,j) + s*pcip(i,j)
+
+         if (abs(surtx(i,j)) .lt. 100.) then
+             surtx_m(i,j) =  surtx_m(i,j) + s*surtx(i,j)
+             surty_m(i,j) =  surty_m(i,j) + s*surty(i,j)
+        endif
           enddo !i
         enddo !l
         do l=1,isu(j)
@@ -263,6 +312,14 @@ c
             covice_m(i,j) = covice_m(i,j) * q
             thkice_m(i,j) = thkice_m(i,j) * q
             temice_m(i,j) = temice_m(i,j) * q
+!!Alex
+            sssflx_m(i,j) = sssflx_m(i,j) * q
+            radfla_m(i,j) = radfla_m(i,j) * q
+            snsfla_m(i,j) = snsfla_m(i,j) * q
+            evafla_m(i,j) = evafla_m(i,j) * q
+            pcip_m(i,j) = pcip_m(i,j) * q
+             surtx_m(i,j) =  surtx_m(i,j) * q
+             surty_m(i,j) =  surty_m(i,j) * q
           enddo !i
         enddo !l
         do l=1,isu(j)
@@ -438,6 +495,70 @@ c
       call flush(nop)
       endif !1st tile
 c
+!!Alex
+      call zaiowr(sssflx_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'sssflx  ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+       call zaiowr(radfla_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'radfla  ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      call zaiowr(snsfla_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'snsfla  ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      call zaiowr(evafla_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'evafla  ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      call zaiowr(surtx_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'surtx   ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+
+      call zaiowr(surty_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'surty   ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+
+!!Alex
+      call zaiowr(kmeltw_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'kmeltw  ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      call zaiowr(pice_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'pice    ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+
+      call zaiowr(eice_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'eice    ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+
+      call zaiowr(pcip_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'pcip    ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+
+      call zaiowr(kmelth_m,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'kmelth  ',nmean,time_ave,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+!!
+
       call zaiowr(dpbl_m,ip,.true., xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
       write (nop,117) 'bl_dpth ',nmean,time_ave,0,coord,xmin,xmax

@@ -785,11 +785,11 @@ module hycom_nuopc_glue
       twoLevel = .false. ! reset
       if (fieldStdName == "surface_downward_eastward_stress") then
         cpl_taux = .not.initFlag
-        impPtr2 => imp_taux
+        impPtr2 => imp_taue
         twoLevel = .true.
       elseif (fieldStdName == "surface_downward_northward_stress") then
         cpl_tauy = .not.initFlag
-        impPtr2 => imp_tauy
+        impPtr2 => imp_taun
         twoLevel = .true.
       elseif (fieldStdName == "wind_speed_height10m") then
         cpl_wndspd = .not.initFlag
@@ -975,7 +975,7 @@ module hycom_nuopc_glue
         ! special treatment for latent heat flux
         else if (fieldStdName=="mean_lat_flx") then
           if (initFlag) then
-            ! put it in the  sign convention of HYCOM
+            ! change the sign to comply with HYCOM convention 
             do j=1,jj
             do i=1,ii
               impPtr2(i,j,1) = -impPtr2(i,j,1) 
@@ -983,7 +983,7 @@ module hycom_nuopc_glue
             enddo
             enddo
           else
-            ! put it in the  sign convention of HYCOM
+            ! change the sign to comply with HYCOM convention 
             do j=1,jj
             do i=1,ii
               impPtr2(i,j,1) = -impPtr2(i,j,1) 
@@ -994,7 +994,7 @@ module hycom_nuopc_glue
         ! special treatment for sensible heat flux
         else if (fieldStdName=="mean_sens_flx") then
           if (initFlag) then
-            ! put it in the  sign convention of HYCOM
+            ! change the sign to comply with HYCOM convention 
             do j=1,jj
             do i=1,ii
               impPtr2(i,j,1) = -impPtr2(i,j,1) 
@@ -1002,8 +1002,8 @@ module hycom_nuopc_glue
             enddo
             enddo
           else
-            ! put it in the  sign convention of HYCOM
-            do j=1,jj
+           ! change the sign to comply with HYCOM convention 
+           do j=1,jj
             do i=1,ii
               impPtr2(i,j,1) = -impPtr2(i,j,1) 
             enddo
@@ -1020,6 +1020,20 @@ module hycom_nuopc_glue
       endif
       
     enddo
+
+    ! Rotate the wind stress to local grid    
+    if (cpl_taux .and. cpl_tauy) then
+       do j=1,jj
+          do i=1,ii
+             imp_taux(i,j,1)= imp_taue(i,j,1) * cos(pang(i,j)) + imp_taun(i,j,1) * sin(pang(i,j))
+             imp_taux(i,j,2)= imp_taue(i,j,2) * cos(pang(i,j)) + imp_taun(i,j,2) * sin(pang(i,j))
+             
+             imp_tauy(i,j,1)= imp_taun(i,j,1) * cos(pang(i,j)) - imp_taue(i,j,1) * sin(pang(i,j))
+             imp_tauy(i,j,2)= imp_taun(i,j,2) * cos(pang(i,j)) - imp_taue(i,j,2) * sin(pang(i,j))
+          enddo
+       enddo
+    endif
+    
     
     ! transfer SEA-ICE imports into native HYCOM variables
     do j=1,jj
@@ -1028,8 +1042,8 @@ module hycom_nuopc_glue
         covice(i,j) = sic_import(i,j) !Sea Ice Concentration
         si_c(i,j) = sic_import(i,j) !Sea Ice Concentration
         if (covice(i,j).gt.0.0) then
-           si_tx(i,j) = -sitx_import(i,j) !Sea Ice X-Stress into ocean
-           si_ty(i,j) = -sity_import(i,j) !Sea Ice Y-Stress into ocean
+           si_tx(i,j) =  sitx_import(i,j) !Sea Ice X-Stress into ocean
+           si_ty(i,j) =  sity_import(i,j) !Sea Ice Y-Stress into ocean
           fswice(i,j) =  siqs_import(i,j) !Solar Heat Flux thru Ice to Ocean already in swflx
           flxice(i,j) =  sifh_import(i,j) !Ice Freezing/Melting Heat Flux
           sflice(i,j) =  sifs_import(i,j)*1.e3 - &
@@ -1220,7 +1234,7 @@ module hycom_nuopc_glue
         do j=1,jj
         do i=1,ii
            if (.not. initFlag) then 
-              farrayPtr(i,j) = 1./g * srfhgt(i,j)
+              farrayPtr(i,j) = 1./g * srfhgt(i,j)   ! convert ssh to m
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1230,7 +1244,7 @@ module hycom_nuopc_glue
         do j=1,jj
         do i=1,ii
            if (.not. initFlag) then 
-              farrayPtr(i,j) = dpbl(i,j) * qonem
+              farrayPtr(i,j) = dpbl(i,j) * qonem    ! convert mld to m
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1246,21 +1260,23 @@ module hycom_nuopc_glue
         do j=1,jj
         do i=1,ii
            if (.not. initFlag) then 
+              ! calculate utot(i,j)
               usur1 = 0.5*(u    (i  ,j  ,1, 1)+ubavg(i  ,j  ,  1) &
-                        +  u    (i  ,j  ,1, 2)+ubavg(i  ,j  ,  2))
- 
+                        +  u    (i  ,j  ,1, 2)+ubavg(i  ,j  ,  2)) 
+              ! calculate utot(i+1,j)
               usur2 = 0.5*(u    (i+1,j  ,1, 1)+ubavg(i+1,j  ,  1) &
-                        +  u    (i+1,j  ,1, 2)+ubavg(i+1,j  ,  2))
-              
+                        +  u    (i+1,j  ,1, 2)+ubavg(i+1,j  ,  2))              
+              ! calculate vtot(i,j)
               vsur1 = 0.5*(v    (i  ,j  ,1, 1)+vbavg(i  ,j  ,  1) &
                         +  v    (i  ,j  ,1, 2)+vbavg(i  ,j  ,  2))
-
+              ! calculate vtot(i,j+1)
               vsur2 = 0.5*(v    (i  ,j+1,1, 1)+vbavg(i  ,j+1,  1) &
                         +  v    (i  ,j+1,1, 2)+vbavg(i  ,j+1,  2))
-              
+              ! put u and v on the p-grid
               utot = 0.5*(usur1 + usur2)
               vtot = 0.5*(vsur1 + vsur2)
-              farrayPtr(i,j) = utot*cos(pang(i,j)) - vtot*sin(pang(i,j))
+              ! convert to eastward/northward grid
+              farrayPtr(i,j) = utot*cos(pang(i,j)) + vtot*sin(-pang(i,j))
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1270,32 +1286,34 @@ module hycom_nuopc_glue
         do j=1,jj
         do i=1,ii
            if (.not. initFlag) then 
+              ! calculate utot(i,j)
               usur1 = 0.5*(u    (i  ,j  ,1, 1)+ubavg(i  ,j  ,  1) &
                         +  u    (i  ,j  ,1, 2)+ubavg(i  ,j  ,  2))
- 
+              ! calculate utot(i+1,j) 
               usur2 = 0.5*(u    (i+1,j  ,1, 1)+ubavg(i+1,j  ,  1) &
                         +  u    (i+1,j  ,1, 2)+ubavg(i+1,j  ,  2))
-              
+              ! calculate vtot(i,j)
               vsur1 = 0.5*(v    (i  ,j  ,1, 1)+vbavg(i  ,j  ,  1) &
                         +  v    (i  ,j  ,1, 2)+vbavg(i  ,j  ,  2))
-
+              ! calculate vtot(i,j+1)
               vsur2 = 0.5*(v    (i  ,j+1,1, 1)+vbavg(i  ,j+1,  1) &
                         +  v    (i  ,j+1,1, 2)+vbavg(i  ,j+1,  2))
-              
+              ! put u and v on the p-grid              
               utot = 0.5*(usur1 + usur2)
               vtot = 0.5*(vsur1 + vsur2)
-              farrayPtr(i,j) = vtot*cos(pang(i,j)) + utot*sin(pang(i,j))
+              ! convert to eastward/northward grid
+              farrayPtr(i,j) = vtot*cos(pang(i,j)) - utot*sin(-pang(i,j))
            else
               farrayPtr(i,j) = 0.
            endif
         enddo
         enddo
-!!Alex add sea surface slope to export
       elseif (fieldStdName == "eastward_sea_surface_slope") then
         do j=1,jj
         do i=1,ii
            if (.not. initFlag) then 
-              farrayPtr(i,j) = dhdx(i,j)*cos(pang(i,j))-dhdy(i,j)*sin(pang(i,j))
+              ! convert to eastward/northward grid
+              farrayPtr(i,j) = dhdx(i,j)*cos(pang(i,j)) + dhdy(i,j)*sin(-pang(i,j))
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1305,7 +1323,8 @@ module hycom_nuopc_glue
         do j=1,jj
         do i=1,ii
            if (.not. initFlag) then 
-              farrayPtr(i,j) = dhdy(i,j)*cos(pang(i,j))+dhdx(i,j)*sin(pang(i,j))
+              ! convert to eastward/northward grid
+              farrayPtr(i,j) = dhdy(i,j)*cos(pang(i,j)) - dhdx(i,j)*sin(-pang(i,j))
            else
               farrayPtr(i,j) = 0.
            endif
