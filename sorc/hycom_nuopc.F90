@@ -1243,11 +1243,11 @@ module hycom
         file=__FILE__)) &
       return ! bail out
       
-      call ESMF_LogWrite(trim('HYCOM_WriteFieldBundle: '//fieldNameList_loc(i)), ESMF_LOGMSG_INFO, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-      return ! bail out
+      !call ESMF_LogWrite(trim('HYCOM_WriteFieldBundle: '//fieldNameList_loc(i)), ESMF_LOGMSG_INFO, rc=rc)
+      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      !  line=__LINE__, &
+      !  file=__FILE__)) &
+      !return ! bail out
 
       call ESMF_FieldWrite(field, file=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
         overwrite=overwrite, status=status, timeslice=timeslice, rc=rc)
@@ -1346,11 +1346,11 @@ module hycom
         ptr2D = 0.0_ESMF_KIND_R8
 
         write(msg, *) elb, eub, lbound(ptr1D), ubound(ptr1D)
-        call ESMF_LogWrite(trim('RedistAndWriteField: bounds: ')// trim(msg), ESMF_LOGMSG_INFO, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-        return ! bail out
+        !call ESMF_LogWrite(trim('RedistAndWriteField: bounds: ')// trim(msg), ESMF_LOGMSG_INFO, rc=rc)
+        !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        !  line=__LINE__, &
+        !  file=__FILE__)) &
+        !return ! bail out
 
         !call ESMF_FieldRedist(field, dst2DField, routehandle=CESM2HYCOM_RHR8, rc=rc)
         call copy_1D_to_2D(field, dst2DField, rc=rc)
@@ -1359,11 +1359,11 @@ module hycom
           file=__FILE__)) &
         return ! bail out
         
-        call ESMF_LogWrite(trim('RedistAndWriteField: '//fieldNameList_loc(i)), ESMF_LOGMSG_INFO, rc=rc)
-        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-          line=__LINE__, &
-          file=__FILE__)) &
-        return ! bail out
+        !call ESMF_LogWrite(trim('RedistAndWriteField: '//fieldNameList_loc(i)), ESMF_LOGMSG_INFO, rc=rc)
+        !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        !  line=__LINE__, &
+        !  file=__FILE__)) &
+        !return ! bail out
 
         call ESMF_FieldWrite(dst2DField, file=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
           overwrite=overwrite, status=status, timeslice=timeslice, rc=rc)
@@ -1493,12 +1493,12 @@ module hycom
 
     rc = ESMF_SUCCESS
 
-    call ESMF_LogWrite(trim('HYCOM_RedistHYCOM2CESM: '// trim(hycom_field_stdname) // ' ---> ' //trim(cesm_field_stdname)), &
-      ESMF_LOGMSG_INFO, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_LogWrite(trim('HYCOM_RedistHYCOM2CESM: '// trim(hycom_field_stdname) // ' ---> ' //trim(cesm_field_stdname)), &
+    !  ESMF_LOGMSG_INFO, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
     ! retrieve 1D field from cesm export State
     call NUOPC_FieldDictionaryGetEntry(standardName=trim(cesm_field_stdname), &
@@ -1559,13 +1559,13 @@ module hycom
       return ! bail out
     endif
 
-    call ESMF_LogWrite(trim('HYCOM_RedistHYCOM2CESM: '// trim(hycom_field_stdname) // &
-      ' : ' // trim(l_hycom_field_shortname) //' ---> ' //trim(cesm_field_stdname)//' : '//trim(cesm_field_shortname)), &
-      ESMF_LOGMSG_INFO, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_LogWrite(trim('HYCOM_RedistHYCOM2CESM: '// trim(hycom_field_stdname) // &
+    !  ' : ' // trim(l_hycom_field_shortname) //' ---> ' //trim(cesm_field_stdname)//' : '//trim(cesm_field_shortname)), &
+    !  ESMF_LOGMSG_INFO, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
     
   end subroutine
 
@@ -1595,12 +1595,12 @@ module hycom
 
     rc = ESMF_SUCCESS
 
-    call ESMF_LogWrite(trim('HYCOM_RedistCESM2HYCOM: '// trim(cesm_field_stdname) // ' ---> ' //trim(hycom_field_stdname)), &
-      ESMF_LOGMSG_INFO, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_LogWrite(trim('HYCOM_RedistCESM2HYCOM: '// trim(cesm_field_stdname) // ' ---> ' //trim(hycom_field_stdname)), &
+    !  ESMF_LOGMSG_INFO, rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
     ! retrieve 1D field from cesm import State
     call NUOPC_FieldDictionaryGetEntry(standardName=trim(cesm_field_stdname), &
@@ -1644,20 +1644,13 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    call ESMF_LogWrite(trim('HYCOM_RedistCESM2HYCOM: '// trim(cesm_field_stdname) // &
-      ' : ' // trim(cesm_field_shortname) //' ---> ' //trim(hycom_field_stdname)//' : '//trim(l_hycom_field_shortname)), &
-      ESMF_LOGMSG_INFO, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-
-    !call ESMF_FieldWrite(hycom_field, file='swnet.nc', variableName=trim(l_hycom_field_shortname), &
-    !  overwrite=.true., timeslice=1, rc=rc)
+    !call ESMF_LogWrite(trim('HYCOM_RedistCESM2HYCOM: '// trim(cesm_field_stdname) // &
+    !  ' : ' // trim(cesm_field_shortname) //' ---> ' //trim(hycom_field_stdname)//' : '//trim(l_hycom_field_shortname)), &
+    !  ESMF_LOGMSG_INFO, rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
-    !  return  ! bail out
+    !return ! bail out
 
   end subroutine
 

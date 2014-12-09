@@ -748,8 +748,8 @@ module hycom_nuopc_glue
         return  ! bail out
 #endif
       
-      call ESMF_LogWrite("HYCOM_GlueFieldsDataImport(): "// &
-        trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
+      !call ESMF_LogWrite("HYCOM_GlueFieldsDataImport(): "// &
+      !  trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
         
 #ifndef WORKAROUND_HOLES
       ! Access the HYCOM distributed field.
@@ -1139,9 +1139,9 @@ module hycom_nuopc_glue
       file=__FILE__)) &
       return  ! bail out
 
-    write(msg, *) 'Number of fields in export Fields', fieldCount
-    call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
-      trim(msg), ESMF_LOGMSG_INFO)
+    !write(msg, *) 'Number of fields in export Fields', fieldCount
+    !call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
+    !  trim(msg), ESMF_LOGMSG_INFO)
     
     ! loop over all of the export Fields and fill in the data
     do iField=1, fieldCount
@@ -1161,9 +1161,9 @@ module hycom_nuopc_glue
         line=__LINE__, &
         file=__FILE__)) &
       return ! bail out
-      write(msg, *) trim(fieldStdName), ' connected: ', isConnected
-      call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
-        trim(msg), ESMF_LOGMSG_INFO)
+      !write(msg, *) trim(fieldStdName), ' connected: ', isConnected
+      !call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
+      !  trim(msg), ESMF_LOGMSG_INFO)
       if(.not. isConnected) cycle
 #else
       call NUOPC_FieldAttributeGet(field, name="StandardName", &
@@ -1174,8 +1174,8 @@ module hycom_nuopc_glue
         return  ! bail out
 #endif
       
-      call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
-        trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
+      !call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
+      !  trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
         
 #ifdef WORKAROUND_HOLES
       ! look for this field in the shadow_exportFields
