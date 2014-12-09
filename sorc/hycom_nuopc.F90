@@ -880,6 +880,12 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
+    call ESMF_VMLogMemInfo('MEMORY Usage BEFORE HYCOM_RUN', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
     ! Enter the advancing loop over HYCOM_run...
     do
       ! ...on return the end-of-run flags indicate whether HYCOM has advanced
@@ -889,6 +895,12 @@ module hycom
       !  end_of_run, end_of_run_cpl
       if (end_of_run .or. end_of_run_cpl) exit
     enddo
+
+    call ESMF_VMLogMemInfo('MEMORY Usage AFTER HYCOM_RUN', rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
 
     ! Export HYCOM native data through the glue fields.
     call HYCOM_GlueFieldsDataExport(is%wrap%glue, initFlag, rc=rc)
