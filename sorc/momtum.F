@@ -281,12 +281,12 @@ cjc   weights for the coupled forcing
          cpl_w3=0.
       endif
       
-      if(mnproc.eq.1) then
-        print *,"momtum.F,nstep1_cpl=",nstep1_cpl,nstep2_cpl,nstep
-        print *,"momtum.F, cpl_w2,cpl_w3=",cpl_w2,cpl_w3
-        print *,"cpl_taux,cpl_tauy=",cpl_taux,cpl_tauy
-        print *,"w0,w1=",w0,w1
-      endif
+!      if(mnproc.eq.1) then
+!        print *,"momtum.F,nstep1_cpl=",nstep1_cpl,nstep2_cpl,nstep
+!        print *,"momtum.F, cpl_w2,cpl_w3=",cpl_w2,cpl_w3
+!        print *,"cpl_taux,cpl_tauy=",cpl_taux,cpl_tauy
+!        print *,"w0,w1=",w0,w1
+!      endif
 
 #endif
         do j=1-margin,jj+margin

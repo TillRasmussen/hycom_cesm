@@ -11,13 +11,13 @@ c
 c --- iqr   = maximum number of tiles in i direction
 c --- jqr   = maximum number of tiles in j direction
       integer    iqr,jqr
-      parameter (iqr=10,jqr=8)  ! multiple tiles (TYPE=ompi or mpi or shmem)
+      parameter (iqr=8,jqr=5)  ! multiple tiles (TYPE=ompi or mpi or shmem)
 c
 c --- idm   = maximum single tile grid dimension in i direction
 c --- jdm   = maximum single tile grid dimension in j direction
       integer    idm,jdm
 *     parameter (idm=itdm,jdm=jtdm)  ! always works if enough memory
-      parameter (idm= 106,jdm=  64)  ! NMPI=16,24,32,40,47,64
+      parameter (idm= 77,jdm=  98)  ! NMPI=16,24,32,40,47,64
 c
 c --- mxthrd= maximum number of OpenMP threads
       integer    mxthrd

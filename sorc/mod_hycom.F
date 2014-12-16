@@ -308,12 +308,11 @@ c ---   also implies high frequency atmospheric forcing
 
 !!Alex add calendar for CESM
       elseif (yrflag.eq.4) then
-c ---   366 days, starting Jan 1
+c ---   365 days, starting Jan 1
 c ---   also implies high frequency atmospheric forcing
         dyear  = 365.0d0
         dmonth = dyear/12.d0
         dbimon = dyear/ 6.d0
-        dyear  = 365.0d0
         dyear0 = -15.0d0+dyear
       else
         if (mnproc.eq.1) then
@@ -2648,8 +2647,10 @@ c
         ! endtime present means that "end_of_run_cpl" needs to be set correctly
         nstep2_cpl=nint(endtime*(86400.0d0/baclin))
 
-c        if(mnproc.eq.1) print *,"mod_hycom,nstep,nsteo2,nstep2_cpl =",
-c     &    nstep,nstep2,nstep2_cpl
+!        if(mnproc.eq.1) print *,"mod_hycom,nstep,nstep2,nstep2_cpl =",
+!     &    nstep,nstep2,nstep2_cpl
+!        if(mnproc.eq.1) print *,"endtime =",
+!     &    endtime
 
         if(nstep.ge.nstep2_cpl) then
           end_of_run_cpl = .true.
