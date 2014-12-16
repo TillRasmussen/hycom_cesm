@@ -241,6 +241,9 @@ module hycom
   !-----------------------------------------------------------------------------
 
   subroutine InitializeRealize(gcomp, importState, exportState, clock, rc)
+#ifdef HYCOM_IN_CESM
+    use seq_infodata_mod
+#endif
     type(ESMF_GridComp)  :: gcomp
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
@@ -272,6 +275,8 @@ module hycom
     integer                     :: ldeCount, eleCount, lsize, mpicom_ocn, nfields, lde, i, n_elem
     integer                     :: maxIndex(2, 1)
     integer, pointer            :: fptrSeqIndex(:)
+    character(len=32)           :: starttype            ! infodata start type
+    real(ESMF_KIND_R8)          :: l_startTime_r8
 #endif
     
     rc = ESMF_SUCCESS
@@ -343,13 +348,32 @@ module hycom
       
     print *, " HYCOM_INIT -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
 
+    call ESMF_AttributeGet(exportState, name="start_type", value=starttype, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    if (     trim(starttype) == trim(seq_infodata_start_type_start)) then
+       l_startTime_r8=-startTime_r8
+    else if (trim(starttype) == trim(seq_infodata_start_type_cont) ) then
+       l_startTime_r8=startTime_r8
+    else if (trim(starttype) == trim(seq_infodata_start_type_brnch)) then
+       l_startTime_r8=startTime_r8
+    else
+       call ESMF_LogWrite('hycom_nuopc ERROR: unknown starttype',  &
+          ESMF_LOGMSG_ERROR, rc=rc)
+       rc = ESMF_RC_OBJ_BAD
+       return
+    end if
+
     call ESMF_LOGWRITE("BEFORE HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
     ! Call into the HYCOM initialization  
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
 !      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
-      hycom_start_dtg=startTime_r8, hycom_end_dtg=stopTime_r8)
+      hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8)
 !!Alex get an attribute to get continuous or initial run ... 
 !!Alex  initial --> sign =-1
 !!Alex  continuous --> sign =+1
