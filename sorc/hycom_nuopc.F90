@@ -256,8 +256,8 @@ module hycom
     type(ESMF_array)            :: array
     type(ESMF_VM)               :: vm
     integer                     :: mpiComm
-    type(ESMF_Time)             :: startTime, stopTime, hycomRefTime
-    type(ESMF_TimeInterval)     :: interval
+    TYPE(ESMF_Time)             :: startTime, stopTime, hycomRefTime, currTime
+    TYPE(ESMF_TimeInterval)     :: interval,timeStep
     real(ESMF_KIND_R8)          :: startTime_r8, stopTime_r8
     type(InternalState)         :: is
     integer                     :: stat
@@ -307,13 +307,28 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    call ESMF_ClockGet(clock, currTime=currTime, timeStep=timeStep, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call NUOPC_TimePrint(currTime, &
+      "----Alex------------------------> to: ", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
 !    call ESMF_TimeSet(hycomRefTime, yy=1900, mm=12, dd=31, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
     call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    interval = startTime - hycomRefTime
+!!Alex    interval = startTime - hycomRefTime
+    interval = currTime - hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=startTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -326,14 +341,18 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
       
-    !print *, " HYCOM_INIT -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
+    print *, " HYCOM_INIT -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
 
     call ESMF_LOGWRITE("BEFORE HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
     ! Call into the HYCOM initialization  
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
-      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
+!      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
+      hycom_start_dtg=startTime_r8, hycom_end_dtg=stopTime_r8)
+!!Alex get an attribute to get continuous or initial run ... 
+!!Alex  initial --> sign =-1
+!!Alex  continuous --> sign =+1
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -804,7 +823,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
-    print *, 'FIELDBUNDLEPRINT: -> number of field in HYCOM import FieldBundle: ', fieldcount
+!!Alex    print *, 'FIELDBUNDLEPRINT: -> number of field in HYCOM import FieldBundle: ', fieldcount
     allocate(fieldNameList(fieldCount))
     call ESMF_FieldBundleGet(is%wrap%glue%importFields, fieldNameList=fieldNameList, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -812,7 +831,7 @@ module hycom
       file=__FILE__)) &
     return ! bail out
     do i = 1, fieldCount
-      print *, 'FIELDBUNDLEPRINT: -> ', fieldNameList(i)
+!!Alex      print *, 'FIELDBUNDLEPRINT: -> ', fieldNameList(i)
       call ESMF_FieldBundleGet(is%wrap%glue%importFields, fieldName=fieldNameList(i), field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -2349,7 +2368,7 @@ module hycom
 
     nfields = shr_string_listGetNum(trim(fieldlist))
     !nfields = eub(2,1)
-    print *, 'dumpRawData: nfields: ', nfields
+!!Alex    print *, 'dumpRawData: nfields: ', nfields
 
     call ESMF_VMGetCurrent(vm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

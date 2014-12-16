@@ -492,14 +492,14 @@ cjc   weights for the coupled forcing
       endif
 
 
-      if(mnproc.eq.1) then
-        print *,"thermf.F,nstep1_cpl=",nstep1_cpl,nstep2_cpl,nstep
-        print *,"thermf.F, cpl_w2,cpl_w3=",cpl_w2,cpl_w3
-        print *,"thermf.F, cpl_taux=",cpl_taux,cpl_tauy,
-     &   cpl_wndspd,cpl_ustara,cpl_airtmp,cpl_vapmix,cpl_swflx,
-     &   cpl_lwmdnflx, cpl_lwmupflx,cpl_precip
-        print *,"w0,w1=",w0,w1
-      endif
+!      if(mnproc.eq.1) then
+!        print *,"thermf.F,nstep1_cpl=",nstep1_cpl,nstep2_cpl,nstep
+!        print *,"thermf.F, cpl_w2,cpl_w3=",cpl_w2,cpl_w3
+!        print *,"thermf.F, cpl_taux=",cpl_taux,cpl_tauy,
+!     &   cpl_wndspd,cpl_ustara,cpl_airtmp,cpl_vapmix,cpl_swflx,
+!     &   cpl_lwmdnflx, cpl_lwmupflx,cpl_precip
+!        print *,"w0,w1=",w0,w1
+!      endif
 
 #endif
 
@@ -809,8 +809,8 @@ c ---        = Qsw+Qlw across the atmosphere to ocean or sea-ice interface
 !     & 'and up_lw_flx are provided.'
         else
           if     (mnproc.eq.1) then
-            write (lp,'(a,a)') 'NUOPC: not all net_sw_flx, dn_lw_flx,',
-     & 'and up_lw_flx are provided.'
+!            write (lp,'(a,a)') 'NUOPC: not all net_sw_flx, dn_lw_flx,',
+!     & 'and up_lw_flx are provided.'
           endif !1st tile
           radfl=radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
      &       +radflx(i,j,l2)*w2+radflx(i,j,l3)*w3
