@@ -300,39 +300,26 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
     call ESMF_VMGet(vm, mpiCommunicator=mpiComm, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
       
-    ! Translate startTime and stopTime into HYCOM format
-    call ESMF_ClockGet(clock, startTime=startTime, stopTime=stopTime, rc=rc)
+    ! Translate currTime and stopTime into HYCOM format
+    call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
-    call ESMF_ClockGet(clock, currTime=currTime, timeStep=timeStep, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call NUOPC_TimePrint(currTime, &
-      "----Alex------------------------> to: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-!    call ESMF_TimeSet(hycomRefTime, yy=1900, mm=12, dd=31, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
+    ! Define HYCOM Ref Time
     call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-!!Alex    interval = startTime - hycomRefTime
     interval = currTime - hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=startTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -348,6 +335,7 @@ module hycom
       
     print *, " HYCOM_INIT -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
 
+    ! Get start type run : start-up or continuous run
     call ESMF_AttributeGet(exportState, name="start_type", value=starttype, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -374,9 +362,6 @@ module hycom
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
 !      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
       hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8)
-!!Alex get an attribute to get continuous or initial run ... 
-!!Alex  initial --> sign =-1
-!!Alex  continuous --> sign =+1
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -458,6 +443,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
 #ifdef HYCOM_IN_CESM
     ! Connect 2D glue layer with 1D cap so internal HYCOM data will be copied to 2D Fields in glue layer
     do i  = 1, number_export_fields
