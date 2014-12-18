@@ -608,6 +608,9 @@ c
         wndrep = 732.0d0  !two year forcing repeat period
       elseif (yrflag.eq. 2) then
         wndrep = 366.0d0  !one year forcing repeat period
+!!Alex add wndrep=365 for yrflag = 4 
+      elseif (yrflag.eq. 4) then
+        wndrep = 365.0d0  !one year forcing repeat period
       endif
 c
       dsur1p = dsurfq .lt. 0.0
