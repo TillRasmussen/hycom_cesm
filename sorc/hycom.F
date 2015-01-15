@@ -35,7 +35,9 @@ c  Initialize the ESMF Framework
 c-------------------------------------------------------------------------------
 c
 c --- Set default calendar and log type; get world VM
-      call ESMF_Initialize(defaultCalKind=ESMF_CALKIND_GREGORIAN,
+!!Alex      call ESMF_Initialize(defaultCalKind=ESMF_CALKIND_GREGORIAN,
+!!Alex     &                     vm=worldVM, rc=rc)
+      call ESMF_Initialize(defaultCalKind=ESMF_CALKIND_NOLEAP,
      &                     vm=worldVM, rc=rc)
       if (rc .ne. ESMF_SUCCESS) stop 99
 c
