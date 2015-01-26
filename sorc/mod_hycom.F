@@ -2541,7 +2541,33 @@ c
       endif  ! histry.or.hiprof.or.hitile.or.hisurf.or.lfatal
 c
 c
-      if (restrt) then
+
+#if! defined(USE_CCSM3)
+
+      ! regular end-of-run condition
+      end_of_run = nstep.ge.nstep2
+
+      ! stepable end-of-run condition
+      if (present(endtime)) then
+        ! endtime present means that "end_of_run_cpl" needs to be set correctly
+        nstep2_cpl=nint(endtime*(86400.0d0/baclin))
+
+!        if(mnproc.eq.1) print *,"mod_hycom,nstep,nstep2,nstep2_cpl =",
+!     &    nstep,nstep2,nstep2_cpl
+!        if(mnproc.eq.1) print *,"endtime =",
+!     &    endtime
+
+        if(nstep.ge.nstep2_cpl) then
+          end_of_run_cpl = .true.
+        else
+          end_of_run_cpl = .false.
+        endif
+      endif
+
+
+#endif
+      
+      if (restrt .or. (restart.and.end_of_run_cpl)) then !!Alex
         call xctmr0(51)
 c
 c ---   output to restart and flux statitics files
@@ -2598,21 +2624,22 @@ c
 c
 c --- get the restart filename
 c
-       if (present(pointer_filename)) then
+        if (restart) then
           write(flnmra,'(a,i4.4,a,i3.3,a,i2.2)') 
      &                 'restart_', iyear,'-',jday,'-',ihour
           open(1,file=trim(pointer_filename),form='formatted',
      &            status='unknown')
           write(1,'(a)')trim(flnmra)
           close(1)
-          flnmrb = flnmra
+          flnmrb = trim(flnmra)
         else           
           flnmra = flnmrso  !.a extension added by restart_out
           flnmrb = flnmrso  !.b extension added by restart_out
         endif 
 #endif
 c
-        call restart_out(nstep,dtime, flnmra,flnmrb, nstep.ge.nstep2)
+        call restart_out(nstep,dtime, flnmra,flnmrb, nstep.ge.nstep2,
+     &                   restart)
 c
 c ---   set layer thickness (incl.bottom pressure) at u,v points
 c ---   needed because restart_out may have modified dp
@@ -2649,7 +2676,7 @@ c
         enddo  !nm=1,2
 c
         call xctmr1(51)
-      endif  ! restrt
+      endif  ! restrt .or. restart
 c
       if     (histry .or. hiprof .or. hitile .or. hisurf) then
         if (mnproc.eq.1) then
@@ -2667,29 +2694,6 @@ c
 c
       delt1=baclin+baclin
 c
-#if ! defined(USE_CCSM3)
-
-      ! regular end-of-run condition
-      end_of_run = nstep.ge.nstep2
-
-      ! stepable end-of-run condition
-      if (present(endtime)) then
-        ! endtime present means that "end_of_run_cpl" needs to be set correctly
-        nstep2_cpl=nint(endtime*(86400.0d0/baclin))
-
-!        if(mnproc.eq.1) print *,"mod_hycom,nstep,nstep2,nstep2_cpl =",
-!     &    nstep,nstep2,nstep2_cpl
-!        if(mnproc.eq.1) print *,"endtime =",
-!     &    endtime
-
-        if(nstep.ge.nstep2_cpl) then
-          end_of_run_cpl = .true.
-        else
-          end_of_run_cpl = .false.
-        endif
-      endif
-
-#endif
 c
 c --- at end: output float restart file 
 c

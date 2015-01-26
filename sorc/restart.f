@@ -404,7 +404,8 @@ c
       return
       end subroutine restart_inrw
 
-      subroutine restart_out(nstepx, dtimex, flnmra,flnmrb, last)
+      subroutine restart_out(nstepx, dtimex, flnmra,flnmrb, last,
+     &                       restart)
       use mod_xc      ! HYCOM communication interface
       use mod_za      ! HYCOM I/O interface
       use mod_tides   ! HYCOM tides
@@ -416,6 +417,7 @@ c
       integer nstepx
       real*8  dtimex
       character*(*) flnmra,flnmrb
+      logical, intent(in), optional :: restart !!Alex
 c
 c     write out in a restart file on unit 12 or 22 (and a flux file on 25).
 c
@@ -441,6 +443,11 @@ c
       else
         iunta = 22  ! backup   restart file
       endif
+!!Alex unit of restart     
+      if (restart) then
+          iunta = 12
+      endif 
+      
       iunit = uoff+iunta
 c
       call zaiopi(lopen, iunta)
