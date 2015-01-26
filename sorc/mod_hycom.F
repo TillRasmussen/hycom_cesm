@@ -104,7 +104,7 @@ c
       
 c===================================================================
       subroutine HYCOM_Init(mpiCommunicator,hycom_start_dtg,
-     &   hycom_end_dtg)
+     &   hycom_end_dtg,pointer_filename)
 
 
 c
@@ -122,6 +122,8 @@ c
 
 !!Alex add variable for calculation of dhdx and dhdy
       real            :: ssh_n,ssh_s,ssh_e,ssh_w
+!!Alex add variable for restart filename and pointer
+      character*80, optional :: pointer_filename
 c
       include 'stmt_fns.h'
 
@@ -476,7 +478,7 @@ c
           call tides_set(0)
         endif
       else
-c
+c 
 c ---   start from restart file
 c
         delt1=baclin+baclin
@@ -613,10 +615,22 @@ c
 c
       else
 c
+c --- Get the restart file name from pointer file
+c
+!!Alex add restart through pointer_filename
+        if (present(pointer_filename)) then
+          open(1,file=trim(pointer_filename),form='formatted',
+     &           status='old')
+          read(1,'(a)') flnmrsi
+          close(1)
+        endif 
+!!Alex
+c
 c ---   start from restart file
 c
         flnmra = trim(flnmrsi)//'.a'
         flnmrb = trim(flnmrsi)//'.b'
+
         call restart_in(nstep0,dtime0, flnmra,flnmrb)
 c
         if     (linit) then
@@ -1081,7 +1095,6 @@ c
        enddo !l
       enddo !j
 !$OMP     END PARALLEL DO
-
 c
 c --- report initialization time.
 c
@@ -1090,7 +1103,7 @@ c
       end subroutine HYCOM_Init
 
 c============================================================
-      subroutine HYCOM_Run(endtime)
+      subroutine HYCOM_Run(endtime,pointer_filename)
 c
 c --- -------------------------
 c --- execute a single timestep
@@ -1103,6 +1116,8 @@ c
       integer      i,j,jja,k,ktr,l,nm
       character*80 flnmra,flnmrb
 
+!!Add restart pointer filename      
+      character*80, optional :: pointer_filename
 !!Alex add variable for calculation of dhdx and dhdy
       real            :: ssh_n,ssh_s,ssh_e,ssh_w
 c
@@ -1578,7 +1593,6 @@ c
        enddo !l
       enddo !j
 !$OMP     END PARALLEL DO
-
 c
 c --- update floats/moorings
       if     (synflt) then
@@ -2578,8 +2592,22 @@ c
         call flush(lp)
         endif !1st tile
 c
-        flnmra = flnmrso  !.a extension added by restart_out
-        flnmrb = flnmrso  !.b extension added by restart_out
+!!Alex handle restart for CESM rpointer filename
+c
+c --- get the restart filename
+c
+       if (present(pointer_filename)) then
+          write(flnmra,'(a,i4.4,a,i3.3,a,i2.2)') 
+     &                 'restart_', iyear,'-',jday,'-',ihour
+          open(1,file=trim(pointer_filename),form='formatted',
+     &            status='unknown')
+          write(1,'(a)')trim(flnmra)
+          close(1)
+          flnmrb = flnmra
+        else           
+          flnmra = flnmrso  !.a extension added by restart_out
+          flnmrb = flnmrso  !.b extension added by restart_out
+        endif 
 #endif
 c
         call restart_out(nstep,dtime, flnmra,flnmrb, nstep.ge.nstep2)

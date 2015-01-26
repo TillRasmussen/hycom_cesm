@@ -277,6 +277,7 @@ module hycom
     integer, pointer            :: fptrSeqIndex(:)
     character(len=32)           :: starttype            ! infodata start type
     real(ESMF_KIND_R8)          :: l_startTime_r8
+    character(len=80)           :: pointer_filename     !  restart pointer file !!Alex
 #endif
     
     rc = ESMF_SUCCESS
@@ -356,13 +357,17 @@ module hycom
        return
     end if
 
+    ! Get the pointer restart name !!Alex
+    pointer_filename = 'rpointer.ocn' 
+
     call ESMF_LOGWRITE("BEFORE HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
     ! Call into the HYCOM initialization  
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
 !      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
-      hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8)
+       hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8, &
+       pointer_filename=pointer_filename)
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -761,6 +766,7 @@ module hycom
     integer                     :: fieldCount, i
     character(len=128), allocatable :: fieldNameList(:)
     type(ESMF_Field)            :: field
+    character(len=80)           :: pointer_filename     ! restart pointer file !!Alex
 
     rc = ESMF_SUCCESS
     
@@ -917,11 +923,14 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
+    ! Get the pointer restart name !!Alex
+    pointer_filename = 'rpointer.ocn' 
+
     ! Enter the advancing loop over HYCOM_run...
     do
       ! ...on return the end-of-run flags indicate whether HYCOM has advanced
       ! far enough...
-      call HYCOM_Run(endtime=stepTime_r8) ! -->> call into HYCOM <<--
+      CALL HYCOM_Run(endtime=stepTime_r8,pointer_filename=pointer_filename) ! -->> call into HYCOM <<--
       !print *, "HYCOM_Run returned with end_of_run, end_of_run_cpl:", &
       !  end_of_run, end_of_run_cpl
       if (end_of_run .or. end_of_run_cpl) exit
