@@ -104,7 +104,7 @@ c
       
 c===================================================================
       subroutine HYCOM_Init(mpiCommunicator,hycom_start_dtg,
-     &   hycom_end_dtg,pointer_filename)
+     &   hycom_end_dtg,pointer_filename,restart)
 
 
 c
@@ -123,7 +123,8 @@ c
 !!Alex add variable for calculation of dhdx and dhdy
       real            :: ssh_n,ssh_s,ssh_e,ssh_w
 !!Alex add variable for restart filename and pointer
-      character*80, optional :: pointer_filename
+      character*80, intent(in), optional :: pointer_filename
+      logical,      intent(in), optional :: restart
 c
       include 'stmt_fns.h'
 
@@ -1103,7 +1104,7 @@ c
       end subroutine HYCOM_Init
 
 c============================================================
-      subroutine HYCOM_Run(endtime,pointer_filename)
+      subroutine HYCOM_Run(endtime,pointer_filename,restart)
 c
 c --- -------------------------
 c --- execute a single timestep
@@ -1117,7 +1118,8 @@ c
       character*80 flnmra,flnmrb
 
 !!Add restart pointer filename      
-      character*80, optional :: pointer_filename
+      character*80, intent(in), optional :: pointer_filename
+      logical,      intent(in), optional :: restart
 !!Alex add variable for calculation of dhdx and dhdy
       real            :: ssh_n,ssh_s,ssh_e,ssh_w
 c

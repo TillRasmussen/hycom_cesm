@@ -24,10 +24,10 @@ module hycom
   use esmfshr_util_mod, only : esmfshr_util_ArrayGetSize
   use esmf2mct_mod    , only : esmf2mct_init
 
-  use seq_flds_mod
   use mct_mod,          only : mct_gsMap, mct_gGrid, mct_gsMap_gsize
   use shr_string_mod,   only : shr_string_listGetNum
   use seq_flds_mod
+  use seq_timemgr_mod
   use esmfshr_nuopc_mod
 #endif
 
@@ -278,6 +278,7 @@ module hycom
     character(len=32)           :: starttype            ! infodata start type
     real(ESMF_KIND_R8)          :: l_startTime_r8
     character(len=80)           :: pointer_filename     !  restart pointer file !!Alex
+    logical                     :: restart = .false.
 #endif
     
     rc = ESMF_SUCCESS
@@ -359,6 +360,7 @@ module hycom
 
     ! Get the pointer restart name !!Alex
     pointer_filename = 'rpointer.ocn' 
+    restart = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
 
     call ESMF_LOGWRITE("BEFORE HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -367,7 +369,7 @@ module hycom
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
 !      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
        hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8, &
-       pointer_filename=pointer_filename)
+       pointer_filename=pointer_filename, restart=restart)
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -767,6 +769,7 @@ module hycom
     character(len=128), allocatable :: fieldNameList(:)
     type(ESMF_Field)            :: field
     character(len=80)           :: pointer_filename     ! restart pointer file !!Alex
+    logical                     :: restart = .false.
 
     rc = ESMF_SUCCESS
     
@@ -925,12 +928,13 @@ module hycom
 
     ! Get the pointer restart name !!Alex
     pointer_filename = 'rpointer.ocn' 
+    restart = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
 
     ! Enter the advancing loop over HYCOM_run...
     do
       ! ...on return the end-of-run flags indicate whether HYCOM has advanced
       ! far enough...
-      CALL HYCOM_Run(endtime=stepTime_r8,pointer_filename=pointer_filename) ! -->> call into HYCOM <<--
+      CALL HYCOM_Run(endtime=stepTime_r8,pointer_filename=pointer_filename, restart=restart) ! -->> call into HYCOM <<--
       !print *, "HYCOM_Run returned with end_of_run, end_of_run_cpl:", &
       !  end_of_run, end_of_run_cpl
       if (end_of_run .or. end_of_run_cpl) exit
