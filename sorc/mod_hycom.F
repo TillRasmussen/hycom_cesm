@@ -2542,7 +2542,7 @@ c
 c
 c
 
-#if! defined(USE_CCSM3)
+#if ! defined(USE_CCSM3)
 
       ! regular end-of-run condition
       end_of_run = nstep.ge.nstep2
