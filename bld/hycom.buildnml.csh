@@ -12,13 +12,8 @@ cd $RUNDIR
 mkdir -p OUTPUT
 mv  archv.* archm.* OUTPUT/
 mv *cice.h.*.nc OUTPUT/
+rm ovrtn_out 
 cp -p -f /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT/* .
-if (-e restart_out.a) then
-  mv restart_out.a restart_in.a
-endif
-if (-e restart_out.b) then
-  mv restart_out.b restart_in.b
-endif
 set base_filename = "hycom_in"
 
 set inst_counter = 1
