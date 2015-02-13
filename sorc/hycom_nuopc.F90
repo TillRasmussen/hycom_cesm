@@ -275,10 +275,11 @@ module hycom
     integer                     :: ldeCount, eleCount, lsize, mpicom_ocn, nfields, lde, i, n_elem
     integer                     :: maxIndex(2, 1)
     integer, pointer            :: fptrSeqIndex(:)
-    character(len=32)           :: starttype            ! infodata start type
+    character(len=32)           :: starttype                 ! infodata start type
     real(ESMF_KIND_R8)          :: l_startTime_r8
-    character(len=80)           :: pointer_filename     !  restart pointer file !!Alex
-    logical                     :: restart = .false.
+    character(len=80)           :: pointer_filename          ! restart pointer file !!Alex
+    logical                     :: restart_write = .false.   ! write restart
+    LOGICAL                     :: restFlag = .false.        ! initial/restart run (F/T)
 #endif
     
     rc = ESMF_SUCCESS
@@ -347,10 +348,13 @@ module hycom
 
     if (     trim(starttype) == trim(seq_infodata_start_type_start)) then
        l_startTime_r8=-startTime_r8
+       restFlag = .false.
     else if (trim(starttype) == trim(seq_infodata_start_type_cont) ) then
        l_startTime_r8=startTime_r8
+       restFlag = .true.
     else if (trim(starttype) == trim(seq_infodata_start_type_brnch)) then
        l_startTime_r8=startTime_r8
+       restFlag = .true.
     else
        call ESMF_LogWrite('hycom_nuopc ERROR: unknown starttype',  &
           ESMF_LOGMSG_ERROR, rc=rc)
@@ -360,7 +364,7 @@ module hycom
 
     ! Get the pointer restart name !!Alex
     pointer_filename = 'rpointer.ocn' 
-    restart = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
+    restart_write = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
 
     call ESMF_LOGWRITE("BEFORE HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -369,7 +373,7 @@ module hycom
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
 !      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
        hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8, &
-       pointer_filename=pointer_filename, restart=restart)
+       pointer_filename=pointer_filename, l_rest=restFlag, restart_write=restart_write)
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -446,7 +450,8 @@ module hycom
       return  ! bail out
 
     ! Import data to HYCOM native structures through glue fields.
-    call HYCOM_GlueFieldsDataImport(is%wrap%glue, .true., rc=rc)
+!!Alex    call HYCOM_GlueFieldsDataImport(is%wrap%glue, .true., rc=rc)
+   call HYCOM_GlueFieldsDataImport(is%wrap%glue, .not. restFlag, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -466,7 +471,8 @@ module hycom
     enddo
 #endif
     ! Export HYCOM native structures to data through glue fields.
-    CALL HYCOM_GlueFieldsDataExport(is%wrap%glue, .true., rc=rc)
+!!Alex    CALL HYCOM_GlueFieldsDataExport(is%wrap%glue, .true., rc=rc)
+    CALL HYCOM_GlueFieldsDataExport(is%wrap%glue, .not. restFlag, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -749,7 +755,10 @@ module hycom
 
   end subroutine
 
-  subroutine HYCOM_ModelAdvance(gcomp, rc)
+  SUBROUTINE HYCOM_ModelAdvance(gcomp, rc)
+#ifdef HYCOM_IN_CESM
+    use seq_infodata_mod
+#endif
     type(ESMF_GridComp)  :: gcomp
     integer, intent(out) :: rc
     
@@ -769,7 +778,9 @@ module hycom
     character(len=128), allocatable :: fieldNameList(:)
     type(ESMF_Field)            :: field
     character(len=80)           :: pointer_filename     ! restart pointer file !!Alex
-    logical                     :: restart = .false.
+    logical                     :: restart_write = .false.
+    character(len=32)           :: starttype            ! infodata start type
+    logical                     :: restFlag = .false.
 
     rc = ESMF_SUCCESS
     
@@ -894,10 +905,31 @@ module hycom
       return  ! bail out
 #endif
     
+    ! Get start type run : start-up or continuous run !!Alex add restFlag
+    call ESMF_AttributeGet(exportState, name="start_type", value=starttype, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
+    if (     trim(starttype) == trim(seq_infodata_start_type_start)) then
+       restFlag = .false.
+    else if (trim(starttype) == trim(seq_infodata_start_type_cont) ) then
+       restFlag = .true.
+    else if (trim(starttype) == trim(seq_infodata_start_type_brnch)) then
+       restFlag = .true.
+    else
+       call ESMF_LogWrite('hycom_nuopc ERROR: unknown starttype',  &
+          ESMF_LOGMSG_ERROR, rc=rc)
+       rc = ESMF_RC_OBJ_BAD
+       return
+    end if
+
     !TODO: don't need the additional initialization step once data-dependency
     !TODO: is taken care of during initialize.
     initFlag = .false.
-    if (is%wrap%slice==1) initFlag = .true.
+!!Alex    if (is%wrap%slice==1) initFlag = .true.
+    if (is%wrap%slice==1 .and. (.not. restFlag)) initFlag = .true.
 
     ! Import data to HYCOM native structures through glue fields.
     call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
@@ -928,13 +960,13 @@ module hycom
 
     ! Get the pointer restart name !!Alex
     pointer_filename = 'rpointer.ocn' 
-    restart = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
+    restart_write = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
 
     ! Enter the advancing loop over HYCOM_run...
     do
       ! ...on return the end-of-run flags indicate whether HYCOM has advanced
       ! far enough...
-      CALL HYCOM_Run(endtime=stepTime_r8,pointer_filename=pointer_filename, restart=restart) ! -->> call into HYCOM <<--
+      CALL HYCOM_Run(endtime=stepTime_r8,pointer_filename=pointer_filename, l_rest=restFlag, restart_write=restart_write) ! -->> call into HYCOM <<--
       !print *, "HYCOM_Run returned with end_of_run, end_of_run_cpl:", &
       !  end_of_run, end_of_run_cpl
       if (end_of_run .or. end_of_run_cpl) exit

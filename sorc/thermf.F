@@ -771,7 +771,8 @@ c --- for saturation vapor pressure (lowe, j.appl.met., 16, 100-103, 1976)
      &               +t* 6.136820929e-11))))))
 c
 c --- salinity relaxation coefficient
-      rmus=1./(30.0*86400.0)  !1/30 days
+!!Alex      rmus=1./(30.0*86400.0)  !1/30 days
+      rmus=1./(180.0*86400.0)  !1/6 months
 c
 c --- temperature relaxation coefficient
       rmut=1./(30.0*86400.0)  !1/30 days

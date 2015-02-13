@@ -5,7 +5,8 @@ c --- HYCOM (named pipe based) debugging interface
 c
       logical, save, public  :: lpipe
 c
-      integer, save, private :: ipunit,lpunit,ishift,jshift,nsym
+      integer, save, private :: ipunit,lpunit,ishift,jshift,nsym,
+     &                          nstep_start !!Alex restart
       logical, save, private :: ldebug,ldebugssh,
      &                          lmaster,lpipeio,lshift,lslave,
      &                          lsym,ltracer
@@ -88,6 +89,7 @@ c
 c
       character*12  cinfo
       integer       irecl
+      logical       ltstep !!Alex restart
 c
       inquire(file='PIPE_MASTER',    exist=lmaster)
       inquire(file='PIPE_SLAVE',     exist=lslave)
@@ -112,6 +114,18 @@ c
                stop 'pipe_init: (shift ambiguity)'
       endif
 c
+!!Alex restart bit to bit
+      if     (lpipeio) then
+        inquire(file='PIPE_START',   exist=ltstep)
+        if     (ltstep) then
+          open(unit=uoff+99,file='PIPE_START')  !on all nodes
+          read(uoff+99,*) nstep_start
+          close(unit=uoff+99) !file='PIPE_START'
+        else
+          nstep_start = 0
+        endif
+      endif
+
       if     (lpipe .or. ltracer) then
 c
 c ---   allocate arrays for comparison
@@ -223,6 +237,7 @@ c
 c
       subroutine pipe_compare(field,mask,what)
       implicit none
+      include 'common_blocks.h' !!Alex
 c
       real,    dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &         intent(in) :: field
@@ -239,7 +254,8 @@ c
       logical      fail
       character*12 which
 c
-      if (lpipeio) then
+!!Alex      if (lpipeio) then !! restart 
+      if (lpipeio .and. nstep.ge.nstep_start) then          
         if (lmaster) then
           do j=1,jj
             do i=1,ii
@@ -311,6 +327,7 @@ c
 
       subroutine pipe_compare_sym1(field,mask,what)
       implicit none
+      include 'common_blocks.h' !!Alex
 c
       real,    dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &         intent(in) :: field
@@ -327,7 +344,8 @@ c
       integer      i,io,j,jo
       logical      fail
 c
-      if     (lpipeio) then
+!!Alex      if     (lpipeio) then !!restart
+      if (lpipeio .and. nstep.ge.nstep_start) then
         call pipe_compare(field,mask,what)
       elseif (lsym) then
         do j=1,jj
@@ -1052,12 +1070,24 @@ c
           write(txt1(10:12),'(i3)') k
           write(txt2(10:12),'(i3)') k
 c
-          txt1(1:9) = 'u(kn)  k='
-          txt2(1:9) = 'v(kn)  k='
+!!Alex restart
+!          txt1(1:9) = 'u(kn)  k='
+!          txt2(1:9) = 'v(kn)  k='
+!          call pipe_compare_sym2(   u(1-nbdy,1-nbdy,k,n),iu,txt1,
+!     &                              v(1-nbdy,1-nbdy,k,n),iv,txt2)
+!          txt1(1:9) = 'dp(kn) k='
+!          call pipe_compare_sym1(  dp(1-nbdy,1-nbdy,k,n),ip,txt1)
+          txt1(1:9) = '...u(kn) '
+          txt2(1:9) = '...v(kn) '
           call pipe_compare_sym2(   u(1-nbdy,1-nbdy,k,n),iu,txt1,
      &                              v(1-nbdy,1-nbdy,k,n),iv,txt2)
-          txt1(1:9) = 'dp(kn) k='
-          call pipe_compare_sym1(  dp(1-nbdy,1-nbdy,k,n),ip,txt1)
+          txt1(1:9) = '.dpu(kn) '
+          txt2(1:9) = '.dpv(kn) '
+          call pipe_compare_sym2( dpu(1-nbdy,1-nbdy,k,n),iu,txt1,
+     &                            dpv(1-nbdy,1-nbdy,k,n),iv,txt2)
+          txt1(1:9) = '..dp(kn) '
+          call pipe_compare_sym1(  dp(1-nbdy,1-nbdy,k,n),ip,txt1)          
+!!Alex restart
           txt1(1:9) = 'temp(kn) '
           call pipe_compare_sym1(temp(1-nbdy,1-nbdy,k,n),ip,txt1)
           txt1(1:9) = 'saln(kn) '

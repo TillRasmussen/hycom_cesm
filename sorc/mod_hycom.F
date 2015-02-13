@@ -104,7 +104,7 @@ c
       
 c===================================================================
       subroutine HYCOM_Init(mpiCommunicator,hycom_start_dtg,
-     &   hycom_end_dtg,pointer_filename,restart)
+     &   hycom_end_dtg,pointer_filename,l_rest,restart_write)
 
 
 c
@@ -124,7 +124,8 @@ c
       real            :: ssh_n,ssh_s,ssh_e,ssh_w
 !!Alex add variable for restart filename and pointer
       character*80, intent(in), optional :: pointer_filename
-      logical,      intent(in), optional :: restart
+      logical,      intent(in), optional :: restart_write
+      logical,      intent(in), optional :: l_rest
 c
       include 'stmt_fns.h'
 
@@ -417,8 +418,8 @@ c
 #else
 c
 c --- model is to be integrated from time step 'nstep1' to 'nstep2'
-      if (.not.present(hycom_start_dtg) .or. 
-     & .not.present(hycom_end_dtg)) then
+      if (.not.present(hycom_start_dtg)  .or. 
+     &    .not.present(hycom_end_dtg  )) then
         open( unit=uoff+99,file=trim(flnminp)//'limits')
         read(      uoff+99,*) day1,day2
         close(unit=uoff+99)
@@ -428,21 +429,33 @@ c --- the start of a yrflag==3 case.
 
 c      print *,"mod_hycom, day1,day2=",day1,day2
 c
-      if (present(hycom_start_dtg)) day1=hycom_start_dtg
-      if (present(hycom_end_dtg)) day2=hycom_end_dtg
+      if (present(hycom_start_dtg)) day1 = hycom_start_dtg
+      if (present(hycom_end_dtg  )) day2 = hycom_end_dtg
 
       linit =day1.le.0.0 
       day1  =abs(day1)
 c
+!!Alex Alan's fix for bit to bit restart
+!      dtime=day1
+!      nstep1=nint(dtime*(86400.0d0/baclin))
+!      dtime=nstep1/(86400.0d0/baclin)
+!      day1 =dtime
+!c
+!      dtime=day2
+!      nstep2=nint(dtime*(86400.0d0/baclin))
+!      dtime=nstep2/(86400.0d0/baclin)
+!      day2 =dtime
+
       dtime=day1
       nstep1=nint(dtime*(86400.0d0/baclin))
-      dtime=nstep1/(86400.0d0/baclin)
+      dtime=(nstep1/nts_day)+mod(nstep1,nts_day)*(baclin/86400.0d0)
       day1 =dtime
 c
       dtime=day2
       nstep2=nint(dtime*(86400.0d0/baclin))
-      dtime=nstep2/(86400.0d0/baclin)
+      dtime=(nstep2/nts_day)+mod(nstep2,nts_day)*(baclin/86400.0d0)
       day2 =dtime
+
 #endif /* USE_CCSM3:else */
 c
       if     (mxlkpp) then
@@ -555,7 +568,8 @@ c
 c ---   set up initial conditions
 c
         nstep0=nstep1
-        dtime0=nstep0/(86400.0d0/baclin)
+!!Alex        dtime0=nstep0/(86400.0d0/baclin)
+        dtime0=(nstep0/nts_day)+mod(nstep0,nts_day)*(baclin/86400.0d0)
         time0=dtime0
         delt1=baclin
         if     (clmflg.eq.12) then
@@ -634,6 +648,10 @@ c
 
         call restart_in(nstep0,dtime0, flnmra,flnmrb)
 c
+!!Alex
+        surflx(:,:) = 0.0
+        salflx(:,:) = 0.0
+!!Alex
         if     (linit) then
 c
 c ---     start a new calendar-day (yrflag==3) case.
@@ -644,12 +662,14 @@ c ---     start a new calendar-day (yrflag==3) case.
      &      ', is treated as day',  day1,'  step',nstep1
           endif !1st tile
           nstep0=nstep1
-          dtime0=nstep0/(86400.0d0/baclin)
+!!Alex          dtime0=nstep0/(86400.0d0/baclin)
+          dtime0=(nstep0/nts_day)+mod(nstep0,nts_day)*(baclin/86400.0d0)
           time0=dtime0
           delt1=baclin+baclin
         else
           nstep0=nint(dtime0*(86400.0d0/baclin))
-          dtime0=nstep0/(86400.0d0/baclin)
+!!Alex          dtime0=nstep0/(86400.0d0/baclin)
+          dtime0=(nstep0/nts_day)+mod(nstep0,nts_day)*(baclin/86400.0d0)
           time0=dtime0
           delt1=baclin+baclin
           if (mnproc.eq.1) then
@@ -713,6 +733,9 @@ c
 c
       margin = nbdy
 c
+!!Alex restart bit to bit
+      nstep = nstep0+1          !for pipe_compare
+!!Alex
       do nm=1,2
 c
 !$OMP   PARALLEL DO PRIVATE(j,k,l,i)
@@ -768,7 +791,10 @@ c
              call pipe_comparall(m,n, 'hybgen, step')
         endif  !isopyc to hybrid restart only
 c
-      enddo  !nm=1,2
+      enddo                     !nm=1,2
+!!Alex restart bit to bit
+      nstep = nstep-1           !restore
+!!Alex     
 c
 c --- surface archive output flags initiialization
 c
@@ -958,7 +984,20 @@ c ---   only two fields are used (linear interpolation in time).
           w1=-99.0
           w2=0.0
           w3=0.0
+!!Alex no file flux on restart 
+#ifdef NUOPC
+          if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
+     &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip))
+     &         then
+              if (.not. l_rest) then
+                  call forfunh(dtime0)
+              endif 
+          endif
+#else
           call forfunh(dtime0)
+
+#endif 
+!!Alex          call forfunh(dtime0)
         else
           w0=0.0
           w1=0.0
@@ -1104,7 +1143,8 @@ c
       end subroutine HYCOM_Init
 
 c============================================================
-      subroutine HYCOM_Run(endtime,pointer_filename,restart)
+      subroutine HYCOM_Run(endtime,pointer_filename,l_rest,
+     &                     restart_write)
 c
 c --- -------------------------
 c --- execute a single timestep
@@ -1119,7 +1159,8 @@ c
 
 !!Add restart pointer filename      
       character*80, intent(in), optional :: pointer_filename
-      logical,      intent(in), optional :: restart
+      logical,      intent(in), optional :: restart_write
+      logical,      intent(in), optional :: l_rest
 !!Alex add variable for calculation of dhdx and dhdy
       real            :: ssh_n,ssh_s,ssh_e,ssh_w
 c
@@ -1223,7 +1264,8 @@ cdiag.  '',  weights '',4f6.3)') nstep,lc0,lc1,lc2,lc3,wc0,wc1,wc2,wc3
 cdiag endif !1st tile
 #else
       nstep=nstep+1
-      dtime=dtime0+(nstep-nstep0)/(86400.0d0/baclin)
+!!Alex      dtime=dtime0+(nstep-nstep0)/(86400.0d0/baclin) !! restart bit to bit
+      dtime=(nstep/nts_day)+mod(nstep,nts_day)*(baclin/86400.0d0)
 c
       time  =dtime
       time_8=dtime  !'baroclinic' time for body force tides
@@ -1293,8 +1335,10 @@ c ---   only two fields are used (linear interpolation in time).
 #ifdef NUOPC
           if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
      &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip)) 
-     &         then
-              call forfunh(dtime)
+     &        then
+              if (.not. l_rest) then
+               call forfunh(dtime)
+              endif
           endif
 #else
           call forfunh(dtime)
@@ -1419,7 +1463,10 @@ c
         call rdnest(dtime)
       endif
 c
-         call pipe_comparall(m,n, 'ENTER , step')
+!!Alex         call pipe_comparall(m,n, 'ENTER , step')
+         call pipe_comparall(n,m, 'ENTERm, step')
+         call pipe_comparall(m,n, 'ENTERn, step')
+!!Alex
          call xctmr0(40)
       call cnuity(m,n)
          call xctmr1(40)
@@ -2567,7 +2614,7 @@ c
 
 #endif
       
-      if (restrt .or. (restart.and.end_of_run_cpl)) then !!Alex
+      if (restrt .or. (restart_write.and.end_of_run_cpl)) then !!Alex
         call xctmr0(51)
 c
 c ---   output to restart and flux statitics files
@@ -2624,7 +2671,7 @@ c
 c
 c --- get the restart filename
 c
-        if (restart) then
+        if (restart_write) then
           write(flnmra,'(a,i4.4,a,i3.3,a,i2.2)') 
      &                 'restart_', iyear,'-',jday,'-',ihour
           open(1,file=trim(pointer_filename),form='formatted',
@@ -2639,16 +2686,20 @@ c
 #endif
 c
         call restart_out(nstep,dtime, flnmra,flnmrb, nstep.ge.nstep2,
-     &                   restart)
+     &                   restart_write)
 c
 c ---   set layer thickness (incl.bottom pressure) at u,v points
 c ---   needed because restart_out may have modified dp
 c
+        call dpthuv !!Alex restart bit to bit
+
         call xctilr(dp(1-nbdy,1-nbdy,1,1),1,2*kk, nbdy,nbdy, halo_ps)
         call xctilr(dpmixl(1-nbdy,1-nbdy,1),1,2,  nbdy,nbdy, halo_ps)
 c
         margin = nbdy
 c
+        nstep = nstep+1         !for pipe_compare !!Alex restart bit to bit
+        
         do nm=1,2
 !$OMP     PARALLEL DO PRIVATE(j,k,l,i)
 !$OMP&             SCHEDULE(STATIC,jblk)
@@ -2673,7 +2724,26 @@ c
      &                dpv(1-nbdy,1-nbdy,1,nm),
      &                p,depthu,depthv, max(0,margin-1))
 c            
-        enddo  !nm=1,2
+        enddo                   !nm=1,2
+!!Alex restart bit to bit
+        nstep = nstep-1  !restore 
+c
+c ---   update montg to preserve bit for bit reproducability on restart
+        m=mod(nstep  ,2)+1
+        n=mod(nstep+1,2)+1
+        if     (meanfq.ne.0.0) then
+c ---     assume meanfq not changed to zero when rerun from restart
+          call momtum_hs(n,m)
+          surflx(:,:) = 0.0
+          salflx(:,:) = 0.0
+          if     (histmn) then
+            call mean_zero(dtime)
+            call mean_add(n, 0.5)
+          endif  ! histmn
+        endif !meanfq
+        call momtum_hs(n,m)
+c
+!!Alex restart bit to bit
 c
         call xctmr1(51)
       endif  ! restrt .or. restart
@@ -2761,3 +2831,5 @@ c> Apr. 2010 - added proffq
 c> Apr. 2010 - added archiv_init
 c> Mar. 2011 - mean archive now the same with and without tides
 c> Apr. 2011 - surface archives separate from 3-D archives
+c> Feb. 2015 - removed dtime0 from calculation of dtime
+c> Feb. 2015 - fixed issues with bit for bit reproducability on restart
