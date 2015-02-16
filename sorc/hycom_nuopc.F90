@@ -373,7 +373,7 @@ module hycom
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
 !      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
        hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8, &
-       pointer_filename=pointer_filename, l_rest=restFlag, restart_write=restart_write)
+       pointer_filename=pointer_filename,  restart_write=restart_write)
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -450,7 +450,6 @@ module hycom
       return  ! bail out
 
     ! Import data to HYCOM native structures through glue fields.
-!!Alex    call HYCOM_GlueFieldsDataImport(is%wrap%glue, .true., rc=rc)
    call HYCOM_GlueFieldsDataImport(is%wrap%glue, .not. restFlag, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -471,7 +470,6 @@ module hycom
     enddo
 #endif
     ! Export HYCOM native structures to data through glue fields.
-!!Alex    CALL HYCOM_GlueFieldsDataExport(is%wrap%glue, .true., rc=rc)
     CALL HYCOM_GlueFieldsDataExport(is%wrap%glue, .not. restFlag, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -966,7 +964,7 @@ module hycom
     do
       ! ...on return the end-of-run flags indicate whether HYCOM has advanced
       ! far enough...
-      CALL HYCOM_Run(endtime=stepTime_r8,pointer_filename=pointer_filename, l_rest=restFlag, restart_write=restart_write) ! -->> call into HYCOM <<--
+      CALL HYCOM_Run(endtime=stepTime_r8,pointer_filename=pointer_filename, restart_write=restart_write) ! -->> call into HYCOM <<--
       !print *, "HYCOM_Run returned with end_of_run, end_of_run_cpl:", &
       !  end_of_run, end_of_run_cpl
       if (end_of_run .or. end_of_run_cpl) exit

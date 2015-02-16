@@ -104,7 +104,7 @@ c
       
 c===================================================================
       subroutine HYCOM_Init(mpiCommunicator,hycom_start_dtg,
-     &   hycom_end_dtg,pointer_filename,l_rest,restart_write)
+     &   hycom_end_dtg,pointer_filename,restart_write)
 
 
 c
@@ -125,7 +125,7 @@ c
 !!Alex add variable for restart filename and pointer
       character*80, intent(in), optional :: pointer_filename
       logical,      intent(in), optional :: restart_write
-      logical,      intent(in), optional :: l_rest
+!      logical,      intent(in), optional :: l_rest
 c
       include 'stmt_fns.h'
 
@@ -989,7 +989,7 @@ c ---   only two fields are used (linear interpolation in time).
           if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
      &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip))
      &         then
-              if (.not. l_rest) then
+              if (linit) then
                   call forfunh(dtime0)
               endif 
           endif
@@ -1143,8 +1143,7 @@ c
       end subroutine HYCOM_Init
 
 c============================================================
-      subroutine HYCOM_Run(endtime,pointer_filename,l_rest,
-     &                     restart_write)
+      subroutine HYCOM_Run(endtime,pointer_filename,restart_write)
 c
 c --- -------------------------
 c --- execute a single timestep
@@ -1160,7 +1159,6 @@ c
 !!Add restart pointer filename      
       character*80, intent(in), optional :: pointer_filename
       logical,      intent(in), optional :: restart_write
-      logical,      intent(in), optional :: l_rest
 !!Alex add variable for calculation of dhdx and dhdy
       real            :: ssh_n,ssh_s,ssh_e,ssh_w
 c
@@ -1336,9 +1334,7 @@ c ---   only two fields are used (linear interpolation in time).
           if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
      &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip)) 
      &        then
-              if (.not. l_rest) then
                call forfunh(dtime)
-              endif
           endif
 #else
           call forfunh(dtime)
