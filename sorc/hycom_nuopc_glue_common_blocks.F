@@ -55,7 +55,6 @@
         public srfhgt         ! sea surface height, g*ssh(m)
         public dpbl           ! turbulent boundary layer depth
         public saln           ! salinity
-!!Alex add sea surface slope
         public dhdx           ! eastward sea surface slope (m/m)
         public dhdy           ! northward sea surface slope (m/m)
         public pang           ! ANGLET
@@ -78,7 +77,7 @@
         
         ! scalars and flags
         public g, onem, qonem, thkfrz, baclin, icefrq, spcifh
-        public tfrz_0, tfrz_s
+        public tfrz_0, tfrz_s, frzh
         public iceflg, icmflg, sstflg
         
       end module

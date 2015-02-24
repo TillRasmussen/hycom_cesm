@@ -1040,50 +1040,53 @@ module hycom_nuopc_glue
     do i=1,ii
       if (iceflg.ge.2 .and. icmflg.ne.3) then
         covice(i,j) = sic_import(i,j) !Sea Ice Concentration
-        si_c(i,j) = sic_import(i,j) !Sea Ice Concentration
+        si_c  (i,j) = sic_import(i,j) !Sea Ice Concentration
         if (covice(i,j).gt.0.0) then
-           si_tx(i,j) =  sitx_import(i,j) !Sea Ice X-Stress into ocean
-           si_ty(i,j) =  sity_import(i,j) !Sea Ice Y-Stress into ocean
+          if (frzh(i,j).gt.0.0) then
+             flxice(i,j) = frzh(i,j)        !Sea Ice Heat Flux Freezing potential
+          else
+             flxice(i,j) = sifh_import(i,j) !Sea Ice Heat Flux Melting potential
+          endif
+          si_tx (i,j) =  sitx_import(i,j) !Sea Ice X-Stress into ocean
+          si_ty (i,j) =  sity_import(i,j) !Sea Ice Y-Stress into ocean
           fswice(i,j) =  siqs_import(i,j) !Solar Heat Flux thru Ice to Ocean already in swflx
-          flxice(i,j) =  sifh_import(i,j) !Ice Freezing/Melting Heat Flux
           sflice(i,j) =  sifs_import(i,j)*1.e3 - &
-                         sifw_import(i,j)*saln(i,j,1,2)
-                                            !Ice Virtual Salt Flux
-          temice(i,j) =  sit_import(i,j) !Sea Ice Temperature
-          si_t(i,j) =  sit_import(i,j) !Sea Ice Temperature
-          thkice(i,j) =  sih_import(i,j) !Sea Ice Thickness
-          si_h(i,j) =  sih_import(i,j) !Sea Ice Thickness
-          si_u(i,j) =  siu_import(i,j) !Sea Ice X-Velocity
-          si_v(i,j) =  siv_import(i,j) !Sea Ice Y-Velocity
+                         sifw_import(i,j)*saln(i,j,1,2) !Ice Virtual Salt Flux
+          temice(i,j) =   sit_import(i,j) !Sea Ice Temperature
+          si_t  (i,j) =   sit_import(i,j) !Sea Ice Temperature
+          thkice(i,j) =   sih_import(i,j) !Sea Ice Thickness
+          si_h  (i,j) =   sih_import(i,j) !Sea Ice Thickness
+          si_u  (i,j) =   siu_import(i,j) !Sea Ice X-Velocity
+          si_v  (i,j) =   siv_import(i,j) !Sea Ice Y-Velocity
         else
-          si_tx(i,j) = 0.0
-          si_ty(i,j) = 0.0
+          si_tx (i,j) = 0.0
+          si_ty (i,j) = 0.0
           fswice(i,j) = 0.0
           flxice(i,j) = 0.0
           sflice(i,j) = 0.0
           temice(i,j) = 0.0
-          si_t(i,j) = 0.0
+          si_t  (i,j) = 0.0
           thkice(i,j) = 0.0
-          si_h(i,j) = 0.0
-          si_u(i,j) = 0.0
-          si_v(i,j) = 0.0
+          si_h  (i,j) = 0.0
+          si_u  (i,j) = 0.0
+          si_v  (i,j) = 0.0
         endif !covice
       elseif (iceflg.ge.2 .and. icmflg.eq.3) then
         si_c(i,j) =  sic_import(i,j) !Sea Ice Concentration
         if (si_c(i,j).gt.0.0) then
           si_tx(i,j) = -sitx_import(i,j) !Sea Ice X-Stress into ocean
           si_ty(i,j) = -sity_import(i,j) !Sea Ice Y-Stress into ocean
-          si_h(i,j) =  sih_import(i,j) !Sea Ice Thickness
-          si_t(i,j) =  sit_import(i,j) !Sea Ice Temperature
-          si_u(i,j) =  siu_import(i,j) !Sea Ice X-Velocity
-          si_v(i,j) =  siv_import(i,j) !Sea Ice Y-Velocity
+          si_h (i,j) =   sih_import(i,j) !Sea Ice Thickness
+          si_t (i,j) =   sit_import(i,j) !Sea Ice Temperature
+          si_u (i,j) =   siu_import(i,j) !Sea Ice X-Velocity
+          si_v (i,j) =   siv_import(i,j) !Sea Ice Y-Velocity
         else
           si_tx(i,j) = 0.0
           si_ty(i,j) = 0.0
-          si_h(i,j) = 0.0
-          si_t(i,j) = 0.0
-          si_u(i,j) = 0.0
-          si_v(i,j) = 0.0
+          si_h (i,j) = 0.0
+          si_t (i,j) = 0.0
+          si_u (i,j) = 0.0
+          si_v (i,j) = 0.0
         endif !covice
       endif !iceflg>=2 (icmflg)
     enddo
@@ -1225,8 +1228,10 @@ module hycom_nuopc_glue
               ssfi = (tfrz-tmxl)*t2f       !W/m^2 into ocean
         
               farrayPtr(i,j) = max(-1000.0,min(1000.0,ssfi))
+              frzh     (i,j) = max(-1000.0,min(1000.0,ssfi)) ! > 0. freezing potential of flxice
            else
               farrayPtr(i,j) = 0.
+              frzh     (i,j) = 0.                            ! > 0. freezing potential of flxice
            endif
         enddo
         enddo        

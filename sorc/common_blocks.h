@@ -29,8 +29,9 @@ c-----------------------------------------------------------------------------
      & thmean,        !   mean depth averaged density
      & montg1,        ! layer 1 montgomery potential
      & skap,          ! thermobaric scale factor between reference states
-     & dhdx,          ! eastward sea surface slope (m/m) !!Alex 
-     & dhdy           ! northward sea surface slope (m/m) !!Alex 
+     & dhdx,          ! eastward sea surface slope  (m/m)  !!Alex 
+     & dhdy,          ! northward sea surface slope (m/m)  !!Alex 
+     & frzh           ! Freezing potential  flux    (W/m2) !!Alex 
 
 
       real, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) ::
@@ -39,7 +40,7 @@ c-----------------------------------------------------------------------------
 
 
       common/hycom1r/ u,v,dp,dpold,dpoldm,dpu,dpv,p,pu,pv,
-     &                corio,psikk,thkk,potvor,
+     &                corio,psikk,thkk,potvor,frzh,
      &                srfhgt,steric,sshgmn,thmean,montg1,dhdx,dhdy,
      &                temp,saln,th3d,thstar,skap,theta,diaflx,tracer
       save  /hycom1r/
