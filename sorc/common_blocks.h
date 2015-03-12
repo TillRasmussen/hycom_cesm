@@ -672,6 +672,7 @@ c --- 'lwflag' = longwave corr.  flag (0=none,1=clim,2=atmos), sst-based
 c --- 'sstflg' = SST relaxation  flag (0=none,1=clim,2=atmos,3=obs)
 c --- 'icmflg' = ice mask        flag (0=none,1=clim,2=atmos,3=obs)
 c --- 'difsmo' = KPROF: number of layers with horiz smooth diff coeffs
+c --- 'cplifq' = coupling frequency (day) !!Alex
 c
       real           sigma,thbase,saln0,baclin,batrop,
      &               qhybrlx,hybiso,
@@ -685,7 +686,7 @@ c
      &               thkmls,thkmlt,thkriv,thkmin,bldmin,bldmax,thkbot,
      &               thkfrz,tfrz_0,tfrz_s,ticegr,hicemn,hicemx,
      &               dp00,dp00f,dp00x,ds00,ds00f,ds00x,dp00i,isotop,
-     &               sigjmp,tmljmp,salmin
+     &               sigjmp,tmljmp,salmin,cplifq
       common/parms1r/sigma(kdm),thbase,saln0,baclin,batrop,
      &               qhybrlx,hybiso,
      &               visco2,visco4,veldf2,veldf4,facdf4,
@@ -698,7 +699,7 @@ c
      &               thkmls,thkmlt,thkriv,thkmin,bldmin,bldmax,thkbot,
      &               thkfrz,tfrz_0,tfrz_s,ticegr,hicemn,hicemx,
      &               dp00,dp00f,dp00x,ds00,ds00f,ds00x,dp00i,isotop,
-     &               sigjmp,tmljmp,salmin(kdm)
+     &               sigjmp,tmljmp,salmin(kdm),cplifq 
       save  /parms1r/
 c
       integer        tsofrq,mixfrq,icefrq,nhybrd,nsigma,

@@ -18,6 +18,7 @@ module hycom
     end_of_run, end_of_run_cpl
     
   use hycom_nuopc_glue
+  use hycom_nuopc_glue_common_blocks
 #ifdef HYCOM_IN_CESM
   use ESMF_IOScripMod
   use esmfshr_util_mod, only : esmfshr_util_ArrayGetIndex
@@ -765,14 +766,18 @@ module hycom
     type(ESMF_State)            :: importState, exportState
     type(ESMF_Time)             :: currTime
     type(ESMF_TimeInterval)     :: timeStep
+    type(ESMF_TimeInterval)     :: timeStep_drv
     type(ESMF_Time)             :: hycomRefTime
     type(ESMF_TimeInterval)     :: interval
     real(ESMF_KIND_R8)          :: stepTime_r8
+    real(ESMF_KIND_R8)          :: endTime_r8
     type(InternalState)         :: is
     logical                     :: initFlag
     type(ESMF_CALKIND_FLAG)     :: calkind
 
     integer                     :: fieldCount, i
+    integer                     :: hcplifq, hycom_cpl_dt, ocn_cpl_dt
+    real                        :: cplfrq
     character(len=128), allocatable :: fieldNameList(:)
     type(ESMF_Field)            :: field
     character(len=80)           :: pointer_filename     ! restart pointer file !!Alex
@@ -810,18 +815,45 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
     
-    call ESMF_ClockGet(clock, currTime=currTime, timeStep=timeStep, rc=rc)
+    CALL ESMF_ClockGet(clock, currTime=currTime,  rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
     
+    ! convert coupling frequency from days (cplifq>0) or time step (cplifq<0) to hours
+    ! icefrq == cplifq in time step (see blkdat.F)
+    if (cplifq.GE.0.0) THEN 
+       hcplifq=nint( cplifq * 24.d0)
+    else 
+       hcplifq=nint(-cplifq*(baclin/3600.d0))
+    endif
+    hycom_cpl_dt=cplifq*86400.d0
+       print*,'hycom_cpl_dt = ',hycom_cpl_dt
+    ! check that cplifq and OCN_NCPL are identical
+!!Alex    call seq_timemgr_EClockGetData(Eclock, dtime=ocn_cpl_dt)
+!       print*,'hycom_cpl_dt = ',hycom_cpl_dt,'  ocn_cpl_dt = ',ocn_cpl_dt
+!    if (hycom_cpl_dt.ne.ocn_cpl_dt) then
+!       call ESMF_LogWrite('hycom_nuopc ERROR: hycom_cpl_dt differs from ocn_cpl_dt', &
+!          ESMF_LOGMSG_ERROR, rc=rc)
+!       print*,'hycom_cpl_dt = ',hycom_cpl_dt,'  ocn_cpl_dt = ',ocn_cpl_dt
+!       rc = ESMF_RC_OBJ_BAD
+!       return
+!    end if
+    
+    call ESMF_TimeIntervalSet(timeStep, h=hcplifq, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
     call NUOPC_TimePrint(currTime + timeStep, &
       "--------------------------------> to: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
 
 #ifdef HYCOM_IN_CESM
     !! Copy import 1D Fields into x2o Array
@@ -926,7 +958,6 @@ module hycom
     !TODO: don't need the additional initialization step once data-dependency
     !TODO: is taken care of during initialize.
     initFlag = .false.
-!!Alex    if (is%wrap%slice==1) initFlag = .true.
     if (is%wrap%slice==1 .and. (.not. restFlag)) initFlag = .true.
 
     ! Import data to HYCOM native structures through glue fields.
@@ -943,8 +974,8 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    interval = (currTime + timeStep) - hycomRefTime
-    call ESMF_TimeIntervalGet(interval, d_r8=stepTime_r8, rc=rc)
+    interval = currTime - hycomRefTime
+    call ESMF_TimeIntervalGet(interval, d_r8=endTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -956,15 +987,23 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    ! Get the pointer restart name !!Alex
+    ! Get the pointer restart name 
     pointer_filename = 'rpointer.ocn' 
     restart_write = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
+
+    ! get endtime
+    if (cplifq.ge.0) then 
+       cplfrq =  cplifq
+    else
+       cplfrq = (cplifq*baclin)/86400.d0
+    endif
+    endTime_r8 = endTime_r8 + cplfrq
 
     ! Enter the advancing loop over HYCOM_run...
     do
       ! ...on return the end-of-run flags indicate whether HYCOM has advanced
       ! far enough...
-      CALL HYCOM_Run(endtime=stepTime_r8,pointer_filename=pointer_filename, restart_write=restart_write) ! -->> call into HYCOM <<--
+      CALL HYCOM_Run(endtime=endTime_r8,pointer_filename=pointer_filename, restart_write=restart_write) ! -->> call into HYCOM <<--
       !print *, "HYCOM_Run returned with end_of_run, end_of_run_cpl:", &
       !  end_of_run, end_of_run_cpl
       if (end_of_run .or. end_of_run_cpl) exit

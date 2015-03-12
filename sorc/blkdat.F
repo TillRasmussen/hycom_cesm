@@ -15,7 +15,7 @@ c
       include 'common_blocks.h'
 #endif
 c
-      real      day1,hybrlx,cplifq
+      real      day1,hybrlx
       integer   k,kdmblk,mlflag,thflag,trcflg1
       character sigfmt*26
 c
