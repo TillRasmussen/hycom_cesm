@@ -481,12 +481,6 @@ module hycom
     is%wrap%slice = 1
 
 #ifdef HYCOM_IN_CESM
-    ! Dump out the hycom grid for offline use.
-!    call ESMF_OutputScripGridFile("hycom_1xv6_grid.nc", gridIn, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      call ESMF_Finalize(endflag=ESMF_END_ABORT)
 
     ! Prepare for CESM SPECIFIC DATA STRUCTURES
     import_state = importState
@@ -504,19 +498,6 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
-    ! Fold DistGrid from HYCOM GRID into 1D arb DistGrid on Mesh
-!    mesh = ESMF_GridToMesh(is%wrap%glue%grid, ESMF_STAGGERLOC_CENTER, 1, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
-!
-!    call ESMF_MeshGet(Mesh, nodalDistgrid=distgrid, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!      return  ! bail out
 
     call ESMF_GridGet(is%wrap%glue%grid, distgrid=distgrid2D, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -685,20 +666,6 @@ module hycom
       file=__FILE__)) &
     return ! bail out
 
-    ! Provide static forcing to dynamic ice, read static forcing into o2x Array
-!    call ocn_forcing(exportState, o2x, '/glade/u/home/feiliu/work/raw_forcing_data/pop2_export_all_fields_r3.raw', rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!    return ! bail out
-!
-!    ! Copy data in o2x Array to individual 1D Fields
-!    call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
-!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-!      line=__LINE__, &
-!      file=__FILE__)) &
-!    return ! bail out
-
     ! Redist Export Fields from internal HYCOM to CESM 1D Fields, but zero dhdx, dhdy, Fioo_q, u, v, bldepth
     do i  = 1, number_export_fields
       if(hycom2cesm_table(i)%connected) then
@@ -765,7 +732,7 @@ module hycom
     type(ESMF_Clock)            :: clock
     type(ESMF_State)            :: importState, exportState
     type(ESMF_Time)             :: currTime
-    type(ESMF_TimeInterval)     :: timeStep
+    type(ESMF_TimeInterval)     :: timeStep, timeStep_O
     type(ESMF_TimeInterval)     :: timeStep_drv
     type(ESMF_Time)             :: hycomRefTime
     type(ESMF_TimeInterval)     :: interval
@@ -856,29 +823,6 @@ module hycom
 
 
 #ifdef HYCOM_IN_CESM
-    !! Copy import 1D Fields into x2o Array
-    !call esmfshr_nuopc_copy(ocn_import_fields, importState, 'x2d', rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !return ! bail out
-    !call dumpRawData(importState, 'hycom_import_all_fields_r3.raw', 'x2d', seq_flds_x2o_fields, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !return ! bail out
-
-    ! Redistribute 1D CESM import Fields to HYCOM Fields stored in glue import fieldbundle
-    call ESMF_StatePrint(importState, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-    !call ESMF_FieldBundlePrint(is%wrap%glue%importFields, rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !return ! bail out
     call ESMF_FieldBundleGet(is%wrap%glue%importFields, fieldCount=fieldCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -981,11 +925,39 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
-    call ESMF_VMLogMemInfo('MEMORY Usage BEFORE HYCOM_RUN', rc=rc)
+    !call ESMF_VMLogMemInfo('MEMORY Usage BEFORE HYCOM_RUN', rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
+
+    ! There is an issue with ocn integration time, fix it by using global ocn
+    ! clock. The ocn attempts to run on most frequent coupling frequency and 
+    ! will only run when alarm is on. Integration should still use ocn coupling
+    ! timestep.
+    call ESMF_ClockGet(ccsm_Eclock_o, timeStep=timeStep_O, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+    call NUOPC_TimePrint(currTime, &
+      "--------------> HYCOM_Run() advancing from: ", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call NUOPC_TimePrint(currTime + timeStep_O, &
+      "--------------> HYCOM_Run() advancing to: ", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    interval = (currTime + timeStep_O) - hycomRefTime
+    call ESMF_TimeIntervalGet(interval, d_r8=stepTime_r8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return  ! bail out
 
     ! Get the pointer restart name 
     pointer_filename = 'rpointer.ocn' 
@@ -1009,11 +981,11 @@ module hycom
       if (end_of_run .or. end_of_run_cpl) exit
     enddo
 
-    call ESMF_VMLogMemInfo('MEMORY Usage AFTER HYCOM_RUN', rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
+    !call ESMF_VMLogMemInfo('MEMORY Usage AFTER HYCOM_RUN', rc=rc)
+    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+    !  line=__LINE__, &
+    !  file=__FILE__)) &
+    !return ! bail out
 
     ! Export HYCOM native data through the glue fields.
     call HYCOM_GlueFieldsDataExport(is%wrap%glue, initFlag, rc=rc)
