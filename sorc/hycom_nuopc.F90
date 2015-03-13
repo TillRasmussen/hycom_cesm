@@ -751,6 +751,7 @@ module hycom
     logical                     :: restart_write = .false.
     character(len=32)           :: starttype            ! infodata start type
     logical                     :: restFlag = .false.
+    character(len=128)          :: msg
 
     rc = ESMF_SUCCESS
     
@@ -970,6 +971,22 @@ module hycom
        cplfrq = (cplifq*baclin)/86400.d0
     endif
     endTime_r8 = endTime_r8 + cplfrq
+
+    if(stepTime_r8 /= endTime_r8) then
+      write(msg, *), 'CESM coupler OCN timeStep: ', stepTime_r8, ' hycom timeStep: ', endTime_r8
+      call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+
+      call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+        msg="CESM coupler OCN timeStep is inconsistent with hycom timeStep", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return  ! bail out
+    endif
 
     ! Enter the advancing loop over HYCOM_run...
     do
