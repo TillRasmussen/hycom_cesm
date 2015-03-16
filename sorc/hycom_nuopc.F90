@@ -733,18 +733,16 @@ module hycom
     type(ESMF_State)            :: importState, exportState
     type(ESMF_Time)             :: currTime
     type(ESMF_TimeInterval)     :: timeStep, timeStep_O
-    type(ESMF_TimeInterval)     :: timeStep_drv
     type(ESMF_Time)             :: hycomRefTime
     type(ESMF_TimeInterval)     :: interval
-    real(ESMF_KIND_R8)          :: stepTime_r8
-    real(ESMF_KIND_R8)          :: endTime_r8
+    real(ESMF_KIND_R8)          :: ocn_cpl_frq   ! coupler coupling frq.
+    real(ESMF_KIND_R8)          :: hycom_cpl_frq ! hycom   coupling frq.
+    real(ESMF_KIND_R8)          :: endTime_r8    ! end of coupling sequence
     type(InternalState)         :: is
     logical                     :: initFlag
     type(ESMF_CALKIND_FLAG)     :: calkind
 
     integer                     :: fieldCount, i
-    integer                     :: hcplifq, hycom_cpl_dt, ocn_cpl_dt
-    real                        :: cplfrq
     character(len=128), allocatable :: fieldNameList(:)
     type(ESMF_Field)            :: field
     character(len=80)           :: pointer_filename     ! restart pointer file !!Alex
@@ -776,53 +774,82 @@ module hycom
     ! automatically each time before entering ModelAdvance(), but the HYCOM
     ! model must be stepped forward within this method.
     
-    call NUOPC_ClockPrintCurrTime(clock, &
-      "------>Advancing hycom from: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    
     CALL ESMF_ClockGet(clock, currTime=currTime,  rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
+    ! Translate currTime + timeStep into HYCOM format
+!!Alex    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
+    call ESMF_TimeSet(hycomRefTime, yy=0001, mm=01, dd=01, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    ! get endtime from driver coupling frequency ocn_cpl
+    ! There is an issue with ocn integration time, fix it by using global ocn
+    ! clock. The ocn attempts to run on most frequent coupling frequency and 
+    ! will only run when alarm is on. Integration should still use ocn coupling
+    ! timestep.
+    call ESMF_ClockGet(ccsm_Eclock_o, timeStep=timeStep_O, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call NUOPC_TimePrint(currTime, &
+      "--------------> HYCOM_Run() advancing from: ", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call NUOPC_TimePrint(currTime + timeStep_O, &
+      "--------------> HYCOM_Run() advancing to: ", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_TimeIntervalGet(timeStep_O, d_r8=ocn_cpl_frq, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return  ! bail out
+
+    ! get endtime from hycom coupling frequency cplifq
     ! convert coupling frequency from days (cplifq>0) or time step (cplifq<0) to hours
-    ! icefrq == cplifq in time step (see blkdat.F)
-    if (cplifq.GE.0.0) THEN 
-       hcplifq=nint( cplifq * 24.d0)
-    else 
-       hcplifq=nint(-cplifq*(baclin/3600.d0))
+    ! NB: icefrq (used in hycom_nuopc_glue) == cplifq in time step (see blkdat.F)
+    interval = currTime - hycomRefTime
+    call ESMF_TimeIntervalGet(interval, d_r8=endTime_r8, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    if (cplifq.ge.0) then 
+       hycom_cpl_frq =  cplifq
+    else
+       hycom_cpl_frq = (cplifq*baclin)/86400.d0
     endif
-    hycom_cpl_dt=cplifq*86400.d0
-       print*,'hycom_cpl_dt = ',hycom_cpl_dt
-    ! check that cplifq and OCN_NCPL are identical
-!!Alex    call seq_timemgr_EClockGetData(Eclock, dtime=ocn_cpl_dt)
-!       print*,'hycom_cpl_dt = ',hycom_cpl_dt,'  ocn_cpl_dt = ',ocn_cpl_dt
-!    if (hycom_cpl_dt.ne.ocn_cpl_dt) then
-!       call ESMF_LogWrite('hycom_nuopc ERROR: hycom_cpl_dt differs from ocn_cpl_dt', &
-!          ESMF_LOGMSG_ERROR, rc=rc)
-!       print*,'hycom_cpl_dt = ',hycom_cpl_dt,'  ocn_cpl_dt = ',ocn_cpl_dt
-!       rc = ESMF_RC_OBJ_BAD
-!       return
-!    end if
+    endTime_r8 = endTime_r8 + hycom_cpl_frq
+
+    ! check that both coupling frequency matches
+    IF(ocn_cpl_frq /= hycom_cpl_frq) THEN
+      write(msg, *), 'CESM coupler OCN cpl frq.: ', ocn_cpl_frq, ' hycom cpl frq.: ', hycom_cpl_frq
+      call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+      return ! bail out
+
+      call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
+        msg="CESM coupler OCN timeStep is inconsistent with hycom cplifq", &
+        line=__LINE__, &
+        file=__FILE__, &
+        rcToReturn=rc)
+      return  ! bail out
+    endif
+
     
-    call ESMF_TimeIntervalSet(timeStep, h=hcplifq, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-    call NUOPC_TimePrint(currTime + timeStep, &
-      "--------------------------------> to: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
-
 #ifdef HYCOM_IN_CESM
     call ESMF_FieldBundleGet(is%wrap%glue%importFields, fieldCount=fieldCount, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -912,81 +939,15 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
     
-    ! Translate currTime + timeStep into HYCOM format
-!!Alex    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
-    call ESMF_TimeSet(hycomRefTime, yy=0001, mm=01, dd=01, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    interval = currTime - hycomRefTime
-    call ESMF_TimeIntervalGet(interval, d_r8=endTime_r8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-
     !call ESMF_VMLogMemInfo('MEMORY Usage BEFORE HYCOM_RUN', rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !return ! bail out
-
-    ! There is an issue with ocn integration time, fix it by using global ocn
-    ! clock. The ocn attempts to run on most frequent coupling frequency and 
-    ! will only run when alarm is on. Integration should still use ocn coupling
-    ! timestep.
-    call ESMF_ClockGet(ccsm_Eclock_o, timeStep=timeStep_O, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-    call NUOPC_TimePrint(currTime, &
-      "--------------> HYCOM_Run() advancing from: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call NUOPC_TimePrint(currTime + timeStep_O, &
-      "--------------> HYCOM_Run() advancing to: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    interval = (currTime + timeStep_O) - hycomRefTime
-    call ESMF_TimeIntervalGet(interval, d_r8=stepTime_r8, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return  ! bail out
-
+  
     ! Get the pointer restart name 
     pointer_filename = 'rpointer.ocn' 
     restart_write = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
-
-    ! get endtime
-    if (cplifq.ge.0) then 
-       cplfrq =  cplifq
-    else
-       cplfrq = (cplifq*baclin)/86400.d0
-    endif
-    endTime_r8 = endTime_r8 + cplfrq
-
-    if(stepTime_r8 /= endTime_r8) then
-      write(msg, *), 'CESM coupler OCN timeStep: ', stepTime_r8, ' hycom timeStep: ', endTime_r8
-      call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-      return ! bail out
-
-      call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="CESM coupler OCN timeStep is inconsistent with hycom timeStep", &
-        line=__LINE__, &
-        file=__FILE__, &
-        rcToReturn=rc)
-      return  ! bail out
-    endif
 
     ! Enter the advancing loop over HYCOM_run...
     do
