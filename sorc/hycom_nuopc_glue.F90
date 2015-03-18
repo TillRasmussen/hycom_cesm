@@ -1118,8 +1118,9 @@ module hycom_nuopc_glue
     integer                           :: i,j
     logical                           :: isConnected
     
-    REAL(kind=ESMF_KIND_R8) :: hfrz, t2f, tfrz, smxl, tmxl, ssfi
-    REAL(kind=ESMF_KIND_R8) :: usur1, usur2, vsur1, vsur2, utot, vtot
+    real(kind=ESMF_KIND_R8) :: hfrz, t2f, tfrz, smxl, tmxl, ssfi
+    real(kind=ESMF_KIND_R8) :: usur1, usur2, vsur1, vsur2, utot, vtot
+    integer                 :: cplfrq
     
     if (present(rc)) rc = ESMF_SUCCESS
 
@@ -1212,15 +1213,17 @@ module hycom_nuopc_glue
         enddo
         enddo
       elseif (fieldStdName == "upward_sea_ice_basal_available_heat_flux") then
+      ! get coupling frequency in time steps
+        cplfrq = nint( ocn_cpl_frq*(86400.0/baclin) )
         do j=1,jj
         do i=1,ii
            if (.not. initFlag) then 
 ! ---     quantities for available freeze/melt heat flux
-! ---     relax to tfrz with e-folding time of icefrq time steps
+! ---     relax to tfrz with e-folding time of cplfrq time steps
 ! ---     assuming the effective surface layer thickness is hfrz
 ! ---     multiply by dpbl(i,j)/hfrz to get the actual e-folding time
               hfrz = min( thkfrz*onem, dpbl(i,j) )
-              t2f  = (spcifh*hfrz)/(baclin*icefrq*g)
+              t2f  = (spcifh*hfrz)/(baclin*cplfrq*g)
               ! ---     average both available time steps, to avoid time splitting.
               smxl = 0.5*(saln(i,j,1,2)+saln(i,j,1,1))
               tmxl = 0.5*(temp(i,j,1,2)+temp(i,j,1,1))

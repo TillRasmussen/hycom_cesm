@@ -340,6 +340,18 @@ module hycom
       
     print *, " HYCOM_INIT -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
 
+    ! get coupling frequency from ocean clock for 1st export
+     call ESMF_ClockGet(ccsm_Eclock_o, timeStep=timeStep, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    call ESMF_TimeIntervalGet(timeStep, d_r8=ocn_cpl_frq, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return  ! bail out
+       
     ! Get start type run : start-up or continuous run
     call ESMF_AttributeGet(exportState, name="start_type", value=starttype, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -732,11 +744,9 @@ module hycom
     type(ESMF_Clock)            :: clock
     type(ESMF_State)            :: importState, exportState
     type(ESMF_Time)             :: currTime
-    type(ESMF_TimeInterval)     :: timeStep, timeStep_O
+    type(ESMF_TimeInterval)     :: timeStep_O
     type(ESMF_Time)             :: hycomRefTime
     type(ESMF_TimeInterval)     :: interval
-    real(ESMF_KIND_R8)          :: ocn_cpl_frq   ! coupler coupling frq.
-    real(ESMF_KIND_R8)          :: hycom_cpl_frq ! hycom   coupling frq.
     real(ESMF_KIND_R8)          :: endTime_r8    ! end of coupling sequence
     type(InternalState)         :: is
     logical                     :: initFlag
@@ -809,46 +819,15 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call ESMF_TimeIntervalGet(timeStep_O, d_r8=ocn_cpl_frq, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return  ! bail out
 
-    ! get endtime from hycom coupling frequency cplifq
-    ! convert coupling frequency from days (cplifq>0) or time step (cplifq<0) to hours
-    ! NB: icefrq (used in hycom_nuopc_glue) == cplifq in time step (see blkdat.F)
+    ! get endtime 
     interval = currTime - hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=endTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
-    if (cplifq.ge.0) then 
-       hycom_cpl_frq =  cplifq
-    else
-       hycom_cpl_frq = (cplifq*baclin)/86400.d0
-    endif
-    endTime_r8 = endTime_r8 + hycom_cpl_frq
-
-    ! check that both coupling frequency matches
-    IF(ocn_cpl_frq /= hycom_cpl_frq) THEN
-      write(msg, *), 'CESM coupler OCN cpl frq.: ', ocn_cpl_frq, ' hycom cpl frq.: ', hycom_cpl_frq
-      call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-      return ! bail out
-
-      call ESMF_LogSetError(ESMF_RC_ARG_BAD, &
-        msg="CESM coupler OCN timeStep is inconsistent with hycom cplifq", &
-        line=__LINE__, &
-        file=__FILE__, &
-        rcToReturn=rc)
-      return  ! bail out
-    endif
-
+    endTime_r8 = endTime_r8 + ocn_cpl_frq
     
 #ifdef HYCOM_IN_CESM
     call ESMF_FieldBundleGet(is%wrap%glue%importFields, fieldCount=fieldCount, rc=rc)

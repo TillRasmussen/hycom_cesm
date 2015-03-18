@@ -74,9 +74,11 @@
         public si_tx          ! x-stress  under ice on p-grid from coupler
         public si_ty          ! y-stress  under ice on p-grid from coupler
         
+        ! ocn coupling frequency
+        public ocn_cpl_frq    ! in days
         
         ! scalars and flags
-        public g, onem, qonem, thkfrz, baclin, icefrq, spcifh, cplifq
+        public g, onem, qonem, thkfrz, baclin, spcifh
         public tfrz_0, tfrz_s, frzh
         public iceflg, icmflg, sstflg
         

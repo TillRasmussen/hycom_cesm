@@ -92,7 +92,9 @@ c --- private message passing data structures, see xcspmd
 #if defined(NUOPC)
 c
 c --- NUOPC glue code structures
-
+c==>  import from coupler
+      real ocn_cpl_frq
+      
 c==>  import from atm
       real nstep1_cpl,nstep2_cpl
       logical cpl_taux, cpl_tauy, cpl_wndspd, cpl_ustara,
