@@ -445,7 +445,7 @@ c
       endif
 !!Alex unit of restart     
       if (restart) then
-          iunta = 12
+          iunta = 15
       endif 
       
       iunit = uoff+iunta
@@ -456,6 +456,8 @@ c
           call zaiopf(trim(flnmra),       'new', iunta)  !unique
         elseif (iunta.eq.12) then
           call zaiopf(trim(flnmra)//'.a', 'new', iunta)  !standard
+        elseif (iunta.eq.15) then
+          call zaiopf(trim(flnmra)//'.a', 'new', iunta)  !standard coupled !!Alex
         else
           call zaiopf(trim(flnmra)//'1.a','new', iunta)  !backup
         endif
@@ -466,6 +468,10 @@ c
             write(lp,'(a)') ' creating a new unique   restart file'
           elseif (iunta.eq.12) then
             open (unit=iunit,file=trim(flnmra)//'.b',   !12
+     &            status='new',action='write',form='formatted')
+            write(lp,'(a)') ' creating a new standard restart file'
+          elseif (iunta.eq.15) then
+            open (unit=iunit,file=trim(flnmra)//'.b',   !15 !!Alex
      &            status='new',action='write',form='formatted')
             write(lp,'(a)') ' creating a new standard restart file'
           else
@@ -776,7 +782,15 @@ c
           write(lp,'(a,f11.3)') 
      &      ' unique restart created at model day',dtimex
           call flush(lp)
-        endif !1st tile
+        endif                     !1st tile
+      elseif (iunta.eq.15) then
+        call zaiocl(iunta)
+        if     (mnproc.eq.1) then
+          close(unit=iunit)
+          write(lp,'(a,f11.3)') 
+     &      ' coupled restart created at model day',dtimex
+          call flush(lp)
+        endif                     !1st tile          
       elseif (last) then !close all restart files
         call zaiocl(iunta) !iunta==12
         if     (mnproc.eq.1) then
