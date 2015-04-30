@@ -70,7 +70,8 @@ module hycom_nuopc_glue
     call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO)
     write (msg, *) "i0=", i0, "   ii=", ii, "   j0=", j0, "   jj=", jj
     call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO)
-    write (msg, *) "margin=", margin, "   nreg=", nreg, "   vland=", vland
+!!Alex    write (msg, *) "margin=", margin, "   nreg=", nreg, "   vland=", vland
+    write (msg, *) "nbdy=", nbdy, "   nreg=", nreg, "   vland=", vland
     call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO)
 
     call ESMF_LogWrite("</HYCOM Tile Info>", ESMF_LOGMSG_INFO)
@@ -1030,6 +1031,7 @@ module hycom_nuopc_glue
              
              imp_tauy(i,j,1)= imp_taun(i,j,1) * cos(pang(i,j)) - imp_taue(i,j,1) * sin(pang(i,j))
              imp_tauy(i,j,2)= imp_taun(i,j,2) * cos(pang(i,j)) - imp_taue(i,j,2) * sin(pang(i,j))
+
           enddo
        enddo
     endif
@@ -1120,6 +1122,7 @@ module hycom_nuopc_glue
     
     real(kind=ESMF_KIND_R8) :: hfrz, t2f, tfrz, smxl, tmxl, ssfi
     real(kind=ESMF_KIND_R8) :: usur1, usur2, vsur1, vsur2, utot, vtot
+    real(kind=ESMF_KIND_R8) :: ssh_n,ssh_s,ssh_e,ssh_w,dhdx,dhdy
     integer                 :: cplfrq
     
     if (present(rc)) rc = ESMF_SUCCESS
@@ -1256,7 +1259,7 @@ module hycom_nuopc_glue
            else
               farrayPtr(i,j) = 0.
            endif
-        enddo
+         enddo
         enddo
       elseif (fieldStdName == "s_surf") then
         do j=1,jj
@@ -1266,7 +1269,7 @@ module hycom_nuopc_glue
         enddo
       elseif (fieldStdName == "ocn_current_zonal") then
         do j=1,jj
-        do i=1,ii
+           do i=1,ii
            if (.not. initFlag) then 
               ! calculate utot(i,j)
               usur1 = 0.5*(u    (i  ,j  ,1, 1)+ubavg(i  ,j  ,  1) &
@@ -1319,9 +1322,18 @@ module hycom_nuopc_glue
       elseif (fieldStdName == "eastward_sea_surface_slope") then
         do j=1,jj
         do i=1,ii
-           if (.not. initFlag) then 
+           if (.not. initFlag) then
+              ! calculate the eastward slope
+                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j)) 
+                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j)) 
+                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
+                  
+                ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  )) 
+                ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1)) 
+                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
+
               ! convert to eastward/northward grid
-              farrayPtr(i,j) = dhdx(i,j)*cos(pang(i,j)) + dhdy(i,j)*sin(-pang(i,j))
+                farrayPtr(i,j) = dhdx*cos(pang(i,j)) + dhdy*sin(-pang(i,j))
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1331,8 +1343,16 @@ module hycom_nuopc_glue
         do j=1,jj
         do i=1,ii
            if (.not. initFlag) then 
+              ! calculate the eastward slope
+                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j)) 
+                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j)) 
+                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
+                  
+                ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  )) 
+                ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1)) 
+                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
               ! convert to eastward/northward grid
-              farrayPtr(i,j) = dhdy(i,j)*cos(pang(i,j)) - dhdx(i,j)*sin(-pang(i,j))
+              farrayPtr(i,j) = dhdy*cos(pang(i,j)) - dhdx*sin(-pang(i,j))
            else
               farrayPtr(i,j) = 0.
            endif

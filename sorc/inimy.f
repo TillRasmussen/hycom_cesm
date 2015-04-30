@@ -1,10 +1,9 @@
       subroutine inimy
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
 c
 c --- hycom version 2.1
       implicit none
-c
-      include 'common_blocks.h'
 c
 c -------------------------------------------------------------
 c --- initialize mellor-yamada level 2.5 vertical mixing scheme
@@ -44,14 +43,14 @@ c
             q2(i,j,k,2)=smll
             q2l(i,j,k,1)=smll
             q2l(i,j,k,2)=smll
-            vctymy(i,j,k)=difmiw
-            diftmy(i,j,k)=difsiw
-            difqmy(i,j,k)=difsiw
+            vctymy(i,j,k)=diwm(i,j)
+            diftmy(i,j,k)=diws(i,j)
+            difqmy(i,j,k)=diws(i,j)
           enddo
           do k=1,kdm+1
-            vcty(i,j,k)=difmiw
-            dift(i,j,k)=difsiw
-            difs(i,j,k)=difsiw
+            vcty(i,j,k)=diwm(i,j)
+            dift(i,j,k)=diws(i,j)
+            difs(i,j,k)=diws(i,j)
 c --- no nonlocal forcing
             ghats(i,j,k)=0.0
           enddo

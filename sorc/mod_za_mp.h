@@ -39,7 +39,7 @@ c
 c
 c --- I/O from first processor only
 c
-      ibuf = mod(ibuf+1,2)
+      ibuf = mod(ibuf+1,2)  !initialized in zaiost
 c
       if     (mnproc.eq.1) then
         read(iunit,'(a)',iostat=ios) cline
@@ -65,9 +65,12 @@ c
       integer,       intent(in)    :: iaunit
       character*(*), intent(in)    :: cstat
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -95,18 +98,12 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
 c
       include 'mpif.h'
       integer        mpierr,mpireq,mpistat
       common/xcmpii/ mpierr,mpireq(4),
      &               mpistat(mpi_status_size,4*iqr)
       save  /xcmpii/
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
 c
       integer(kind=mpi_offset_kind) disp
       integer                       iamode,iahint
@@ -216,9 +213,12 @@ c
       integer,       intent(in)    :: iaunit
       character*(*), intent(in)    :: cenv,cstat
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -246,18 +246,12 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
 c
       include 'mpif.h'
       integer        mpierr,mpireq,mpistat
       common/xcmpii/ mpierr,mpireq(4),
      &               mpistat(mpi_status_size,4*iqr)
       save  /xcmpii/
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
 c
       integer(kind=mpi_offset_kind) disp
       integer                       iamode,iahint
@@ -376,9 +370,12 @@ c
       integer,       intent(in)    :: iaunit
       character*(*), intent(in)    :: cfile,cstat
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -406,18 +403,12 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
 c
       include 'mpif.h'
       integer        mpierr,mpireq,mpistat
       common/xcmpii/ mpierr,mpireq(4),
      &               mpistat(mpi_status_size,4*iqr)
       save  /xcmpii/
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
 c
       integer(kind=mpi_offset_kind) disp
       integer                       iamode,iahint
@@ -555,9 +546,12 @@ c
       logical, intent(out)   :: lopen
       integer, intent(in)    :: iaunit
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -574,9 +568,12 @@ c
       subroutine zaiost
       implicit none
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -591,6 +588,10 @@ c
       common/xcmpii/ mpierr,mpireq(4),
      &               mpistat(mpi_status_size,4*iqr)
       save  /xcmpii/
+c
+      integer        iline,ibuf
+      common/czgetc/ iline(81,0:1),ibuf
+      save  /czgetc/
 c
       integer       i
       character*256 value
@@ -628,6 +629,16 @@ c
       do i= 1,999
         iarec(i) = -1
       enddo
+c
+      ibuf = 0
+#if defined(RELO)
+c
+c --- n2drec = size of output 2-d array, multiple of 4096
+      n2drec = ((itdm*jtdm+4095)/4096)*4096
+c
+      allocate( w(n2drec),wminy(jtdm),wmaxy(jtdm),htmp(idm*jdm) )
+      call mem_stat_add( (n2drec+2*jtdm+idm*jdm)/2 ) !real*4, so /2
+#endif
 #if defined(TIMER)
 c
 c     initialize timers.
@@ -644,9 +655,12 @@ c
 c
       integer, intent(in)    :: iaunit
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -704,9 +718,12 @@ c
 c
       integer, intent(in)    :: iaunit
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -756,9 +773,12 @@ c
       integer, intent(in)    :: iaunit
       integer, intent(out)   :: irec
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -777,9 +797,12 @@ c
 c
       integer, intent(in)    :: iaunit
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -886,9 +909,12 @@ c
      &         intent(out)   :: h
 #endif
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -916,25 +942,12 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
 c
       include 'mpif.h'
       integer        mpierr,mpireq,mpistat
       common/xcmpii/ mpierr,mpireq(4),
      &               mpistat(mpi_status_size,4*iqr)
       save  /xcmpii/
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
-c
-      real*4         awtmp(itdm,jtdm)
-      equivalence   (w(1),awtmp(1,1))  !saves a data copy
-c
-      real*4         htmp
-      common/czioxr/ htmp(idm*jdm)
-      save  /czioxr/
 c
       integer(kind=mpi_offset_kind) disp
       integer                        i,j
@@ -1008,7 +1021,7 @@ c
       endif !I/O from first processor in each row
 c
 c --- put field from 1st in row to all tiles
-      call xcaput4(awtmp,htmp, -1)
+      call xcaput4(w,htmp, -1)  !w cast to a 2-d array
 c
 c --- Each processor loads h from htmp (where mask = 1)
 c --- Each processor does local min max if lmask is true
@@ -1083,9 +1096,12 @@ c
 c
       integer, intent(in)    :: iaunit
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -1199,9 +1215,12 @@ c
      &         intent(inout) :: h
 #endif
 c
-      integer        iarec,iahand
-      common/czioxx/ iarec(999),iahand(999)
+      integer        iarec
+      common/czioxx/ iarec(999)
       save  /czioxx/
+      integer        iahand
+      common/cziox2/ iahand(999)
+      save  /cziox2/
 c
 c**********
 c*
@@ -1231,25 +1250,12 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
 c
       include 'mpif.h'
       integer        mpierr,mpireq,mpistat
       common/xcmpii/ mpierr,mpireq(4),
      &               mpistat(mpi_status_size,4*iqr)
       save  /xcmpii/
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
-c
-      real*4         awtmp(itdm,jtdm)
-      equivalence   (w(1),awtmp(1,1))  !saves a data copy
-c
-      real*4         htmp
-      common/czioxr/ htmp(idm*jdm)
-      save  /czioxr/
 c
       integer(kind=mpi_offset_kind) disp
       integer                       i,j,lrec
@@ -1377,7 +1383,7 @@ c --- htmp and data_void are already big-endian
 c
       vsave4 = vland4
       vland4 = data_void(1)
-      call xcaget4(awtmp,htmp, -1)  !htmp to w (awtmp) for each row.
+      call xcaget4(w,htmp, -1)  !htmp to w (as a 2-d array) for each row.
       vland4 = vsave4
 c
       if     (mproc.eq.mp_1st) then
@@ -1420,3 +1426,8 @@ c
  9100 format(/ /10x,'error in zaiowr -  can''t write record',
      &   i4,' on array I/O unit ',i3,'.'/ /)
       end subroutine zaiowr
+c
+c
+c> Revision history:
+c>
+c> Nov  2012 - iahand in separate common block

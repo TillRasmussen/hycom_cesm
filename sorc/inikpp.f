@@ -1,10 +1,9 @@
       subroutine inikpp
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
 c
 c --- hycom version 1.0
       implicit none
-c
-      include 'common_blocks.h'
 c
       integer    nzehat,nustar
       parameter (nzehat=890,nustar=192)
@@ -71,9 +70,6 @@ c --- set derived constants
       vtc=sqrt(.2/cs/epsilon)/vonk**2/ricr
       cg=cstar*vonk*(cs*vonk*epsilon)**athird
       dp0enh=2.0*dp00
-c
-      qdif0 =difm0 /difs0
-      qdifiw=difmiw/difsiw
 c
       return
       end

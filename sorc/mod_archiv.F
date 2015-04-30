@@ -1,6 +1,7 @@
       module mod_archiv
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
 c
       implicit none
 c
@@ -16,7 +17,7 @@ c
       integer,       save, private ::
      &   npnts         ! number of profile locations
 c
-      integer, parameter, private :: nfields=17  !no. fields in surface archive
+      integer, parameter, private :: nfields=19  !no. fields in surface archive
       character*6, save,  private :: c_arch(nfields) !field names
       logical,     save,  private :: l_arch(nfields) !field output flags
 c
@@ -25,8 +26,6 @@ c
       contains
 
       subroutine archiv_init
-c
-      include 'common_blocks.h'
 c
 c --- initialize surface archive output flags
 c
@@ -43,11 +42,12 @@ c
       inquire(file=trim(flnminp)//'archs.input',exist=lexist)
       if     (.not.lexist) then
         if     (mnproc.eq.1) then
-        write (lp,*) ' output all surface archive fields.'
+        write (lp,*) ' output 17 standard surface archive fields.'
         endif !1st tile
         call xcsync(flush_lp)
 c
-        l_arch(:) = .true.
+        l_arch( 1:17) = .true.
+        l_arch(18:19) = .false.  !surtx,surty must be explicitly selected
         return
       endif
 c
@@ -70,6 +70,8 @@ c
       c_arch(15) = 'thknss'
       c_arch(16) = 'temp  '
       c_arch(17) = 'salin '
+      c_arch(18) = 'surtx '  !output after salflx
+      c_arch(19) = 'surty '
 c
 c --- read in archs.input.
 c
@@ -84,8 +86,6 @@ c
 
       subroutine archiv(n, kkout, iyear,iday,ihour, intvl)
 c
-      include 'common_blocks.h'
-c
       integer   n, kkout, iyear,iday,ihour
       character intvl*3
 c
@@ -94,7 +94,7 @@ c
 c --- write an archive file.
 c
       character*80 cformat,flnmarcvs
-      integer      i,j,k,ktr,l,ldot,nop,nopa
+      integer      i,j,k,ktr,ldot,nop,nopa
       real         coord,xmin,xmax
 c
       if     (kkout.eq.1) then
@@ -149,14 +149,17 @@ c
 c
 c --- surface fields
 c
-      coord=0.
+c --- identify the equation of state (sigver,thbase) on the first record
+      k    =sigver
+      coord=thbase
 c
       if     (kkout.gt.1 .or. l_arch(1)) then
       call zaiowr(montg1,ip,.true.,
      &            xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
-c --- identify the equation of state on the first record
-      write (nop,117) 'montg1  ',nstep,time,sigver,thbase,xmin,xmax
+      write (nop,117) 'montg1  ',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
       call flush(nop)
       endif !1st tile
       endif !l_arch
@@ -164,7 +167,9 @@ c --- identify the equation of state on the first record
       call zaiowr(srfhgt,ip,.true.,
      &            xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
-      write (nop,117) 'srfhgt  ',nstep,time,0,coord,xmin,xmax
+      write (nop,117) 'srfhgt  ',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
       call flush(nop)
       endif !1st tile
       endif !l_arch
@@ -174,7 +179,9 @@ c ---   write out steric SSH.
         call zaiowr(steric,ip,.true.,
      &              xmin,xmax, nopa, .false.)
         if     (mnproc.eq.1) then
-        write (nop,117) 'steric  ',nstep,time,0,coord,xmin,xmax
+        write (nop,117) 'steric  ',nstep,time,k,coord,xmin,xmax
+        k    =0
+        coord=0.0
         call flush(nop)
         endif !1st tile
         endif !l_arch
@@ -183,14 +190,38 @@ c
       if     (kkout.gt.1 .or. l_arch(4)) then
       call zaiowr(surflx,ip,.true., xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
-      write (nop,117) 'surflx  ',nstep,time,0,coord,xmin,xmax
+      write (nop,117) 'surflx  ',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
       call flush(nop)
       endif !1st tile
       endif !l_arch
       if     (kkout.gt.1 .or. l_arch(5)) then
       call zaiowr(salflx,ip,.true., xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
-      write (nop,117) 'salflx  ',nstep,time,0,coord,xmin,xmax
+      write (nop,117) 'salflx  ',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
+      call flush(nop)
+      endif !1st tile
+      endif !l_arch
+c
+c --- surtx and surty only output when selected in archs.input
+      if     (kkout.eq.1 .and. l_arch(18)) then
+      call zaiowr(surtx, ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'surtx   ',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
+      call flush(nop)
+      endif !1st tile
+      endif !l_arch
+      if     (kkout.eq.1 .and. l_arch(19)) then
+      call zaiowr(surty, ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'surty   ',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
       call flush(nop)
       endif !1st tile
       endif !l_arch
@@ -198,7 +229,9 @@ c
       if     (kkout.gt.1 .or. l_arch(6)) then
       call zaiowr(dpbl,ip,.true., xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
-      write (nop,117) 'bl_dpth ',nstep,time,0,coord,xmin,xmax
+      write (nop,117) 'bl_dpth ',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
       call flush(nop)
       endif !1st tile
       endif !l_arch
@@ -206,7 +239,9 @@ c
       call zaiowr(dpmixl(1-nbdy,1-nbdy,n),ip,.true.,
      &            xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
-      write (nop,117) 'mix_dpth',nstep,time,0,coord,xmin,xmax
+      write (nop,117) 'mix_dpth',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
       call flush(nop)
       endif !1st tile
       endif !l_arch
@@ -214,21 +249,27 @@ c
         if     (kkout.gt.1 .or. l_arch(8)) then
         call zaiowr(covice,ip,.true., xmin,xmax, nopa, .false.)
         if     (mnproc.eq.1) then
-        write (nop,117) 'covice  ',nstep,time,0,coord,xmin,xmax
+        write (nop,117) 'covice  ',nstep,time,k,coord,xmin,xmax
+        k    =0
+        coord=0.0
         call flush(nop)
         endif !1st tile
         endif !l_arch
         if     (kkout.gt.1 .or. l_arch(9)) then
         call zaiowr(thkice,ip,.true., xmin,xmax, nopa, .false.)
         if     (mnproc.eq.1) then
-        write (nop,117) 'thkice  ',nstep,time,0,coord,xmin,xmax
+        write (nop,117) 'thkice  ',nstep,time,k,coord,xmin,xmax
+        k    =0
+        coord=0.0
         call flush(nop)
         endif !1st tile
         endif !l_arch
         if     (kkout.gt.1 .or. l_arch(10)) then
         call zaiowr(temice,ip,.true., xmin,xmax, nopa, .false.)
         if     (mnproc.eq.1) then
-        write (nop,117) 'temice  ',nstep,time,0,coord,xmin,xmax
+        write (nop,117) 'temice  ',nstep,time,k,coord,xmin,xmax
+        k    =0
+        coord=0.0
         call flush(nop)
         endif !1st tile
         endif !l_arch
@@ -240,7 +281,9 @@ c
       call zaiowr(ubavg(1-nbdy,1-nbdy,n),iu,.true.,
      &            xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
-      write (nop,117) 'u_btrop ',nstep,time,0,coord,xmin,xmax
+      write (nop,117) 'u_btrop ',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
       call flush(nop)
       endif !1st tile
       endif !l_arch
@@ -248,10 +291,46 @@ c
       call zaiowr(vbavg(1-nbdy,1-nbdy,n),iv,.true.,
      &            xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
-      write (nop,117) 'v_btrop ',nstep,time,0,coord,xmin,xmax
+      write (nop,117) 'v_btrop ',nstep,time,k,coord,xmin,xmax
+      k    =0
+      coord=0.0
       call flush(nop)
       endif !1st tile
       endif !l_arch
+c
+c --- dissipation fields
+c
+      if     (kkout.eq.1 .and. disp_count.gt.0) then
+      displd_mn(:,:) = displd_mn(:,:)/real(disp_count)
+      call zaiowr(displd_mn,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      k    =0
+      coord=0.0
+      write (nop,117) 'disp_ld ',nstep,time,k,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      dispqd_mn(:,:) = dispqd_mn(:,:)/real(disp_count)
+      call zaiowr(dispqd_mn,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      k    =0
+      coord=0.0
+      write (nop,117) 'disp_qd ',nstep,time,k,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      tidepg_mn(:,:) = tidepg_mn(:,:)/real(disp_count)
+      call zaiowr(tidepg_mn,ip,.true., xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      k    =0
+      coord=0.0
+      write (nop,117) 'tide_pg ',nstep,time,k,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+c
+      displd_mn(:,:) = 0.0
+      dispqd_mn(:,:) = 0.0
+      tidepg_mn(:,:) = 0.0
+      disp_count     = 0
+      endif !linear and quadratic drag dissipation
 c
 c --- layer loop.
 c
@@ -376,20 +455,18 @@ ccc      call prtmsk(ip,tmix,util3,idm,ii,jj,0.,10.,
 ccc     .     'mix.layer temp. (.1 deg)')
 ccc      call prtmsk(ip,smix,util3,idm,ii,jj,35.,100.,
 ccc     .     'mx.lay. salin. (.01 mil)')
-ccc!$OMP PARALLEL DO PRIVATE(j,l,i)
+ccc!$OMP PARALLEL DO PRIVATE(j,i)
 ccc!$OMP&         SCHEDULE(STATIC,jblk)
 ccc      do j=1-margin,jj+margin
-ccc        do l=1,isu(j)
-ccc          do i=max(1-margin,ifu(j,l)),min(ii+margin,ilu(j,l))
+ccc        do i=1-margin,ii+margin
+ccc          if (iu(i,j).ne.0) then
 ccc            util1(i,j)=umix(i,j)+ubavg(i,j,n)
-ccc          enddo
-ccc        enddo
-ccc        do l=1,isv(j)
-ccc          do i=max(1-margin,ifv(j,l)),min(ii+margin,ilv(j,l))
+ccc          endif !iu
+ccc          if (iv(i,j).ne.0) then
 ccc            util2(i,j)=vmix(i,j)+vbavg(i,j,n)
-ccc          enddo
-ccc        enddo
-ccc      enddo
+ccc          endif !iv
+ccc        enddo !i
+ccc      enddo !j
 ccc!$OMP END PARALLEL DO
 ccc      call prtmsk(iu(2,1),util1(2,1),util3,idm,ii-2,jj,0.,1000.,
 ccc     .     'mix.layer u vel. (mm/s)')
@@ -403,8 +480,6 @@ ccc     .     'barotrop. v vel. (mm/s)')
       end subroutine archiv
 
       subroutine archiv_prof_init
-c
-      include 'common_blocks.h'
 c
 c --- initialize for multi-location profile output.
 c
@@ -454,8 +529,6 @@ c
       end subroutine archiv_prof_init
 
       subroutine archiv_prof(n, kkout, iyear,iday,ihour)
-c
-      include 'common_blocks.h'
 c
       integer   n, kkout, iyear,iday,ihour
 c
@@ -513,8 +586,9 @@ c
       end subroutine archiv_prof
 
       subroutine archiv_prof_out(n, iyear,iday,ihour, ipoint,jpoint,nop)
-c
-      include 'common_blocks.h'
+#if defined(STOKES)
+      use mod_stokes  ! Stokes Drift Velocity Module
+#endif
 c
       integer   n, iyear,iday,ihour, ipoint,jpoint,nop
 c
@@ -526,6 +600,9 @@ c
       character*80 cformat
       integer      ipnt,ipnt1,jpnt,jpnt1,k,ktr
       real         ssha,sshn,sshs,sssc,sstc,ubpnt,upnt,vbpnt,vpnt
+#if defined(STOKES)
+      real         ubstk,ustk,ust0,vbstk,vstk,vst0
+#endif
 c
       ipnt = ipoint - i0
       jpnt = jpoint - j0
@@ -556,10 +633,15 @@ c
      &           twall(ipnt,jpnt,1,lc2)*wc2+
      &           twall(ipnt,jpnt,1,lc3)*wc3
         else !synoptic observed sst
-          sstc = seatmp(ipnt,jpnt,l0)*w0+
-     &           seatmp(ipnt,jpnt,l1)*w1+
-     &           seatmp(ipnt,jpnt,l2)*w2+
-     &           seatmp(ipnt,jpnt,l3)*w3
+          if     (natm.eq.2) then
+            sstc = seatmp(ipnt,jpnt,l0)*w0+
+     &             seatmp(ipnt,jpnt,l1)*w1
+          else
+            sstc = seatmp(ipnt,jpnt,l0)*w0+
+     &             seatmp(ipnt,jpnt,l1)*w1+
+     &             seatmp(ipnt,jpnt,l2)*w2+
+     &             seatmp(ipnt,jpnt,l3)*w3
+          endif !natm
         endif
         sssc  = swall(ipnt,jpnt,1,lc0)*wc0+
      &          swall(ipnt,jpnt,1,lc1)*wc1+
@@ -573,6 +655,57 @@ c ---   interpolate to the p-grid, but only if it requres no halo points
         vbpnt = 0.5*(vbavg(ipnt,jpnt,n)+vbavg(ipnt, jpnt1,n))
         upnt  = 0.5*( umix(ipnt,jpnt)  + umix(ipnt1,jpnt )  ) + ubpnt
         vpnt  = 0.5*( vmix(ipnt,jpnt)  + vmix(ipnt, jpnt1)  ) + vbpnt
+#if defined(STOKES)
+        ubstk = 0.5*(usdbavg(ipnt,jpnt)+usdbavg(ipnt1,jpnt ))
+        vbstk = 0.5*(vsdbavg(ipnt,jpnt)+vsdbavg(ipnt, jpnt1))
+        ust0  = usds(ipnt,jpnt)
+        vst0  = vsds(ipnt,jpnt)
+c
+c ---   order is not optimal, constrained by ALL/bin/hycom_profile_list 
+c ---   which only includes the fields up to vbavg (or up to nsterc)
+        write (nop,'(8a)')
+     &    '## model-day  srfhgt  surflx',
+     &    '     dpbl   dpmixl    tmix    smix   thmix',
+     &    '    umix    vmix   ubavg   vbavg  steric  nsterc',
+     &    '   tclim   sclim',
+     &    '  sswflx  mixflx  sstflx',
+     &    '      E-P   sssE-P  bhtflx  buoflx',
+     &    '    ustar   hekman    dpbbl',
+     &    ' usdbave vsdbave    usd0    vsd0'
+        write (nop,'(a,f11.4,f8.2,f8.1, 2f9.3,3f8.4, 6f8.2,
+     &               2f8.4, 3f8.1, 2f9.2,2f8.4, f9.5, 2f9.3,
+     &               4f8.2)')
+     &    '#',time,                                            !model-day
+     &    ssha*100.0/g,                                        !cm
+     &    surflx(ipnt,jpnt),                                   !W/m**2
+     &    min(  dpbl(ipnt,jpnt)  *qonem, 9999.999),            !m
+     &    min(dpmixl(ipnt,jpnt,n)*qonem, 9999.999),            !m
+     &      tmix(ipnt,jpnt),                                   !degC
+     &      smix(ipnt,jpnt),                                   !psu
+     &     thmix(ipnt,jpnt)+thbase,                            !SigmaT
+     &    max(-999.99,min(999.99, upnt*100.0)),                !cm/s
+     &    max(-999.99,min(999.99, vpnt*100.0)),                !cm/s
+     &    max(-999.99,min(999.99,ubpnt*100.0)),                !cm/s
+     &    max(-999.99,min(999.99,vbpnt*100.0)),                !cm/s
+     &    sshs*100.0/g,                                        !cm
+     &    sshn*100.0/g,                                        !cm
+     &    sstc,                                                !degC
+     &    sssc,                                                !psu
+     &    sswflx(ipnt,jpnt),                                   !W/m**2
+     &    mixflx(ipnt,jpnt),                                   !W/m**2
+     &    sstflx(ipnt,jpnt),                                   !W/m**2
+     &    salflx(ipnt,jpnt)*thref*8.64E7/saln(ipnt,jpnt,1,n),  !mm/day
+     &    sssflx(ipnt,jpnt)*thref*8.64E7/saln(ipnt,jpnt,1,n),  !mm/day
+     &    bhtflx(ipnt,jpnt)*1.e6,                         !1.e6*m**2/sec**3
+     &    buoflx(ipnt,jpnt)*1.e6,                         !1.e6*m**2/sec**3
+     &     ustar(ipnt,jpnt),                                   !m/s?
+     &    min(hekman(ipnt,jpnt),         9999.999),            !m
+     &    min( dpbbl(ipnt,jpnt)  *qonem, 9999.999),            !m
+     &    max(-999.99,min(999.99,ubstk*100.0)),                !cm/s
+     &    max(-999.99,min(999.99,vbstk*100.0)),                !cm/s
+     &    max(-999.99,min(999.99, ust0*100.0)),                !cm/s
+     &    max(-999.99,min(999.99, vst0*100.0))                 !cm/s
+#else
 c
 c ---   order is not optimal, constrained by ALL/bin/hycom_profile_list 
 c ---   which only includes the fields up to vbavg (or up to nsterc)
@@ -612,6 +745,7 @@ c ---   which only includes the fields up to vbavg (or up to nsterc)
      &     ustar(ipnt,jpnt),                                   !m/s?
      &    min(hekman(ipnt,jpnt),         9999.999),            !m
      &    min( dpbbl(ipnt,jpnt)  *qonem, 9999.999)             !m
+#endif
         if     (iceflg.ne.0) then
           write (nop,'(2a / a,f11.4, 3f8.2,2f8.1,f9.2)')
      &    '## model-day',
@@ -624,6 +758,26 @@ c ---   which only includes the fields up to vbavg (or up to nsterc)
      &      fswice(ipnt,jpnt),                                   !W/m**2
      &      sflice(ipnt,jpnt)*thref*8.64E7/saln(ipnt,jpnt,1,n)   !mm/day
         endif !iceflg
+#if defined(STOKES)
+        if     (ntracr.eq.0) then
+          write(cformat,'(a)')      '(4a)'
+        else
+          write(cformat,'(a,i2,a)') '(4a,', ntracr, 'a)'
+        endif
+        write (nop,cformat)
+     &      '#  k',
+     &      '    utot    vtot  p.temp    saln  p.dens',
+     &      '    thkns      dpth  viscty  t-diff  s-diff',
+     &      '  usdtot  vsdtot',
+     &      ('  tracer',ktr=1,ntracr)
+        if     (ntracr.eq.0) then
+          write(cformat,'(a)')
+     &      '(i4,2f8.2,3f8.4,f9.3,f10.3,3f8.2,2f8.2)'
+        else
+          write(cformat,'(a,i2,a)')
+     &      '(i4,2f8.2,3f8.4,f9.3,f10.3,3f8.2,2f8.2,', ntracr, 'f8.3)'
+        endif
+#else
         if     (ntracr.eq.0) then
           write(cformat,'(a)')      '(3a)'
         else
@@ -641,9 +795,14 @@ c ---   which only includes the fields up to vbavg (or up to nsterc)
           write(cformat,'(a,i2,a)')
      &      '(i4,2f8.2,3f8.4,f9.3,f10.3,3f8.2,', ntracr, 'f8.3)'
         endif
+#endif
         do k= 1,kk
           upnt = 0.5*(u(ipnt,jpnt,k,n)+u(ipnt1,jpnt, k,n)) + ubpnt
           vpnt = 0.5*(v(ipnt,jpnt,k,n)+v(ipnt, jpnt1,k,n)) + vbpnt
+#if defined(STOKES)
+          ustk = 0.5*(usd(ipnt,jpnt,k)+usd(ipnt1,jpnt, k)) + ubstk
+          vstk = 0.5*(vsd(ipnt,jpnt,k)+vsd(ipnt, jpnt1,k)) + vbstk
+#endif
           write (nop,cformat)
      &       k,
      &       max(-999.99,min(999.99,upnt*100.0)),                  !cm/s
@@ -656,6 +815,10 @@ c ---   which only includes the fields up to vbavg (or up to nsterc)
      &       min(9999.99,vcty(ipnt,jpnt,k+1)*1.e4),                !cm**2/s
      &       min(9999.99,dift(ipnt,jpnt,k+1)*1.e4),                !cm**2/s
      &       min(9999.99,difs(ipnt,jpnt,k+1)*1.e4),                !cm**2/s
+#if defined(STOKES)
+     &       max(-999.99,min(999.99,ustk*100.0)),                  !cm/s
+     &       max(-999.99,min(999.99,vstk*100.0)),                  !cm/s
+#endif
      &       (tracer(ipnt,jpnt,k,n,ktr),ktr=1,ntracr)              !0-999?
         enddo !k
       else
@@ -670,8 +833,6 @@ c ---   which only includes the fields up to vbavg (or up to nsterc)
       end subroutine archiv_prof_out
 
       subroutine archiv_tile(n, kkout, iyear,iday,ihour)
-c
-      include 'common_blocks.h'
 c
       integer   n, kkout, iyear,iday,ihour
       real      sssc,sstc
@@ -863,4 +1024,7 @@ c> Jun  2010 - made into a module
 c> Jun  2010 - added hycom_prof
 c> Jun  2010 - added archiv_init, and archvs.input for surface archives
 c> Apr  2011 - added separate surface and 3-D archives, via flnmarcvs
-c> Apr  2010 - renamed archvs.input to archs.input
+c> Apr  2011 - renamed archvs.input to archs.input
+c> Nov. 2012 - added surtx and surty to archs.input
+c> Apr. 2013 - added displd_mn, dispqd_mn and tidepg_mn to archs output
+c> Aug. 2013 - optionally added Stokes Drift to text profile files

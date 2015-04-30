@@ -489,6 +489,14 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
+    ! Export precip_fact for precipitation adjustment !!Alex
+    PRINT*,'Alex precip_fact=',pcp_fact
+    call ESMF_AttributeSet(exportState, name="precip_fact", value=pcp_fact, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+
     ! Reset the slice counter
     is%wrap%slice = 1
 
@@ -951,6 +959,13 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
+    ! Export precip_fact for precipitation adjustment !!Alex 
+    call ESMF_AttributeSet(exportState, name="precip_fact", value=pcp_fact, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+    return ! bail out
+    
 #ifdef HYCOM_IN_CESM
     !! Copy o2x Array to CESM 1D Fields if forcing is used.
     !call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)

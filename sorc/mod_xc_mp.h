@@ -116,21 +116,23 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
-      real            al,at
-      common/xcagetr/ al(itdm,jdm),at(idm*jdm)
-      save  /xcagetr/
-c
       integer i,j,mp,np,mnp
 #if defined(TIMER)
 c
       if     (nxc.eq.0) then
         call xctmr0( 1)
         nxc = 1
+      endif
+#endif
+#if defined(RELO)
+c
+      if     (.not.allocated(al)) then
+        allocate(       al(itdm,jdm) )
+        call mem_stat_add( itdm*jdm )
+        allocate(       at(idm*jdm) )
+        call mem_stat_add( idm*jdm )
       endif
 #endif
 c
@@ -152,7 +154,7 @@ c
         do mp= mpe_1(nproc)+1,mpe_e(nproc)
           call MPI_RECV(at,ii_pe(mp,nproc)*jj,MTYPER,
      &                  idproc(mp,nproc), 9941,
-     &                  mpi_comm_hycom, mpistat, mpierr)
+     &                  mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
           do j= 1,jj
             do i= 1,ii_pe(mp,nproc)
               al(i0_pe(mp,nproc)+i,j) = at(i+(j-1)*ii_pe(mp,nproc))
@@ -219,7 +221,7 @@ c
           if     (idproc(mp,np).ne.idproc(mproc,nproc)) then
             call MPI_RECV(al,itdm*jj_pe(mp,np),MTYPER,
      &                    idproc(mp,np), 9942,
-     &                    mpi_comm_hycom, mpistat, mpierr)
+     &                    mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
             do j= 1,jj_pe(mp,np)
               do i= 1,itdm
                 aa(i,j+j0_pe(mp,np)) = al(i,j)
@@ -301,17 +303,8 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
-      real            al8,at8
-      common/xcagetr/ al8(itdm,jdm),at8(idm*jdm)
-      save  /xcagetr/
-c
-      real*4          al4(itdm,jdm),       at4(idm*jdm)
-      equivalence    (al4(1,1),al8(1,1)), (at4(1),at8(1))
 c
       integer i,j,mp,np,mnp
 #if defined(TIMER)
@@ -319,6 +312,15 @@ c
       if     (nxc.eq.0) then
         call xctmr0( 1)
         nxc = 1
+      endif
+#endif
+#if defined(RELO)
+c
+      if     (.not.allocated(al4)) then
+        allocate(       al4(itdm,jdm) )
+        call mem_stat_add( (itdm*jdm)/2 ) !real*4, so /2
+        allocate(       at4(idm*jdm) )
+        call mem_stat_add( (idm*jdm) /2 ) !real*4, so /2
       endif
 #endif
 c
@@ -340,7 +342,7 @@ c
         do mp= mpe_1(nproc)+1,mpe_e(nproc)
           call MPI_RECV(at4,ii_pe(mp,nproc)*jj,MTYPE4,
      &                  idproc(mp,nproc), 9941,
-     &                  mpi_comm_hycom, mpistat, mpierr)
+     &                  mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
           do j= 1,jj
             do i= 1,ii_pe(mp,nproc)
               al4(i0_pe(mp,nproc)+i,j) = at4(i+(j-1)*ii_pe(mp,nproc))
@@ -414,7 +416,7 @@ c
           if     (idproc(mp,np).ne.idproc(mproc,nproc)) then
             call MPI_RECV(al4,itdm*jj_pe(mp,np),MTYPE4,
      &                    idproc(mp,np), 9942,
-     &                    mpi_comm_hycom, mpistat, mpierr)
+     &                    mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
             do j= 1,jj_pe(mp,np)
               do i= 1,itdm
                 aa(i,j+j0_pe(mp,np)) = al4(i,j)
@@ -495,16 +497,10 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 c
-      integer        mpireqa(jpr),mpireqb(ipr)
+      integer mpireqa(jpr),mpireqb(ipr)
 #endif
-      real            al,at
-      common/xcagetr/ al(itdm,jdm),at(idm*jdm)
-      save  /xcagetr/
 c
       integer i,j,mp,np,mnp
 #if defined(TIMER)
@@ -513,6 +509,15 @@ c
         BARRIER
         call xctmr0( 4)
         nxc = 4
+      endif
+#endif
+#if defined(RELO)
+c
+      if     (.not.allocated(al)) then
+        allocate(       al(itdm,jdm) )
+        call mem_stat_add( itdm*jdm )
+        allocate(       at(idm*jdm) )
+        call mem_stat_add( idm*jdm )
       endif
 #endif
 *
@@ -543,11 +548,11 @@ c       "broadcast" row sections of aa to all processors in the row.
      &                      mpi_comm_hycom, mpireqa(j), mpierr)
             endif
           enddo
-          call mpi_waitall( j, mpireqa, mpistat, mpierr)
+          call mpi_waitall( j, mpireqa, MPI_STATUSES_IGNORE, mpierr)
         elseif (mproc.eq.mpe_1(nproc)) then
           call MPI_RECV(al,itdm*jj,MTYPER,
      &                  idproc1(mnflg), 9951,
-     &                  mpi_comm_hycom, mpistat, mpierr)
+     &                  mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
         endif
 c
         if     (mproc.eq.mpe_1(nproc)) then
@@ -558,11 +563,11 @@ c
      &                    idproc(mp,nproc), 9952,
      &                    mpi_comm_hycom, mpireqb(i), mpierr)
           enddo
-          call mpi_waitall( i, mpireqb, mpistat, mpierr)
+          call mpi_waitall( i, mpireqb, MPI_STATUSES_IGNORE, mpierr)
         else
           call MPI_RECV(al,itdm*jj,MTYPER,
      &                  idproc(mpe_1(nproc),nproc), 9952,
-     &                  mpi_comm_hycom, mpistat, mpierr)
+     &                  mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
         endif
 c
         aa(:,j0+1:j0+jj) = al(:,1:jj)
@@ -623,19 +628,10 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 c
-      integer        mpireqa(jpr),mpireqb(ipr)
+      integer mpireqa(jpr),mpireqb(ipr)
 #endif
-      real            al8,at8
-      common/xcagetr/ al8(itdm,jdm),at8(idm*jdm)
-      save  /xcagetr/                           
-c                                               
-      real*4          al4(itdm,jdm),       at4(idm*jdm)
-      equivalence    (al4(1,1),al8(1,1)), (at4(1),at8(1))
 c
       integer i,j,mp,np,mnp
 #if defined(TIMER)
@@ -644,6 +640,15 @@ c
         BARRIER
         call xctmr0( 4)
         nxc = 4
+      endif
+#endif
+#if defined(RELO)
+c
+      if     (.not.allocated(al4)) then
+        allocate(       al4(itdm,jdm) )
+        call mem_stat_add( (itdm*jdm)/2 ) !real*4, so /2
+        allocate(       at4(idm*jdm) )
+        call mem_stat_add( (idm*jdm) /2 ) !real*4, so /2
       endif
 #endif
 *
@@ -674,11 +679,11 @@ c       "broadcast" row sections of aa to all processors in the row.
      &                      mpi_comm_hycom, mpireqa(j), mpierr)
             endif
           enddo
-          call mpi_waitall( j, mpireqa, mpistat, mpierr)
+          call mpi_waitall( j, mpireqa, MPI_STATUSES_IGNORE, mpierr)
         elseif (mproc.eq.mpe_1(nproc)) then
           call MPI_RECV(al4,itdm*jj,MTYPE4,
      &                  idproc1(mnflg), 9951,
-     &                  mpi_comm_hycom, mpistat, mpierr)
+     &                  mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
         endif
 c
         if     (mproc.eq.mpe_1(nproc)) then
@@ -689,11 +694,11 @@ c
      &                    idproc(mp,nproc), 9952,
      &                    mpi_comm_hycom, mpireqb(i), mpierr)
           enddo
-          call mpi_waitall( i, mpireqb, mpistat, mpierr)
+          call mpi_waitall( i, mpireqb, MPI_STATUSES_IGNORE, mpierr)
         else
           call MPI_RECV(al4,itdm*jj,MTYPE4,
      &                  idproc(mpe_1(nproc),nproc), 9952,
-     &                  mpi_comm_hycom, mpistat, mpierr)
+     &                  mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
         endif
 c
         aa(:,j0+1:j0+jj) = al4(:,1:jj)
@@ -717,11 +722,11 @@ c       "broadcast" row sections of aa to all processors in the row.
      &                    idproc(mp,nproc), 9952,
      &                    mpi_comm_hycom, mpireqb(i), mpierr)
           enddo
-          call mpi_waitall( i, mpireqb, mpistat, mpierr)
+          call mpi_waitall( i, mpireqb, MPI_STATUSES_IGNORE, mpierr)
         else
           call MPI_RECV(aa(1,j0+1),itdm*jj,MTYPE4,
      &                  idproc(mpe_1(nproc),nproc), 9952,
-     &                  mpi_comm_hycom, mpistat, mpierr)
+     &                  mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
         endif
 #elif defined(SHMEM)
 c       assume aa is in common.
@@ -768,18 +773,8 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
-c
-      integer    nmax
-      parameter (nmax=1024)
-c
-      real            b,c
-      common/xcmaxr4/ b(nmax),c(nmax)
-      save  /xcmaxr4/
 c
       integer i,is0,isl,mn,n,nn
 #if defined(TIMER)
@@ -830,46 +825,47 @@ c
       return
       end subroutine xcastr
 
-      subroutine xceget(aelem, a, ia,ja)
+      subroutine xceget(aelem, a, ia,ja, mnflg)
       implicit none
 c
-      real,    intent(out)   :: aelem
+      real,    intent(out)   ::         aelem
       real,    intent(in)    :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
-      integer, intent(in)    :: ia,ja
+      integer, intent(in)    ::         ia,ja
+      integer, intent(in), optional ::  mnflg
 c
 c**********
 c*
 c  1) find the value of a(ia,ja) on the non-tiled 2-D grid.
 c
-c  2) parameters:
+c  2) mnflg selects which nodes must return the line
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     note that aelem might, or might not, be returned on other nodes
+c
+c  3) parameters:
 c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
 c    aelem           real           output    required element
-c    a               real           input     source array
-c    ia              integer        input     1st index into a
-c    ja              integer        input     2nd index into a
+c    a               real           input     tiled source array
+c    ia              integer        input     1st non-tiled index into a
+c    ja              integer        input     2nd non-tiled index into a
+c    mnflg           integer        input     node return flag
 c
-c  3) the global variable vland is returned when outside active tiles.
+c  4) the global variable vland is returned when outside active tiles.
 c*
 c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
 c
 c     double buffer to reduce the number of required barriers.
 c
-      real            elem(0:1)
-      common/xcegetr/ elem
-      save  /xcegetr/
-c
+      real,    save, dimension(0:1) :: elem
       integer, save :: kdb = 0
 c
-      integer i,j,mp,np
+      integer i,j,lmnflg,mp,np
 #if defined(TIMER)
 c
 *     if     (nxc.eq.0) then
@@ -877,13 +873,19 @@ c
 *       nxc = 2
 *     endif
 #endif
+c     
+      if     (present(mnflg)) then
+        lmnflg = mnflg
+      else
+        lmnflg = 0  ! default
+      endif
 c
       kdb = mod(kdb+1,2)  ! the least recently used of the two buffers
 c
 c     find the host tile.
 c
-      np = npe_j(ja)
-      mp = mpe_i(ia,np)
+      np  = npe_j(max(0,min(jtdm+1,ja))   )
+      mp  = mpe_i(max(0,min(itdm+1,ia)),np)
 c
       if      (mp.le.0) then
 c
@@ -899,8 +901,14 @@ c
 c
         elem(kdb) = a(i,j)
 #if defined(MPI)
-        call mpi_bcast(elem(kdb),1,MTYPER,
-     &                 idproc(mp,np),mpi_comm_hycom,mpierr)
+        if     (lmnflg.eq.0) then
+          call mpi_bcast(elem(kdb),1,MTYPER,
+     &                   idproc(mp,np),mpi_comm_hycom,mpierr)
+        elseif (lmnflg.ne.mnproc) then
+          call MPI_SEND(elem(kdb),1,MTYPER,
+     &                  idproc1(lmnflg), 9932,
+     &                  mpi_comm_hycom, mpierr)
+        endif !lmnflg
 #elif defined(SHMEM)
         BARRIER
 #endif
@@ -909,8 +917,14 @@ c
 c       another tile.
 c
 #if defined(MPI)
-        call mpi_bcast(elem(kdb),1,MTYPER,
-     &                 idproc(mp,np),mpi_comm_hycom,mpierr)
+        if     (lmnflg.eq.0) then
+          call mpi_bcast(elem(kdb),1,MTYPER,
+     &                   idproc(mp,np),mpi_comm_hycom,mpierr)
+        elseif (lmnflg.eq.mnproc) then
+          call MPI_RECV( elem(kdb),1,MTYPER,
+     &                   idproc(mp,np), 9932,
+     &                   mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
+        endif !lmnflg
 #elif defined(SHMEM)
         BARRIER
         call SHMEM_GETR(elem(kdb),
@@ -929,36 +943,40 @@ c
       return
       end subroutine xceget
 
-      subroutine xceput(aelem, a, ia,ja)
+      subroutine xceput(aelem, a, ia,ja, mnflg)
       implicit none
 c
-      integer, intent(in)    :: ia,ja
-      real,    intent(in)    :: aelem
+      integer, intent(in), optional ::  mnflg
+      integer, intent(in)    ::         ia,ja
+      real,    intent(inout) ::         aelem
       real,    intent(inout) :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
 c
 c**********
 c*
 c  1) fill a single element in the non-tiled 2-D grid.
 c
-c  2) parameters:
+c  2) mnflg selects which nodes hold the element on entry
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     all nodes hold the element on exit
+c
+c  3) parameters:
 c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
-c    aelem           real           input     element value
-c    a               real           in/out    target array
-c    ia              integer        input     1st index into a
-c    ja              integer        input     2nd index into a
+c    aelem           real           in/out    element value
+c    a               real           in/out    tiled target array
+c    ia              integer        input     1st non-tiled index into a
+c    ja              integer        input     2nd non-tiled index into a
+c    mnflg           integer        input     node source flag
 c*
 c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
 c
-      integer mp,np
+      real, save :: a1(1)
 #if defined(TIMER)
 c
 *     if     (nxc.eq.0) then
@@ -966,6 +984,19 @@ c
 *       nxc = 5
 *     endif
 #endif
+c     
+      if     (present(mnflg)) then
+        if     (mnflg.ne.0) then
+          if     (mnproc.eq.mnflg) then
+            a1(1) = aelem
+            call xcastr(a1, mnflg)  !broadcast the input element
+          else
+            call xcastr(a1, mnflg)  !broadcast the input element
+            aelem = a1(1)
+          endif !mnproc
+        endif !mnflg>0
+      endif !present
+c
       if     (i0.lt.ia .and. ia.le.i0+ii .and.
      &        j0.lt.ja .and. ja.le.j0+jj      ) then
 c
@@ -998,10 +1029,7 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
 c
 c     broadcast to all processors
@@ -1042,10 +1070,7 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
 c
 c     message passing version.
@@ -1066,6 +1091,263 @@ c
 #endif
       stop '(xchalt)'
       end subroutine xchalt
+
+      subroutine xciget(alist,nl, a, ia,ja, mnflg)
+      implicit none
+c
+      integer, intent(in)  ::          nl
+      real,    intent(out) ::          alist(nl)
+      real,    intent(in)  :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
+      integer, intent(in)  ::          ia(nl),ja(nl)
+      integer, intent(in), optional :: mnflg
+c
+c**********
+c*
+c  1) find the value of a(ia(:),ja(:)) on the non-tiled 2-D grid.
+c
+c  2) mnflg selects which nodes must return the line
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     note that alist might, or might not, be returned on other nodes
+c
+c  3) parameters:
+c       name            type         usage            description
+c    ----------      ----------     -------  ----------------------------
+c    alist           real           output    required elements
+c    nl              integer        input     dimension of alist
+c    a               real           input     tiled source array
+c    ia              integer        input     1st non-tiled indexes into a
+c    ja              integer        input     2nd non-tiled indexes into a
+c    mnflg           integer        input     node return flag
+c
+c  4) the global variable vland is returned when outside active tiles.
+c*
+c**********
+c
+      integer i,lmnflg,nl_sm
+c     
+      if     (present(mnflg)) then
+        lmnflg = mnflg
+      else
+        lmnflg = 0  ! default
+      endif
+c
+c     stripmine alist in itdm+jtdm chunks
+c
+      do i= 1,nl,itdm+jtdm
+        nl_sm = min( itdm+jtdm, nl+1-i )
+        call xciget_sm(alist(i),nl_sm, a, ia(i),ja(i), lmnflg)
+      enddo !i
+      return
+      end subroutine xciget
+
+      subroutine xciget_sm(alist,nl, a, ia,ja, mnflg)
+      implicit none
+c
+      integer, intent(in)  :: nl
+      real,    intent(out) :: alist(nl)
+      real,    intent(in)  :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
+      integer, intent(in)  :: ia(nl),ja(nl)
+      integer, intent(in)  :: mnflg
+c
+c**********
+c*
+c  1) find the value of a(ia(:),ja(:)) on the non-tiled 2-D grid.
+c     version for nl<=itdm+jtdm, always invoke via xciget
+c
+c  2) mnflg selects which nodes must return the line
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     note that alist might, or might not, be returned on other nodes
+c
+c  3) parameters:
+c       name            type         usage            description
+c    ----------      ----------     -------  ----------------------------
+c    alist           real           output    required elements
+c    nl              integer        input     dimension of alist
+c    a               real           input     tiled source array
+c    ia              integer        input     1st non-tiled indexes into a
+c    ja              integer        input     2nd non-tiled indexes into a
+c    mnflg           integer        input     node return flag
+c
+c  4) the global variable vland is returned when outside active tiles.
+c*
+c**********
+c
+#if defined(MPI)
+      include 'mpif.h'
+      integer mpierr
+#endif
+c     
+c     double buffer to remove the need for barriers.
+c     pad alX to guard against false sharing.
+c
+#if defined(RELO)
+      real,    save, allocatable, dimension(:,:) ::
+     &  als,alr
+#else
+      real,    save, dimension(-47:itdm+jtdm+48,0:1) ::
+     &  als,alr
+#endif
+      integer, save, dimension(0:ijqr-1,0:1) :: nlp,nxp
+c     
+      integer, save :: kdb = 0
+      integer       :: i,np,mp,mnp,nxpa
+#if defined(RELO)
+c
+      if     (.not.allocated(als)) then
+        allocate(     als(-47:itdm+jtdm+48,0:1),
+     &                alr(-47:itdm+jtdm+48,0:1) )
+        call mem_stat_add( 2*(itdm+jtdm+96)*2 )
+      endif
+#endif
+c     
+      kdb = mod(kdb+1,2)  ! the least recently used of the two buffers
+c
+c --- calculate the gatherv sizes and offsets on all tiles
+c
+      nlp(0:ijqr-1,kdb) = 0
+      do i= 1,nl
+        np  = npe_j(max(0,min(jtdm+1,ja(i)))   )
+        mp  = mpe_i(max(0,min(itdm+1,ia(i))),np)
+        if     (mp.gt.0) then
+          mnp = idproc(mp,np)
+          nlp(mnp,kdb) = nlp(mnp,kdb) + 1
+          if     (mp.eq.mproc .and. np.eq.nproc) then
+c ---       update the local send buffer
+            als(nlp(mnp,kdb),kdb) = a(ia(i)-i0,ja(i)-j0)
+          endif
+        endif !mp
+      enddo !i
+c
+      nxp(0,kdb) = 0
+      do i= 1,ijqr-1
+        nxp(i,kdb) = nxp(i-1,kdb) + nlp(i-1,kdb)
+      enddo
+      nxpa = nxp(ijqr-1,kdb) + nlp(ijqr-1,kdb)
+c
+#if defined(MPI)
+      if     (mnflg.eq.0) then
+c ---   gatherv onto the 1st mpi task, then broadcast the result
+        mnp = idproc(mproc,nproc)
+        call mpi_gatherv(als(1,kdb),nlp(mnp,kdb),MTYPER,
+     &                   alr(1,kdb),nlp(0,kdb),nxp(0,kdb),MTYPER,
+     &                   idproc1(1),
+     &                   mpi_comm_hycom, mpierr)
+        call mpi_bcast(  alr(1,kdb),nxpa,MTYPER,
+     &                   idproc1(1),
+     &                   mpi_comm_hycom, mpierr)
+      else
+        mnp = idproc(mproc,nproc)
+        call mpi_gatherv(als(1,kdb),nlp(mnp,kdb),MTYPER,
+     &                   alr(1,kdb),nlp(0,kdb),nxp(0,kdb),MTYPER,
+     &                   idproc1(mnflg),
+     &                   mpi_comm_hycom, mpierr)
+      endif !mnflg
+#elif defined(SHMEM)
+      call xcstop('xciget: shmem not implemented')
+      stop '(xciget)'
+#endif
+c
+      if     (mnflg.eq.0 .or. mnflg.eq.mnproc) then
+c ---   repeat the gatherv size logic to unwind the recv buffer
+        nlp(0:ijqr-1,kdb) = 0
+        do i= 1,nl
+          np  = npe_j(max(0,min(jtdm+1,ja(i)))   )
+          mp  = mpe_i(max(0,min(itdm+1,ia(i))),np)
+          if     (mp.le.0) then
+            alist(i) = vland
+          else
+            mnp = idproc(mp,np)
+            nlp(mnp,kdb) = nlp(mnp,kdb) + 1
+            alist(i) = alr(nlp(mnp,kdb)+nxp(mnp,kdb),kdb)
+          endif !mp
+        enddo !i
+      endif !mnflg
+      return
+      end subroutine xciget_sm
+
+      subroutine xciput(alist,nl, a, ia,ja, mnflg)
+      implicit none
+c
+      integer, intent(in)    ::        nl
+      integer, intent(in), optional :: mnflg
+      integer, intent(in)    ::        ia(nl),ja(nl)
+      real,    intent(inout) ::        alist(nl)
+      real,    intent(inout) :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
+c
+c**********
+c*
+c  1) fill a list of elements in the non-tiled 2-D grid.
+c     also updates the halo.
+c
+c  2) mnflg selects which nodes hold the elements on entry
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     all nodes hold the elements on exit
+c
+c  3) parameters:
+c       name            type         usage            description
+c    ----------      ----------     -------  ----------------------------
+c    alist           real           in/out    element values
+c    nl              integer        input     dimension of alist
+c    a               real           in/out    tiled target array
+c    ia              integer        input     1st non-tiled indexes into a
+c    ja              integer        input     2nd non-tiled indexes into a
+c    mnflg           integer        input     node source flag
+c*
+c**********
+c
+      integer i,iai,jai
+#if defined(TIMER)
+c
+*     if     (nxc.eq.0) then
+*       call xctmr0( 5)
+*       nxc = 5
+*     endif
+#endif
+c     
+      if     (present(mnflg)) then
+        if     (mnflg.ne.0) then
+          call xcastr(alist, mnflg)  !broadcast the input list
+        endif
+      endif
+c
+      do i= 1,nl
+        iai = ia(i)-i0
+        jai = ja(i)-j0
+        if     (iai.ge.1-nbdy .and. iai.le.ii+nbdy .and.
+     &          jai.ge.1-nbdy .and. jai.le.jj+nbdy      ) then
+c
+c         on this tile with halo.
+c
+          a(iai,jai) = alist(i)
+        endif !on tile
+c
+        if     (nreg.ne.0 .and. ia(i).ge.itdm-nbdy+1) then  ! periodic
+          iai = ia(i)-itdm-i0
+          if     (iai.ge.1-nbdy .and. iai.le.ii+nbdy .and.
+     &            jai.ge.1-nbdy .and. jai.le.jj+nbdy      ) then
+            a(iai,jai) = alist(i)
+          endif !on tile
+        endif !periodic, large ia(i)
+        if     (nreg.ne.0 .and. ia(i).le.nbdy) then  ! periodic
+          iai = ia(i)+itdm-i0
+          if     (iai.ge.1-nbdy .and. iai.le.ii+nbdy .and.
+     &            jai.ge.1-nbdy .and. jai.le.jj+nbdy      ) then
+            a(iai,jai) = alist(i)
+          endif !on tile
+        endif !periodic, small ia(i)
+      enddo !i
+#if defined(TIMER)
+c
+*     if     (nxc.eq. 5) then
+*       call xctmr1( 5)
+*       nxc = 0
+*     endif
+#endif
+      return
+      end subroutine xciput
 
       subroutine xclget(aline,nl, a, i1,j1,iinc,jinc, mnflg)
       implicit none
@@ -1091,9 +1373,9 @@ c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
 c    aline           real           output    required line of elements
 c    nl              integer        input     dimension of aline
-c    a               real           input     source array
-c    i1              integer        input     1st index into a
-c    j1              integer        input     2nd index into a
+c    a               real           input     tiled source array
+c    i1              integer        input     1st non-tiled index into a
+c    j1              integer        input     2nd non-tiled index into a
 c    iinc            integer        input     1st index increment
 c    jinc            integer        input     2nd index increment
 c    mnflg           integer        input     node return flag
@@ -1104,28 +1386,34 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
 c
 c     pad al to guard against false sharing.
 c     double buffer to reduce the number of required barriers.
 c
-      real            al
-      common/xclgetr/ al(-47:itdm+jtdm+48,0:1)
-      save  /xclgetr/
+#if defined(RELO)
+      real, save, allocatable, dimension (:,:) :: al
+#else
+      real, save, dimension(-47:itdm+jtdm+48,0:1) :: al
+#endif
 c
-      integer, save :: kdb = 0
+      integer, save        :: kdb = 0
+      integer, allocatable :: ia(:),ja(:)
 c
-      real    dummy
       integer i1n,iif,iil,j1n,jjf,jjl,l,lx0,nxl,mp,np
 #if defined(TIMER)
 c
       if     (nxc.eq.0) then
         call xctmr0( 3)
         nxc = 3
+      endif
+#endif
+#if defined(RELO)
+c
+      if     (.not.allocated(al)) then
+        allocate(    al(-47:itdm+jtdm+48,0:1) )
+        call mem_stat_add( (itdm+jtdm+96)*2 )
       endif
 #endif
 c
@@ -1173,7 +1461,7 @@ c
             elseif (mnflg.eq.mnproc) then
               call MPI_RECV(al(lx0+1,kdb),nxl,MTYPER,
      &                      idproc(mp,np), 9931,
-     &                      mpi_comm_hycom, mpistat, mpierr)
+     &                      mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
             endif
 #endif /* MPI */
           endif
@@ -1265,7 +1553,7 @@ c
             elseif (mnflg.eq.mnproc) then
               call MPI_RECV(al(lx0+1,kdb),nxl,MTYPER,
      &                      idproc(mp,np), 9931,
-     &                      mpi_comm_hycom, mpistat, mpierr)
+     &                      mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
             endif
 #endif /* MPI */
           endif
@@ -1316,18 +1604,22 @@ c
         if     (mnflg.eq.0 .or. mnflg.eq.mnproc) then
           aline(1:nl) = al(1:nl,kdb)
         endif
+      elseif (nl.eq.1) then
+c
+c       diagonal and reversing lines, single element
+c
+        call xceget(aline(1),a,i1,j1, mnflg)
       else
 c
-c       diagonal and reversing lines - repeatedly call xceget.
-c       this always works, but is very slow.
+c       diagonal and reversing lines - call xciget.
 c
+        allocate(ia(nl),ja(nl))
         do l= 1,nl
-          if     (mnflg.eq.0 .or. mnflg.eq.mnproc) then
-            call xceget(aline(l), a, i1+iinc*(l-1),j1+jinc*(l-1))
-          else
-            call xceget(dummy,    a, i1+iinc*(l-1),j1+jinc*(l-1))
-          endif
-        enddo
+          ia(l) = i1+iinc*(l-1)
+          ja(l) = j1+jinc*(l-1)
+        enddo !l
+        call xciget(aline,nl, a, ia,ja, mnflg)
+        deallocate(ia,ja)
       endif
 #if defined(TIMER)
 c
@@ -1339,11 +1631,12 @@ c
       return
       end subroutine xclget
 
-      subroutine xclput(aline,nl, a, i1,j1,iinc,jinc)
+      subroutine xclput(aline,nl, a, i1,j1,iinc,jinc, mnflg)
       implicit none
 c
-      integer, intent(in)    ::  nl,i1,j1,iinc,jinc
-      real,    intent(in)    ::  aline(nl)
+      integer, intent(in), optional ::  mnflg
+      integer, intent(in)    ::         nl,i1,j1,iinc,jinc
+      real,    intent(inout) ::         aline(nl)
       real,    intent(inout) ::  a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
 c
 c**********
@@ -1355,16 +1648,22 @@ c     where aa is the non-tiled representation of a, and
 c     one of iinc and jinc must be 0, and the other must be 1.
 c     also updates the halo.
 c
-c  3) parameters:
+c  3) mnflg selects which nodes hold the line on entry
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     all nodes hold the line on exit
+c
+c  4) parameters:
 c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
-c    aline           real           input     line of element values
+c    aline           real           in/out    line of element values
 c    nl              integer        input     dimension of aline
-c    a               real           in/out    target array
-c    i1              integer        input     1st index into a
-c    j1              integer        input     2nd index into a
+c    a               real           in/out    tiled target array
+c    i1              integer        input     1st non-tiled index into a
+c    j1              integer        input     2nd non-tiled index into a
 c    iinc            integer        input     1st index increment
 c    jinc            integer        input     2nd index increment
+c    mnflg           integer        input     node source flag
 c*
 c**********
 c
@@ -1377,42 +1676,52 @@ c
       endif
 #endif
 c
+      if     (present(mnflg)) then
+        if     (mnflg.ne.0) then
+          call xcastr(aline, mnflg)  !broadcast the input line
+        endif
+      endif
+c
       if     (jinc.eq.0) then
-        if     (j1-j0.ge.1-nbdy .and. j1-j0.le.jj+nbdy) then
-          do i= max(1-nbdy,i1-i0),min(i1-i0+nl-1,ii+nbdy)
-            a(i,j1-j0) = aline(i+i0-i1+1)
+        j = j1-j0
+        if     (j.ge.1-nbdy .and. j.le.jj+nbdy) then
+          do i= max(1-nbdy,i1-i0),min(i1+nl-1-i0,ii+nbdy)
+            a(i,j) = aline(i+i0-i1+1)
           enddo
-          if     (nreg.ne.0 .and.
-     &            i0.eq.0 .and. i1+nl-1.ge.itdm-nbdy+1) then  ! periodic
-            do i= max(itdm-nbdy+1,i1),i1+nl-1
-              a(i-itdm,j1-j0) = aline(i)
+          if     (nreg.ne.0 .and. i1+nl-1.ge.itdm-nbdy+1) then  ! periodic
+            do i= max(1-nbdy,i1-itdm-i0),min(i1+nl-1-itdm-i0,0)
+              a(i,j) = aline(i+itdm+i0-i1+1)
             enddo
           endif
-          if     (nreg.ne.0 .and.
-     &            i0+ii.eq.itdm .and. i1.le.nbdy) then        ! periodic
-            do i= i1,min(nbdy,i1+nl-1)
-              a(ii+i,j1-j0) = aline(i)
+          if     (nreg.ne.0 .and. i1.le.nbdy) then  ! periodic
+            do i= max(ii+1,i1+itdm-i0),min(i1+nl-1+itdm-i0,ii+nbdy)
+              a(i,j) = aline(i-itdm+i0-i1+1)
             enddo
           endif
-        endif
+        endif !j
       elseif (iinc.eq.0) then
-        if     (i1-i0.ge.1-nbdy .and. i1-i0.le.ii+nbdy) then
+        i = i1-i0
+        if     (i.ge.1-nbdy .and. i.le.ii+nbdy) then
           do j= max(1-nbdy,j1-j0),min(j1-j0+nl-1,jj+nbdy)
-            a(i1-i0,j) = aline(j+j0-j1+1)
+            a(i,j) = aline(j+j0-j1+1)
           enddo
-        endif
-        if     (nreg.ne.0 .and.
-     &          i0.eq.0 .and. i1.ge.itdm-nbdy+1) then       ! periodic
-          do j= max(1-nbdy,j1-j0),min(j1-j0+nl-1,jj+nbdy)
-            a(i1-itdm,j) = aline(j+j0-j1+1)
-          enddo
-        endif
-        if     (nreg.ne.0 .and.
-     &          i0+ii.eq.itdm .and. i1.le.nbdy) then        ! periodic
-          do j= max(1-nbdy,j1-j0),min(j1-j0+nl-1,jj+nbdy)
-            a(ii+i1,j) = aline(j+j0-j1+1)
-          enddo
-        endif
+        endif !on tile
+        if     (nreg.ne.0 .and. i1.ge.itdm-nbdy+1) then  ! periodic
+          i = i1-itdm-i0 !e.g. i1==itdm becomes 0-i0
+          if     (i.ge.1-nbdy .and. i.le.0) then
+            do j= max(1-nbdy,j1-j0),min(j1-j0+nl-1,jj+nbdy)
+              a(i,j) = aline(j+j0-j1+1)
+            enddo
+          endif !in halo
+        endif !near itdm
+        if     (nreg.ne.0 .and. i1.le.nbdy) then  ! periodic
+          i = i1+itdm-i0 !e.g. i1==1 becomes itdm+1-i0
+          if     (i.ge.ii+1 .and. i.le.ii+nbdy) then
+            do j= max(1-nbdy,j1-j0),min(j1-j0+nl-1,jj+nbdy)
+              a(i,j) = aline(j+j0-j1+1)
+            enddo
+          endif !in halo
+        endif !near 1
       endif
 #if defined(TIMER)
 c
@@ -1446,9 +1755,9 @@ c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
 c    aline           real           input     line of element values
 c    nl              integer        input     dimension of aline
-c    a               real           in/out    target array
-c    i1              integer        input     1st index into a
-c    j1              integer        input     2nd index into a
+c    a               real           in/out    tiled target array
+c    i1              integer        input     1st non-tiled index into a
+c    j1              integer        input     2nd non-tiled index into a
 c    iinc            integer        input     1st index increment
 c    jinc            integer        input     2nd index increment
 c*
@@ -1552,18 +1861,8 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
-c
-      integer    nmax
-      parameter (nmax=1024)
-c
-      real            b,c
-      common/xcmaxr4/ b(nmax),c(nmax)
-      save  /xcmaxr4/
 c
       integer i,is0,isl,mn,mnp,n,nn
 #if defined(TIMER)
@@ -1737,18 +2036,8 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
-c
-      integer    nmax
-      parameter (nmax=1024)
-c
-      real            b,c
-      common/xcmaxr4/ b(nmax),c(nmax)
-      save  /xcmaxr4/
 c
       integer i,is0,isl,mn,mnp,n,nn
 #if defined(TIMER)
@@ -1868,19 +2157,80 @@ c
       return
       end subroutine xcminr_1o
 
-cjc#if defined(USE_ESMF)
+#if defined(OCEANS2)
+      subroutine xcpipe(aa_master,what_master, aa_slave,what_slave)
+      implicit none
+c
+      real,         intent(out) :: aa_master(itdm,jtdm)
+      real,         intent(in)  ::  aa_slave(itdm,jtdm)
+      character*12, intent(out) :: what_master
+      character*12, intent(in)  :: what_slave
+c
+c**********
+c*
+c  1) copy aa_slave on task idp1_2 to aa_master on task idp1_1
+c     only called from pipe_compare
+c
+c  2) parameters:
+c       name            type         usage            description
+c    ----------      ----------     -------  ----------------------------
+c    aa_master       real           output    non-tiled target array
+c    aa_slave        real            input    non-tiled source array
+c    what_master     character*12   output    non-tiled target array name
+c    what_slave      character*12    input    non-tiled source array name
+c*
+c**********
+c
+      include 'mpif.h'
+      integer mpierr
+c
+      integer iwhat(12)
+      save    iwhat
+c
+      integer i
+c
+c     only the 1st task on master and slave are involved in the copy.
+c     note the use of mpi_comm_world
+c
+      if     (mnproc.eq.1) then
+        if     (nocean.eq.1) then
+c ---     master
+          call MPI_RECV(iwhat,12,MTYPEI,
+     &                  idp1_2, 9943,
+     &                  mpi_comm_world, MPI_STATUS_IGNORE, mpierr)
+          do i= 1,12
+            what_master(i:i) = char(iwhat(i))
+          enddo !i
+          call MPI_RECV(aa_master,itdm*jtdm,MTYPER,
+     &                  idp1_2, 9944,
+     &                  mpi_comm_world, MPI_STATUS_IGNORE, mpierr)
+        else  !nocean==2
+c ---     slave
+          do i= 1,12
+            iwhat(i) = ichar(what_slave(i:i))
+          enddo !i
+          call MPI_SEND(iwhat,12,MTYPEI,
+     &                idp1_1, 9943,
+     &                mpi_comm_world, mpierr)
+          call MPI_SEND(aa_slave,itdm*jtdm,MTYPER,
+     &                idp1_1, 9944,
+     &                mpi_comm_world, mpierr)
+        endif !master:slave
+      endif !mnproc==1
+      return
+      end subroutine xcpipe
+#endif /* OCEANS2 */
+
+!!Alex HYCOM in CESM xcspmd 
+!#if defined(USE_ESMF)
       subroutine xcspmd(mpi_comm_vm)
       implicit none
 c
-      integer mpi_comm_vm
-cjc#else
-cjc      subroutine xcspmd
-cjc#if defined(USE_CCSM3)
-cjc      use ccsm3
-cjc      use ccsm3_io
-cjc#endif
-cjc      implicit none
-cjc#endif
+      integer, optional ::  mpi_comm_vm
+!#else
+!      subroutine xcspmd
+!      implicit none
+!#endif
 c
 c**********
 c*
@@ -1898,7 +2248,6 @@ c      i0      - 1st dimension offset for this tile, i0_pe(mproc,nproc)
 c      ii      - 1st dimension extent for this tile, ii_pe(mproc,nproc)
 c      j0      - 2nd dimension offset for this tile, j0_pe(mproc,nproc)
 c      jj      - 2nd dimension extent for this tile, jj_pe(mproc,nproc)
-c      margin  -     how much of the halo is currently valid
 c      nreg    -     region type
 c      vland   -     fill value for land (standard value 0.0)
 c
@@ -1934,36 +2283,73 @@ c     the patch distribution file, 'patch.input'.
 c*
 c**********
 c
-      integer    mxsum
-      parameter (mxsum=(idm+4*nbdy)/(2*nbdy+1))
-c
       integer i,idm_in,itdm_in,ios,ixsum,
      &        j,jdm_in,jtdm_in,l,m,mm,mn,mypei,n,npesi
 c
+      character*80 cfile
+c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 c
 c     standard mpi (message passing) version.
 c
-cjc#if defined(USE_ESMF)
-      call mpi_comm_dup(mpi_comm_vm,    mpi_comm_hycom, mpierr)
-cjc#elif defined(USE_CCSM3)
-cjc      call mpi_comm_dup(mpi_comm_ocn,   mpi_comm_hycom, mpierr)
-cjc#else
-cjc      call mpi_init(mpierr)
-cjc      call mpi_comm_dup(mpi_comm_world, mpi_comm_hycom, mpierr)
-cjc#endif
+!#if defined(USE_ESMF) !!Alex HYCOM in CESM (add if present)
+      if(present(mpi_comm_vm)) then
+          call mpi_comm_dup(mpi_comm_vm,    mpi_comm_hycom, mpierr)
+          lp = 6
+      else 
+!#elif defined(OCEANS2)
+#if defined(OCEANS2)
+c --- two copies of HYCOM on distinct MPI tasks, master/slave via mod_pipe.
+          call mpi_init(mpierr)
+          call mpi_comm_rank(mpi_comm_world, mypei, mpierr)
+          open(unit=uoff+99,file='./patch.input', iostat=ios)
+          if     (ios.ne.0) then
+              if     (mypei.eq.0) then
+                  write(6,'(a)') "xcspmd: can't open ./patch.input"
+                  call flush(6)
+              endif             !1st task
+              call mpi_finalize(mpierr)
+              stop '(xcspmd)'
+          endif                 !ios!=0
+          read(uoff+99,'(/i6/)',iostat=ios) ijpr
+          if     (ios.ne.0) then
+              if     (mypei.eq.0) then
+                  write(6,'(a)') "xcspmd: can't read ./patch.input"
+                  call flush(6)
+              endif             !1st task
+              call mpi_finalize(mpierr)
+              stop '(xcspmd)'
+          endif                 !ios!=0
+          close(uoff+99)
+          idp1_1 = 0            !1st mpi task of 1st ocean
+          idp1_2 = ijpr         !1st mpi task of 2nd ocean
+          if     (mypei.lt.idp1_2) then
+              nocean = 1        !master ocean
+              call mpi_comm_split(mpi_comm_world, nocean,mypei,
+     &            mpi_comm_hycom, mpierr)
+              lp = 6
+          else
+              nocean = 2        !slave ocean
+              call mpi_comm_split(mpi_comm_world, nocean,mypei,
+     &            mpi_comm_hycom, mpierr)
+              lp = uoff+6
+              write(cfile,"(a,i6.6,a)") "./OCEAN2/stdout",mypei+1,".log"
+              open(unit=lp,file=trim(cfile),status='new')
+          endif
+#else
+          call mpi_init(mpierr)
+          call mpi_comm_dup(mpi_comm_world, mpi_comm_hycom, mpierr)
+          lp = 6
+#endif
+      endif
 c
       call mpi_comm_rank(mpi_comm_hycom, mypei, mpierr)
       call mpi_comm_size(mpi_comm_hycom, npesi, mpierr)
 c
       mnproc = mypei + 1  ! mnproc counts from 1
 #if defined(DEBUG_ALL)
-      lp = 6
       write(lp,'(a,i5)') 'mnproc =',mnproc
       call xcsync(flush_lp)
 #endif
@@ -1973,6 +2359,8 @@ c
 c     shmem version.
 c
       call start_pes(0)
+c
+      lp = 6
 c
       mypei = SHMEM_MYPE()
       npesi = SHMEM_NPES()
@@ -1991,10 +2379,13 @@ c
       vland  = 0.0
       vland4 = 0.0
 c
-      lp = 6
 #if defined(T3E)
       open(unit=lp,delim='none')  ! forces open on stdout
 #endif
+c
+c     initialize timers early to allow xcstop to work.
+c
+      call xctmri
 c
 c     read in the tile locations and sizes.
 c     patch distibution file on unit 21 (fort.21).
@@ -2033,9 +2424,14 @@ c     periodic cases, the last non-empty tile can periodic wrap to the
 c     first tile in the row (i.e. trailing "empty" tiles can be null
 c     tiles, rather than all-land tiles).
 c
-#if defined(USE_CCSM3)
-      open(unit=uoff+99,file=trim(flnmptchd)//'patch.input',
-     &     iostat=ios)
+#if defined(OCEANS2)
+      if     (nocean.eq.2) then
+        open(unit=uoff+99,file="./OCEAN2/patch.input",
+     &       iostat=ios)
+      else
+        open(unit=uoff+99,file='./patch.input',
+     &       iostat=ios)
+      endif
 #else
       open(unit=uoff+99,file='./patch.input',
      &     iostat=ios)
@@ -2057,22 +2453,6 @@ c
         endif
         call xcstop('xcspmd: patch.input for wrong ipr,jpr,ijpr')
         stop '(xcspmd)'
-      elseif (itdm_in.ne.itdm .or. jtdm_in.ne.jtdm) then
-        if     (mnproc.eq.1) then
-          write(lp,'(a,2i5)') 'input: itdm,jtdm =',itdm_in,jtdm_in
-          write(lp,'(a,2i5)') 'param: itdm,jtdm =',itdm,   jtdm
-          call flush(lp)
-        endif
-        call xcstop('xcspmd: patch.input for wrong itdm,jtdm')
-        stop '(xcspmd)'
-      elseif (idm_in.gt.idm .or. jdm_in.gt.jdm) then
-        if     (mnproc.eq.1) then
-          write(lp,'(a,2i5)') 'input: idm,jdm =',idm_in,jdm_in
-          write(lp,'(a,2i5)') 'param: idm,jdm =',idm,   jdm
-          call flush(lp)
-        endif
-        call xcstop('xcspmd: patch.input for wrong idm,jdm')
-        stop '(xcspmd)'
 #if defined(ARCTIC)
       elseif (nreg.ne.3) then  ! not arctic
         if     (mnproc.eq.1) then
@@ -2092,6 +2472,33 @@ c
         stop '(xcspmd)'
 #endif /* ARCTIC:else */
       endif
+c
+#if defined(RELO)
+c --- region's horizontal dimensions are from patch.input:
+c
+      itdm = itdm_in
+      jtdm = jtdm_in
+      idm  = idm_in
+      jdm  = jdm_in
+#else
+      if     (itdm_in.ne.itdm .or. jtdm_in.ne.jtdm) then
+        if     (mnproc.eq.1) then
+          write(lp,'(a,2i5)') 'input: itdm,jtdm =',itdm_in,jtdm_in
+          write(lp,'(a,2i5)') 'param: itdm,jtdm =',itdm,   jtdm
+          call flush(lp)
+        endif
+        call xcstop('xcspmd: patch.input for wrong itdm,jtdm')
+        stop '(xcspmd)'
+      elseif (idm_in.gt.idm .or. jdm_in.gt.jdm) then
+        if     (mnproc.eq.1) then
+          write(lp,'(a,2i5)') 'input: idm,jdm =',idm_in,jdm_in
+          write(lp,'(a,2i5)') 'param: idm,jdm =',idm,   jdm
+          call flush(lp)
+        endif
+        call xcstop('xcspmd: patch.input for wrong idm,jdm')
+        stop '(xcspmd)'
+      endif
+#endif
 c
 c     individual tile rows.
 c
@@ -2163,6 +2570,11 @@ c
         jj_pe(m,:) = jj_pe(1,:)
       enddo
       close(uoff+99)
+c
+#if defined(RELO)
+      allocate( mpe_i(0:itdm+1,0:jqr), npe_j(0:jtdm+1) )
+      call mem_stat_add( (itdm+2)*(jqr+1)+jtdm+2 )
+#endif
 c
 #if defined(MPI)
 c
@@ -2342,6 +2754,9 @@ c     mapping from global i,j to mp,np.
 c     ia,ja is on tile mpe_i(ia,npe_j(ja)),npe_j(ja), 
 c     or on no tile if mpe_i(ia,npe_j(ja)) is 0 or -1.
 c
+      mpe_i(     :,0) = -1  !for npe_j out of range
+      mpe_i(     0,:) = -1  !for i out of range
+      mpe_i(itdm+1,:) = -1  !for i out of range
       do n= 1,jpr
         mpe_i(1:itdm,n) = 0  ! default is an empty tile
         do m= 1,ipr  ! i-map potentially varies with n
@@ -2362,6 +2777,8 @@ c
           do j= j0_pe(m,n)+1,j0_pe(m,n)+jj_pe(m,n)
             npe_j(j)   = n
           enddo
+          npe_j(     0) = 0  !for j out of range
+          npe_j(jtdm+1) = 0  !for j out of range
       enddo
 c
 c     do each partial sum on the tile that owns its center point.
@@ -2427,8 +2844,6 @@ c
       ii = ii_pe(mproc,nproc)
       j0 = j0_pe(mproc,nproc)
       jj = jj_pe(mproc,nproc)
-c
-      margin = 0
 c
 c     left and right halo targets
 c
@@ -2662,29 +3077,86 @@ c
 #endif /* DEBUG_ALL */
 #if defined(USE_ESMF)
 c
-c --- Currently ESMF only implemented for simplest block decomposition
+c --- ESMF tiling fills the global array (1:itdm,1:jtdm)
 c
-      do n= 1,jpr
-        countde2(n) = jj_pe(1,n)
-      enddo !n
-      do m= 1,ipr
-        countde1(m) = ii_pe(m,1)
-        if     (minval(ii_pe(m,1:jpr)).ne.
-     &          maxval(ii_pe(m,1:jpr))    ) then
-          if     (mnproc.eq.1) then
-          write(lp,'(a,3i5)') 'm,min(ii),max(ii) = ',
-     &                         m,minval(ii_pe(m,1:jpr)),
-     &                           maxval(ii_pe(m,1:jpr))
-          call flush(lp)
+      mn=0
+      do n=1,jpr
+        do m=1,ipr
+          if(ii_pe(m,n).ne.0)then
+            mn= mn + 1
+#if defined(ARCTIC)
+c ---       don't include the last row (it is a copy of the previous one)
+            deBlockList(2,1,mn) =      j0_pe(m,n)+1
+            deBlockList(2,2,mn) = min( j0_pe(m,n)+jj_pe(m,n), jtdm-1 )
+#else
+            deBlockList(2,1,mn) = j0_pe(m,n)+1
+            deBlockList(2,2,mn) = j0_pe(m,n)+jj_pe(m,n)
+#endif /* ARCTIC:else */
+            if     (m.eq.mpe_1(n)) then
+              if     (m.eq.mpe_e(n)) then
+c ---           only tile in row
+                deBlockList(1,1,mn) = 1
+                deBlockList(1,2,mn) = itdm
+              else
+c ---           1st tile in row, right edge may be extended later
+                deBlockList(1,1,mn) = 1
+                deBlockList(1,2,mn) = i0_pe(m,n)+ii_pe(m,n)
+              endif
+            elseif (m.eq.mpe_e(n)) then
+c ---         last tile in row
+              deBlockList(1,1,mn) = i0_pe(m,n)+1
+              deBlockList(1,2,mn) = itdm
+              if     (deBlockList(1,1,mn)    .ne.
+     &                deBlockList(1,2,mn-1)+1    ) then
+c ---           a hole in the HYCOM tiling, over land, is filled here
+                deBlockList(1,2,mn-1) = (deBlockList(1,2,mn-1)+
+     &                                   deBlockList(1,1,mn)   )/2
+                deBlockList(1,1,mn)   = deBlockList(1,2,mn-1)+1
+              endif
+            else
+c ---         middle tile in row, right edge may be extended later
+              deBlockList(1,1,mn) = i0_pe(m,n)+1
+              deBlockList(1,2,mn) = i0_pe(m,n)+ii_pe(m,n)
+              if     (deBlockList(1,1,mn)    .ne.
+     &                deBlockList(1,2,mn-1)+1    ) then
+c ---           a hole in the HYCOM tiling, over land, is filled here
+                deBlockList(1,2,mn-1) = (deBlockList(1,2,mn-1)+
+     &                                   deBlockList(1,1,mn)   )/2
+                deBlockList(1,1,mn)   = deBlockList(1,2,mn-1)+1
+              endif
+            endif
           endif
-          call xcstop('xcspmd: bad ii for ESMF')
-          stop '(xcspmd)'
-        endif
-      enddo !m
+        enddo !m
+      enddo !n
+c
+      if     (mnproc.eq.1) then
+        write(lp,'(/a)')
+     &   'mnproc mproc nproc   BL11   BL21   BL12   BL22'
+        mn = 0
+        do n= 1,jpr
+          do m= 1,ipr
+            if     (ii_pe(m,n).ne.0) then
+               mn=mn+1
+               write(lp,'(i6,2i6,4i7)')
+     &           mn,m,n,
+     &           deBlockList(1,1,mn),
+     &           deBlockList(2,1,mn),
+     &           deBlockList(1,2,mn),
+     &           deBlockList(2,2,mn)
+            endif
+          enddo !m
+        enddo !n
+        write(lp,*)
+      endif !1st tile
+      call xcsync(flush_lp)
 #endif
 c
 c     mxsum large enough?
 c
+#if defined(RELO)
+      mxsum = ((idm+4*nbdy)/(2*nbdy+1))*jdm
+c
+#endif
       if     (ixsum.gt.mxsum) then
         if     (mnproc.eq.1) then
         write(lp,'(a,2i5)') 'mxsum,ixsum =',mxsum,ixsum
@@ -2694,10 +3166,9 @@ c
         stop '(xcspmd)'
       endif
 c
-c     initialize timers.
-c
-      call xctmri
 #if defined(TIMER)
+c     initialize timer names.
+c
       call xctmrn( 1,'xcaget')
       call xctmrn( 2,'xceget')
       call xctmrn( 3,'xclget')
@@ -2707,6 +3178,9 @@ c
       call xctmrn( 9,'xcastr')
       call xctmrn(10,'xcmaxr')
       call xctmrn(12,'xctilr')
+#if defined(ARCTIC)
+      call xctmrn(13,'xctila')
+#endif
 #endif
       return
       end subroutine xcspmd
@@ -2732,10 +3206,7 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
 c
 c     print active timers.
@@ -2755,7 +3226,7 @@ c
       endif
       call xcsync(flush_lp)
 c
-#if defined(USE_ESMF) || defined(USE_CCSM3)
+#if defined(USE_ESMF) || defined(OCEANS2)
 c
 c --- we may not be running on all processes, so call mpi_abort
 c
@@ -2801,18 +3272,8 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
-c
-      integer    mxsum
-      parameter (mxsum=(idm+4*nbdy)/(2*nbdy+1))
-c
-      real*8         sum8t,sum8j,sum8s
-      common/xcsum8/ sum8t(mxsum*jdm),sum8j(jdm),sum8s
-      save  /xcsum8/
 c
       real*8     zero8
       parameter (zero8=0.0)
@@ -2825,6 +3286,13 @@ c
       if     (nxc.eq.0) then
         call xctmr0( 6)
         nxc = 6
+      endif
+#endif
+#if defined(RELO)
+c
+      if     (.not.allocated(sum8t)) then
+        allocate(    sum8t(mxsum), sum8j(jdm) )
+        call mem_stat_add( mxsum +       jdm )
       endif
 #endif
 c
@@ -2876,7 +3344,7 @@ c
 #if defined(MPI)
             call MPI_RECV(sum8t,l,MTYPED,
      &                    idproc(mp,nproc), 9900,
-     &                    mpi_comm_hycom, mpistat, mpierr)
+     &                    mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
 #elif defined(SHMEM)
             call SHMEM_GETD(sum8t,
      &                      sum8t,l,idproc(mp,nproc))
@@ -2918,7 +3386,7 @@ c
 #if defined(MPI)
           call MPI_RECV(sum8j,jj_pe(mp,np),MTYPED,
      &                  idproc(mp,np), 9901,
-     &                  mpi_comm_hycom, mpistat, mpierr)
+     &                  mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
 #elif defined(SHMEM)
           call SHMEM_GETD(sum8j,
      &                    sum8j,jj_pe(mp,np),idproc(mp,np))
@@ -2986,18 +3454,8 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
-c
-      integer    mxsum
-      parameter (mxsum=(idm+4*nbdy)/(2*nbdy+1))
-c
-      real*8         sum8t,sum8j,sum8s
-      common/xcsum8/ sum8t(mxsum*jdm),sum8j(jdm),sum8s
-      save  /xcsum8/
 c
       real*8     zero8
       parameter (zero8=0.0)
@@ -3010,6 +3468,13 @@ c
       if     (nxc.eq.0) then
         call xctmr0( 6)
         nxc = 6
+      endif
+#endif
+#if defined(RELO)
+c
+      if     (.not.allocated(sum8t)) then
+        allocate(    sum8t(mxsum), sum8j(jdm) )
+        call mem_stat_add( mxsum +       jdm )
       endif
 #endif
 c
@@ -3028,7 +3493,7 @@ c
         do l= 1,iisum(mproc,nproc)
           i1   = i1sum(mproc,nproc) + (l-1)*(2*nbdy+1)
           sum8 = zero8
-          do i= i1,min(i1+2*nbdy,ii+nbdy,itdm-i0)
+          do i= max(i1,1-nbdy),min(i1+2*nbdy,ii+nbdy,itdm-i0)
             if     (mask(i,j).eq.1) then
               sum8 = sum8 + a(i,j)
             endif
@@ -3061,7 +3526,7 @@ c
 #if defined(MPI)
             call MPI_RECV(sum8t,l,MTYPED,
      &                    idproc(mp,nproc), 9900,
-     &                    mpi_comm_hycom, mpistat, mpierr)
+     &                    mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
 #elif defined(SHMEM)
             call SHMEM_GETD(sum8t,
      &                      sum8t,l,idproc(mp,nproc))
@@ -3101,7 +3566,7 @@ c
 #if defined(MPI)
           call MPI_RECV(sum8j,jj_pe(mp,np),MTYPED,
      &                  idproc(mp,np), 9901,
-     &                  mpi_comm_hycom, mpistat, mpierr)
+     &                  mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
 #elif defined(SHMEM)
           call SHMEM_GETD(sum8j,
      &                    sum8j,jj_pe(mp,np),idproc(mp,np))
@@ -3145,14 +3610,11 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
 c
       if     (lflush) then
-#if defined(MPI) && defined(AIX) && ! (defined(AIX_NOFL) || defined(USE_ESMF) || defined(USE_CCSM3))
+#if defined(MPI) && defined(AIX) && ! (defined(AIX_NOFL) || defined(USE_ESMF) || defined(OCEANS2))
         call mp_flush(1)  ! flushes stdout, and implies a barrier
 #else
         call flush(lp)
@@ -3188,9 +3650,7 @@ c
       integer    cache_line,ilarge
       parameter (cache_line=32, ilarge=2**30)
 c
-      integer        ibp
-      common/halobp/ ibp(cache_line,-1:ijpr-1)
-      save  /halobp/
+      integer, save, dimension(cache_line,-1:ijqr-1) :: ibp
 c
       integer i
 c
@@ -3227,6 +3687,201 @@ cdir$   suppress
 #endif /* SHMEM && RINGB */
 
 #if defined(ARCTIC)
+      recursive subroutine xctila(a,l1,ld,itype)
+      implicit none
+c
+      integer, intent(in)    :: l1,ld,itype
+      real,    intent(inout) :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,ld)
+c
+c**********
+c*
+c  1) update the top row of a real array.
+c     only needed when importing a tripole grid array.
+c
+c  2) parameters:
+c       name            type         usage            description
+c    ----------      ----------     -------  ----------------------------
+c    a               real           in/out    target array
+c    l1              integer        input     3rd dim. start index
+c    ld              integer        input     3rd dimension of a
+c    mh              integer        input     1st (EW) update halo size
+c    nh              integer        input     2nd (NS) update halo size
+c    itype           integer        input     grid and field type
+c
+c  3) itype selects both the grid and field type
+c        itype= 1; p-grid, scalar field
+c        itype=11; p-grid, vector field
+c
+c  4) this version for a global tripole (arctic bipolar patch) grid
+c*
+c**********
+c
+c     halo buffer (in common for enhanced MPI safety).
+c
+#if defined(RELO)
+      real,    save, allocatable, dimension(:,:) :: ai
+#else
+      integer, parameter :: ilen=idm*kdm
+      real,    save, dimension(ilen,2) :: ai
+#endif
+      integer i,io,k,l,lg0,ls0,lm,m
+      real    sarc
+c
+#if defined(MPI)
+      include 'mpif.h'
+      integer mpierr
+c
+c     persistent communication handles.
+c
+      integer mpireqa(4*iqr),nreqa,
+     &        klnold
+      save    mpireqa,       nreqa,
+     &        klnold
+c
+      data nreqa,klnold / 0,0 /
+#endif /* MPI */
+c
+#if defined(RELO)
+      if     (.not.allocated(ai)) then
+        allocate(       ai(idm*kdm,2) )
+        call mem_stat_add( idm*kdm*2 )
+      endif
+#endif
+c
+c --- split large requests into smaller pieces
+c
+      if     (ld-l1+1.gt.kdm) then
+        do k= l1,ld,kdm
+          l = min(k+kdm-1,ld)
+          call xctila(a,k,l,itype)
+        enddo
+        return
+      endif
+c
+#if defined(TIMER)
+c
+      if     (nxc.eq.0) then
+        call xctmr0(13)
+        nxc = 13
+      endif
+#endif
+c
+#if defined(SHMEM)
+c --- not needed if ipr.eq.1, but simpler to include it
+      BARRIER
+#endif
+      if     (nproc.eq.jpr) then  !tiles involved in arctic boundary
+        if     (itype.lt.10) then
+          sarc =  1.0
+        else
+          sarc = -1.0
+        endif
+c
+        if     (ipr.eq.1) then
+          do k= l1,ld
+            do i= 1,ii
+              io = ii-mod(i-1,ii)
+              if     (a(io,jj-1,k).ne.vland) then
+                a(i,jj,k) = sarc*a(io,jj-1,k)
+              else
+                a(i,jj,k) = vland
+              endif
+            enddo !i
+          enddo !k
+        else
+          l = 0
+          do i= 1,ii  ! outer loop to simplify multiple neighbor case
+            io = ii+1-i !ii:1:-1
+            do k= l1,ld
+              l = l + 1
+              if     (a(io,jj-1,k).ne.vland) then
+                ai(l,1) = sarc*a(io,jj-1,k)
+              else
+                ai(l,1) = vland
+              endif
+            enddo !k
+          enddo !i
+*         write(lp,'(a,5i6)') 'xctila - l1,ld,ii,l,mnproc = ',
+*    &                                  l1,ld,ii,l,mnproc
+c
+#if defined(MPI)
+          if     (klnold.ne.(ld-l1+1)) then  !new mpi init needed
+#if defined(DEBUG_ALL)
+*           if     (mproc.eq.mp_1st) then
+*             write(lp,'(a,3i6)') 'xctila - l1,ld,itype = ',
+*    &                                      l1,ld,itype
+*           endif
+*           call xcsync(flush_lp)
+#endif
+            do i= 1,nreqa
+              call mpi_request_free(mpireqa(i), mpierr)
+            enddo
+            klnold = ld-l1+1
+c
+c           loop through all neigboring tiles.
+c
+            l = 0
+            do m= 1,mm_top
+              l   = l + 1
+              ls0 = i0_st(m)*(ld-l1+1)
+              lm  = ii_st(m)*(ld-l1+1)
+              call mpi_send_init(
+     &          ai(ls0+1,1),lm,MTYPER,
+     &          idproc(m0_top+m,nproc+1), 99053,
+     &          mpi_comm_hycom, mpireqa(l), mpierr)
+            enddo
+            do m= 1,mm_top
+              l   = l + 1
+              ls0 = i0_st(m)*(ld-l1+1)
+              lm  = ii_st(m)*(ld-l1+1)
+              call mpi_recv_init(
+     &          ai(ls0+1,2),lm,MTYPER,
+     &          idproc(m0_top+m,nproc+1), 99053,
+     &          mpi_comm_hycom, mpireqa(l), mpierr)
+            enddo
+            nreqa = l
+          endif  !new mpi_init
+          if     (nreqa.gt.0) then
+            call mpi_startall(nreqa, mpireqa, mpierr)
+            call mpi_waitall( nreqa, mpireqa, MPI_STATUSES_IGNORE,
+     &                                        mpierr)
+          endif
+#elif defined(SHMEM)
+c
+c         loop through all neigboring tiles, barrier issued above.
+c
+          do m= 1,mm_top
+            if     (idproc(m0_top+m,nproc+1).ne.null_tile) then
+              lg0 = i0_gt(m)*(ld-l1+1)
+              ls0 = i0_st(m)*(ld-l1+1)
+              lm  = ii_st(m)*(ld-l1+1)
+              if     (nproc.eq.jpr) then
+                call SHMEM_GETR(ai(ls0+1,2),
+     &                          ai(lg0+1,1),lm,  !buffer 1
+     &                          idproc(m0_top+m,nproc+1))
+              endif
+            endif
+          enddo
+#endif    /* MPI:SHMEM */
+c
+          l = 0
+          do i= 1,ii  ! outer loop to simplify multiple neighbor case
+            do k= l1,ld
+              l = l + 1
+              a(i,jj,k) = ai(l,2)
+            enddo
+          enddo
+        endif  !ipr.eq.1:else
+      endif !nproc.eq.jpr
+c
+#if defined(TIMER)
+      if     (nxc.eq.13) then
+        call xctmr1(13)
+        nxc = 0
+      endif
+#endif
+      return
+      end subroutine xctila
       recursive subroutine xctilr(a,l1,ld,mh,nh,itype)
       implicit none
 c
@@ -3236,8 +3891,6 @@ c
 c**********
 c*
 c  1) update the tile overlap halo of a real array.
-c
-c     this version of arctic bi-polar patch only
 c
 c  2) parameters:
 c       name            type         usage            description
@@ -3260,32 +3913,29 @@ c        itype=13; u-grid, vector field
 c        itype=14; v-grid, vector field
 c
 c  4) the global variable vland is returned by halos over land.
+c
+c  5) this version for a global tripole (arctic bipolar patch) grid
 c*
 c**********
 c
-      integer    ilen,jlen
-      parameter (ilen= idm        *kdm*nbdy+64,
-     &           jlen=(jdm+2*nbdy)*kdm*nbdy+64)
+c     halo buffer
 c
-c     halo buffer (in common for enhanced MPI safety).
-c
-      real            ai,aj
-      common/xctilr4/ ai(ilen,4),aj(jlen,4)
-      save  /xctilr4/
-c
-      real            aia
-      common/xctilra/ aia(kdm*nbdy+64,2)
-      save  /xctilra/
+#if defined(RELO)
+      real, save, allocatable, dimension(:,:) :: ai,aj,aia
+#else
+      integer, parameter :: ilen= idm        *kdm*nbdy+64,
+     &                      jlen=(jdm+2*nbdy)*kdm*nbdy+64
+      real, save, dimension (ilen,4) :: ai
+      real, save, dimension (jlen,4) :: aj
+      real, save, dimension (kdm*nbdy+64,2) :: aia
+#endif
 c
       integer i,io,itynew,j,k,l,lg0,ls0,lm,m,mhl,nhl
       real    sarc
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 c
 c     persistent communication handles.
 c
@@ -3296,6 +3946,17 @@ c
 c
       data nreqa,klmold,klnold,mhlold,nhlold,ityold / 0,0,0,0,0,0 /
 #endif /* MPI */
+#if defined(RELO)
+c
+      if     (.not.allocated(ai)) then
+        allocate(        ai( idm        *kdm*nbdy+64 ,4) )
+        call mem_stat_add( ( idm        *kdm*nbdy+64)*4 )
+        allocate(        aj((jdm+2*nbdy)*kdm*nbdy+64 ,4) )
+        call mem_stat_add( ((jdm+2*nbdy)*kdm*nbdy+64)*4 )
+        allocate(      aia( kdm*nbdy+64, 2) )
+        call mem_stat_add( (kdm*nbdy+64)*2 )
+      endif
+#endif
 c
 c --- split large requests into smaller pieces
 c
@@ -3505,9 +4166,6 @@ c
             do i= 1,nreqa
               call mpi_request_free(mpireqa(i), mpierr)
             enddo
-            klnold = ld-l1+1
-            nhlold = nhl
-            ityold = itynew
 c
 c           loop through all neigboring tiles.
 c
@@ -3585,8 +4243,9 @@ c
             nreqa = l
           endif
           if     (nreqa.gt.0) then
-            call mpi_startall(nreqa, mpireqa,          mpierr)
-            call mpi_waitall( nreqa, mpireqa, mpistat, mpierr)
+            call mpi_startall(nreqa, mpireqa, mpierr)
+            call mpi_waitall( nreqa, mpireqa, MPI_STATUSES_IGNORE,
+     &                                        mpierr)
           endif
 #elif defined(SHMEM)
           BARRIER
@@ -3696,13 +4355,15 @@ c
           call mpi_sendrecv(
      &          aj(1,1),l,MTYPER,idhalo(2), 9907,
      &          aj(1,4),l,MTYPER,idhalo(2), 9908,
-     &          mpi_comm_hycom, mpistat, mpierr)
+     &          mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
           call mpi_sendrecv(
      &          aj(1,2),l,MTYPER,idhalo(1), 9908,
      &          aj(1,3),l,MTYPER,idhalo(1), 9907,
-     &          mpi_comm_hycom, mpistat, mpierr)
+     &          mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
 #elif defined(MPI)
-          if     (klmold.ne.(ld-l1+1) .or. mhlold.ne.mhl) then  !new mpi init
+          if     (klmold.ne.(ld-l1+1) .or.
+     &            mhlold.ne.mhl       .or.
+     &            nhlold.ne.nhl           ) then  !new mpi init
 #if defined(DEBUG_ALL)
 *           if     (mnproc.eq.1) then
 *             write(lp,'(a,3i6)') 'xctilr - mhl,l1,ld       = ',
@@ -3716,8 +4377,6 @@ c
               call mpi_request_free(mpireqb(3), mpierr)
               call mpi_request_free(mpireqb(4), mpierr)
             endif
-            klmold = ld-l1+1
-            mhlold = mhl
             call mpi_send_init(
      &            aj(1,1),l,MTYPER,idhalo(2), 9907,
      &            mpi_comm_hycom, mpireqb(1), mpierr)
@@ -3731,8 +4390,8 @@ c
      &            aj(1,4),l,MTYPER,idhalo(2), 9908,
      &            mpi_comm_hycom, mpireqb(4), mpierr)
           endif
-          call mpi_startall(4, mpireqb,          mpierr)
-          call mpi_waitall( 4, mpireqb, mpistat, mpierr)
+          call mpi_startall(4, mpireqb, mpierr)
+          call mpi_waitall( 4, mpireqb, MPI_STATUSES_IGNORE, mpierr)
 #elif defined(SHMEM)
           BARRIER_MP
           if     (idhalo(1).ne.null_tile) then
@@ -3757,6 +4416,12 @@ c
           enddo
         endif  ! ipr.eq.1:else
       endif  ! mhl.gt.0
+c
+      klnold = ld-l1+1
+      klmold = ld-l1+1
+      nhlold = nhl
+      mhlold = mhl
+      ityold = itynew
 #if defined(TIMER)
 c
       if     (nxc.eq.12) then
@@ -3803,32 +4468,41 @@ c  4) the global variable vland is returned by halos over land.
 c*
 c**********
 c
-      integer    ilen,jlen
-      parameter (ilen= idm        *kdm*nbdy+64,
-     &           jlen=(jdm+2*nbdy)*kdm*nbdy+64)
+c     halo buffer.
 c
-c     halo buffer (in common for enhanced MPI safety).
-c
-      real            ai,aj
-      common/xctilr4/ ai(ilen,4),aj(jlen,4)
-      save  /xctilr4/
+#if defined(RELO)
+      real, save, allocatable, dimension (:,:) :: ai,aj
+#else
+      integer, parameter :: ilen= idm        *kdm*nbdy+64,
+     &                      jlen=(jdm+2*nbdy)*kdm*nbdy+64
+      real, save, dimension(ilen,4) :: ai
+      real, save, dimension(jlen,4) :: aj
+#endif
 c
       integer i,j,k,l,lg0,ls0,lm,m,mhl,nhl
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 c
 c     persistent communication handles.
 c
-      integer mpireqa(4*iqr),mpireqb(4),ilold,jlold,nreqa
-      save    mpireqa,mpireqb,ilold,jlold,nreqa
+      integer mpireqa(4*iqr),mpireqb(4),
+     &        ilold,jlold,nreqa
+      save    mpireqa,mpireqb,
+     &        ilold,jlold,nreqa
 c
       data ilold,jlold / 0,0 /
 #endif /* MPI */
+#if defined(RELO)
+c
+      if     (.not.allocated(ai)) then
+        allocate(        ai( idm        *kdm*nbdy+64 ,4) )
+        call mem_stat_add( ( idm        *kdm*nbdy+64)*4 )
+        allocate(        aj((jdm+2*nbdy)*kdm*nbdy+64 ,4) )
+        call mem_stat_add( ((jdm+2*nbdy)*kdm*nbdy+64)*4 )
+      endif
+#endif
 c
 c --- split large requests into smaller pieces
 c
@@ -3925,8 +4599,9 @@ c
             nreqa = l
           endif
           if     (nreqa.gt.0) then
-            call mpi_startall(nreqa, mpireqa,          mpierr)
-            call mpi_waitall( nreqa, mpireqa, mpistat, mpierr)
+            call mpi_startall(nreqa, mpireqa, mpierr)
+            call mpi_waitall( nreqa, mpireqa, MPI_STATUSES_IGNORE,
+     &                                        mpierr)
           endif
 #elif defined(SHMEM)
           BARRIER
@@ -4008,11 +4683,11 @@ c
           call mpi_sendrecv(
      &          aj(1,1),l,MTYPER,idhalo(2), 9907,
      &          aj(1,4),l,MTYPER,idhalo(2), 9908,
-     &          mpi_comm_hycom, mpistat, mpierr)
+     &          mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
           call mpi_sendrecv(
      &          aj(1,2),l,MTYPER,idhalo(1), 9908,
      &          aj(1,3),l,MTYPER,idhalo(1), 9907,
-     &          mpi_comm_hycom, mpistat, mpierr)
+     &          mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
 #elif defined(MPI)
           if     (ilold.ne.l) then
             if     (ilold.ne.0) then
@@ -4035,8 +4710,8 @@ c
      &            aj(1,4),l,MTYPER,idhalo(2), 9908,
      &            mpi_comm_hycom, mpireqb(4), mpierr)
           endif
-          call mpi_startall(4, mpireqb,          mpierr)
-          call mpi_waitall( 4, mpireqb, mpistat, mpierr)
+          call mpi_startall(4, mpireqb, mpierr)
+          call mpi_waitall( 4, mpireqb, MPI_STATUSES_IGNORE, mpierr)
 #elif defined(SHMEM)
           BARRIER_MP
           if     (idhalo(1).ne.null_tile) then
@@ -4090,7 +4765,7 @@ c     call xctmr1(n) to stop  timer n and add event to timer sum,
 c     call xctnrn(n,cname) to register a name for timer n,
 c     call xctmrp to printout timer statistics (called by xcstop).
 c
-c  4) time every 50-th event above 1,000.
+c  4) time every 50-th event above 5,000.
 c*
 c**********
 c
@@ -4125,7 +4800,7 @@ c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
 c    n               integer        input     timer number
 c
-c  3) time every 50-th event above 1,000.
+c  3) time every 50-th event above 5,000.
 c*
 c**********
 c
@@ -4146,7 +4821,7 @@ c
       endif
 #endif
       if     (timer_on) then
-        if     (mod(nc(n),50).eq.0 .or. nc(n).le.1000) then
+        if     (mod(nc(n),50).eq.0 .or. nc(n).le.5000) then
           t0(n) = wtime()
         endif
       endif !timer_on
@@ -4167,14 +4842,14 @@ c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
 c    n               integer        input     timer number
 c
-c  3) time every 50-th event above 1,000.
+c  3) time every 50-th event above 5,000.
 c*
 c**********
 c
       real*8  wtime
 c
       if     (timer_on) then
-        if     (nc(n).gt.1000) then
+        if     (nc(n).gt.5000) then
           if     (mod(nc(n),50).eq.0) then
             tc(n) = tc(n) + 50.0*(wtime() - t0(n))
           endif
@@ -4236,12 +4911,10 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
 c
+      real*8  tci
       integer i,mn
 c
       real*8     zero8
@@ -4264,7 +4937,7 @@ c
 #if defined(MPI)
             call MPI_RECV(tc,97,MTYPED,
      &                    idproc1(mn), 9949,
-     &                    mpi_comm_hycom, mpistat, mpierr)
+     &                    mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
 #elif defined(SHMEM)
             call SHMEM_GETD(tc,tc,97,idproc1(mn))
 #endif
@@ -4273,28 +4946,39 @@ c
           tcxc(1) = zero8
           do i= 1,32
             if     (nc(i).ne.0) then
+              if     (nc(i).le.5000) then
+                tci = tc(i)
+              else !correct for timing every 50th event
+                tci = (tc(i)*nc(i))/(nc(i)-mod(nc(i),50))
+              endif
               if     (cc(i).ne.'      ') then
-                write(lp,6100) cc(i),nc(i),tc(i),tc(i)/nc(i)
+                write(lp,6100) cc(i),nc(i),tci,tci/nc(i)
               else
-                write(lp,6150)    i, nc(i),tc(i),tc(i)/nc(i)
+                write(lp,6150)    i, nc(i),tci,tci/nc(i)
               endif
               if     (cc(i)(1:2).eq.'xc') then
-                tcxc(1) = tcxc(1) + tc(i)  !communication overhead
+                tcxc(1) = tcxc(1) + tci  !communication overhead
               endif
-            endif
+            endif !nc(i)>0
           enddo !i
           write(lp,6100) 'xc****',1,tcxc(1),tcxc(1)
           do i= 33,97
             if     (nc(i).ne.0) then
+              if     (nc(i).le.5000) then
+                tci = tc(i)
+              else !correct for timing every 50th event
+                tci = (tc(i)*nc(i))/(nc(i)-mod(nc(i),50))
+              endif
               if     (cc(i).ne.'      ') then
-                write(lp,6100) cc(i),nc(i),tc(i),tc(i)/nc(i)
+                write(lp,6100) cc(i),nc(i),tci,tci/nc(i)
               else
-                write(lp,6150)    i, nc(i),tc(i),tc(i)/nc(i)
+                write(lp,6150)    i, nc(i),tci,tci/nc(i)
               endif
             endif
           enddo !i
         enddo !mn
-        write(lp,6200)
+        call mem_stat_print('processor   1:')
+        write(lp,*)
       endif !mnproc.ne.1:else
       call xcsync(flush_lp)  !includes a barrier for shmem
 c
@@ -4322,7 +5006,6 @@ c
      &   '   calls =',i9,
      &   '   time =',f11.5,
      &   '   time/call =',f14.8)
- 6200 format(/ /)
       end subroutine xctmrp
 #else
       subroutine xctmrp
@@ -4338,12 +5021,10 @@ c**********
 c
 #if defined(MPI)
       include 'mpif.h'
-      integer        mpierr,mpireq,mpistat
-      common/xcmpii/ mpierr,mpireq(4),
-     &               mpistat(mpi_status_size,4*iqr)
-      save  /xcmpii/
+      integer mpierr
 #endif
 c
+      real*8  tci
       integer i,mn,mnloc
 c
       real*8     zero8
@@ -4375,7 +5056,7 @@ c
           if     (mnloc.ne.1) then
             call MPI_RECV(tc,97,MTYPED,
      &                    idproc1(mnloc), 9949,
-     &                    mpi_comm_hycom, mpistat, mpierr)
+     &                    mpi_comm_hycom, MPI_STATUS_IGNORE, mpierr)
           endif
         elseif (mnproc.eq.mnloc) then
           call MPI_SEND(tc,97,MTYPED,
@@ -4407,24 +5088,38 @@ c
         write(lp,6000) mnloc,ijpr
         do i= 1,32
           if     (nc(i).ne.0) then
-            if     (cc(i).ne.'      ') then
-              write(lp,6100) cc(i),nc(i),tc(i),tc(i)/nc(i)
-            else
-              write(lp,6150)    i, nc(i),tc(i),tc(i)/nc(i)
+            if     (nc(i).le.5000) then
+              tci = tc(i)
+            else !correct for timing every 50th event
+              tci = (tc(i)*nc(i))/(nc(i)-mod(nc(i),50))
             endif
-          endif
+            if     (cc(i).ne.'      ') then
+              write(lp,6100) cc(i),nc(i),tci,tci/nc(i)
+            else
+              write(lp,6150)    i, nc(i),tci,tci/nc(i)
+            endif
+            if     (cc(i)(1:2).eq.'xc') then
+              tcxc(1) = tcxc(1) + tci  !communication overhead
+            endif
+          endif !nc(i)>0
         enddo !i
         write(lp,6100) 'xc****',1,tcxc(1),tcxc(1)
         do i= 33,97
           if     (nc(i).ne.0) then
+            if     (nc(i).le.5000) then
+              tci = tc(i)
+            else !correct for timing every 50th event
+              tci = (tc(i)*nc(i))/(nc(i)-mod(nc(i),50))
+            endif
             if     (cc(i).ne.'      ') then
-              write(lp,6100) cc(i),nc(i),tc(i),tc(i)/nc(i)
+              write(lp,6100) cc(i),nc(i),tci,tci/nc(i)
             else
-              write(lp,6150)    i, nc(i),tc(i),tc(i)/nc(i)
+              write(lp,6150)    i, nc(i),tci,tci/nc(i)
             endif
           endif
         enddo !i
-        write(lp,6200)
+        call mem_stat_print('processor   1:')
+        write(lp,*)
       endif !mnproc.eq.1
       call xcsync(flush_lp)
 c
@@ -4452,10 +5147,18 @@ c
      &   '   calls =',i9,
      &   '   time =',f11.5,
      &   '   time/call =',f14.8)
- 6200 format(/ /)
       end subroutine xctmrp
 #endif /* TIMER_ALLOUT:else */
 c
 c  Revision history:
 c
 c> Nov. 2009 - iisum bugfix for periodic domains
+c> Nov. 2011 - time every 50-th event above 5,000 (was 1,000).
+c> Mar. 2012 - added optional mnflg to xclput
+c> Mar. 2012 - bugfix to periodic case in xclput
+c> Apr. 2012 - added optional mnflg to xceget and xceput
+c> Apr. 2012 - added xciget and xciput
+c> Nov. 2012 - added the OCEANS2 macro and xcpipe
+c> Dec. 2012 - iisum bugfix for xcsumj
+c> Jan. 2014 - replaced mpistat with MPI_STATUS[ES]_IGNORE
+c> Jan. 2014 - ARCTIC xctilr bugfix for when called after xcsum

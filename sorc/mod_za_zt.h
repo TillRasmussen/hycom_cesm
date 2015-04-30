@@ -44,12 +44,6 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
 c
       integer   ios,nrecl
       character cact*9
@@ -288,12 +282,6 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
 c
       character cfile*256
       integer   ios, i,j
@@ -415,7 +403,7 @@ c
 c
       integer, intent(in)    :: n,iunit,irec
       integer, intent(out)   :: ios
-      real*4,  intent(in)    :: a(n)
+      real*4,  intent(inout) :: a(n)  !needed if zaio_endian is called
 c
 c**********
 c*

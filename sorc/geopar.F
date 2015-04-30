@@ -1,9 +1,7 @@
       subroutine geopar
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
-#if defined(USE_CCSM3)
-      use ccsm3_grid, only : ANGLET
-#endif
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
 c
 c --- set up model parameters related to geography
 c
@@ -11,16 +9,11 @@ c --- hycom version 2.1
 c
       implicit none
 c
-      include 'common_blocks.h'
-c
       real      dp0kf,dpm,dpms,ds0kf,dsm,dsms
       real      hmina,hminb,hmaxa,hmaxb
-      integer   i,ios,j,k,ktr,l
+      real*8    sum_ip,sum_is,sum_isa
+      integer   i,ios,j,k,ktr,l,nishlf
       character preambl(5)*79,cline*80
-#if defined(USE_CCSM3)
-      real      plinei(itdm),plinej(jtdm)
-      save      plinei,plinej
-#endif
 c
       real       aspmax
       parameter (aspmax=2.0)  ! maximum grid aspect ratio for diffusion
@@ -81,7 +74,7 @@ c
 c
       call zaiopf(trim(flnmgrd)//'.a','old', 9)
 c
-      do k= 1,18
+      do k= 1,16
         call zagetc(cline,ios, uoff+9)
         if     (ios.ne.0) then
           if     (mnproc.eq.1) then
@@ -102,17 +95,26 @@ c
           call zaiord(plon, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.2) then
           call zaiord(plat, ip,.false., hmina,hmaxa, 9)
+          do i= 1,2  !skip qlon,qlat
+            call zagetc(cline,ios, uoff+9)
+            if     (ios.ne.0) then
+              if     (mnproc.eq.1) then
+                write(lp,'(/ a,i4,i9 /)')
+     &            'geopar: I/O error from zagetc, iunit,ios = ',
+     &            uoff+9,ios
+              endif !1st tile
+              call xcstop('(geopar)')
+                     stop '(geopar)'
+            endif
+            call zaiosk(9)
+          enddo
         elseif (k.eq.3) then
-          call zaiord(qlon, ip,.false., hmina,hmaxa, 9)
-        elseif (k.eq.4) then
-          call zaiord(qlat, ip,.false., hmina,hmaxa, 9)
-        elseif (k.eq.5) then
           call zaiord(ulon, ip,.false., hmina,hmaxa, 9)
-        elseif (k.eq.6) then
+        elseif (k.eq.4) then
           call zaiord(ulat, ip,.false., hmina,hmaxa, 9)
-        elseif (k.eq.7) then
+        elseif (k.eq.5) then
           call zaiord(vlon, ip,.false., hmina,hmaxa, 9)
-        elseif (k.eq.8) then
+        elseif (k.eq.6) then
           call zaiord(vlat, ip,.false., hmina,hmaxa, 9)
 !          call zagetc(cline,ios, uoff+9)
 !          if     (ios.ne.0) then
@@ -123,23 +125,25 @@ c
 !            call xcstop('(geopar)')
 !                   stop '(geopar)'
 !          endif
-        elseif (k.eq.9) then
-          call zaiord(pang, ip,.false., hmina,hmaxa, 9)
-        elseif (k.eq.10) then
+!c         skip pang
+!          call zaiosk(9)
+        elseif (k.eq.7) then
+            call zaiord(pang, ip,.false., hmina,hmaxa, 9) !!Alex get pang for CESM 
+        elseif (k.eq.8) then
           call zaiord(scpx, ip,.false., hmina,hmaxa, 9)
-        elseif (k.eq.11) then
+        elseif (k.eq.9) then
           call zaiord(scpy, ip,.false., hmina,hmaxa, 9)
-        elseif (k.eq.12) then
+        elseif (k.eq.10) then
           call zaiord(scqx, iq,.false., hmina,hmaxa, 9)
-        elseif (k.eq.13) then
+        elseif (k.eq.11) then
           call zaiord(scqy, iq,.false., hmina,hmaxa, 9)
-        elseif (k.eq.14) then
+        elseif (k.eq.12) then
           call zaiord(scux, iu,.false., hmina,hmaxa, 9)
-        elseif (k.eq.15) then
+        elseif (k.eq.13) then
           call zaiord(scuy, iu,.false., hmina,hmaxa, 9)
-        elseif (k.eq.16) then
+        elseif (k.eq.14) then
           call zaiord(scvx, iv,.false., hmina,hmaxa, 9)
-        elseif (k.eq.17) then
+        elseif (k.eq.15) then
           call zaiord(scvy, iv,.false., hmina,hmaxa, 9)
         else
           call zaiord(corio,iq,.false., hmina,hmaxa, 9)
@@ -172,22 +176,6 @@ c
      &   ' corio,scux,vy=',corio(i,j),scux(i,j),scvy(i,j)
       endif
       call xcsync(flush_lp)
-#if defined(USE_CCSM3)
-c --- printout similar to ccsm ice model
-      call xclget(plinei,itdm, plon, 1,1, +1, 0, 1)
-      call xclget(plinej,jtdm, plat, 1,1,  0,+1, 1)
-      if     (mnproc.eq.1) then
-        write (lp,*)
-        write (lp,'(a,4f9.3,a,4f9.3)')
-     &    '(domain) plon(:,1): ',
-     &    plinei(1:4),' ...', plinei(itdm-2:itdm)
-        write (lp,'(a,4f9.3,a,4f9.3)')
-     &    '(domain) plat(1,:): ',
-     &    plinej(1:4),' ...', plinej(jtdm-2:jtdm)
-        write (lp,*)
-      endif
-      call xcsync(flush_lp)
-#endif
 c
 c --- read basin depth array
 c
@@ -251,9 +239,7 @@ c
       vland = 1.0
       call xctilr(plon,  1,1, nbdy,nbdy, halo_ps)
       call xctilr(plat,  1,1, nbdy,nbdy, halo_ps)
-#if defined(USE_CCSM3)
-      call xctilr(ANGLET,1,1, nbdy,nbdy, halo_ps)
-#endif
+      call xctilr(pang,  1,1, nbdy,nbdy, halo_ps) !!Alex
       call xctilr(scpx,  1,1, nbdy,nbdy, halo_ps)
       call xctilr(scpy,  1,1, nbdy,nbdy, halo_ps)
       call xctilr(ulon,  1,1, nbdy,nbdy, halo_us)
@@ -304,8 +290,105 @@ c
         enddo
       enddo
 c
-      call xcsum(avgbot, util1,ip)
-      call xcsum(area,   scp2, ip)
+c --- read ice shelf depth array
+c
+      if     (ishelf.eq.0) then
+        ishlf(:,:) = ip(:,:)  !no ice shelf
+      else
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          write (lp,'(3a)') ' reading ice shelf file from ',
+     &                           trim(flnmshlf),'.[ab]'
+          open (unit=uoff+9,file=trim(flnmshlf)//'.b',
+     &          status='old')
+          read (     uoff+9,'(a79)')  preambl
+        endif
+        call xcsync(flush_lp)
+        call zagetc(cline,ios, uoff+9)
+        if     (ios.ne.0) then
+          if     (mnproc.eq.1) then
+            write(lp,'(/ a,i4,i9 /)')
+     &        'geopar: I/O error from zagetc, iunit,ios = ',uoff+9,ios
+          endif !1st tile
+          call xcstop('(geopar)')
+                 stop '(geopar)'
+        endif
+        i = index(cline,'=')
+        read (cline(i+1:),*)   hminb,hmaxb
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          close(unit=uoff+9)
+          write (lp,'(/(1x,a))') preambl,cline
+        endif
+c
+        call zaiopf(trim(flnmshlf)//'.a','old', 9)
+        call zaiord(util3,ip,.false., hmina,hmaxa, 9)
+        call zaiocl(9)
+c
+        if     (abs(hmina-hminb).gt.abs(hminb)*1.e-4 .or.
+     &          abs(hmaxa-hmaxb).gt.abs(hmaxb)*1.e-4     ) then
+          if     (mnproc.eq.1) then
+          write(lp,'(/ a / a,1p3e14.6 / a,1p3e14.6 /)')
+     &      'error - .a and .b files not consistent:',
+     &      '.a,.b min = ',hmina,hminb,hmina-hminb,
+     &      '.a,.b max = ',hmaxa,hmaxb,hmaxa-hmaxb
+          endif
+          call xcstop('(geopar)')
+                 stop '(geopar)'
+        endif
+c
+!$OMP   PARALLEL DO PRIVATE(j,i)
+!$OMP&           SCHEDULE(STATIC,jblk)
+        do j= 1,jj
+          do i= 1,ii
+            if     (ip(i,j).eq.0) then
+              util3(i,j) = 0.0  !land
+            elseif (util3(i,j).gt.0.5*hugel) then
+              util3(i,j) = 0.0  !ice shelf over ocean
+            elseif (util3(i,j).le.0.0) then
+              util3(i,j) = 0.0  !ice shelf over ocean
+            else
+              util3(i,j) = 1.0  !open ocean
+            endif
+          enddo
+        enddo
+        call xctilr(util3,1,1, nbdy,nbdy, halo_ps)
+        ishlf(:,:) = 0  !for jj:jdm and ii:idm
+!$OMP   PARALLEL DO PRIVATE(j,i)
+!$OMP&           SCHEDULE(STATIC,jblk)
+        do j= 1-nbdy,jj+nbdy
+          do i= 1-nbdy,ii+nbdy
+            ishlf(i,j) = util3(i,j)
+            util2(i,j) = ip(i,j)
+          enddo
+        enddo
+c
+        call xcsum(sum_is,  util3,ip)
+        call xcsum(sum_ip,  util2,ip)
+        call xcsum(sum_isa, scp2, ishlf)
+        call xcsum(area,    scp2, ip)
+        nishlf = nint(sum_ip) - nint(sum_is)
+        if     (mnproc.eq.1) then
+        write (lp,'(/a,i9,f10.2)')
+     &         ' number of ice shelf points and area (10^6 km^2):',
+     &         nishlf,(area-sum_isa)*1.d-12
+        endif
+        call xcsync(flush_lp)
+      endif !ishelf
+c
+c --- In arctic (tripole) domain, top row of mass points is redundent,
+c ---  so always use ipa, based on ishlf, for mass sums
+#if defined(ARCTIC)
+      ipa(:,:) = ishlf(:,:)
+      if     (jj+j0.eq.jtdm) then
+c ---   mask top row of mass points
+        ipa(:,jj:jj+nbdy) = 0
+      endif
+#else
+c --- Not a tripole domain, so ipa=ishlf
+      ipa(:,:) = ishlf(:,:)
+#endif
+c
+      call xcsum(avgbot, util1,ipa)
+      call xcsum(area,   scp2, ipa)
       avgbot=avgbot/area
       if     (mnproc.eq.1) then
       write (lp,'(/a,f9.1,f10.2)')
@@ -439,14 +522,35 @@ c
         endif
       endif !input:calculate dp0k,ds0k
 c
-c --- sigma-depth scale factors
-      do k=1,nsigma
-        dssk(k)=ds0k(k)/dsms  ! onem * fraction of depths in sigma layer k
-      enddo
-      do k= nsigma+1,kdm
-        ds0k(k)=dp0k(k)
-        dssk(k)=0.0           ! these layers are zero in sigma mode
-      enddo
+c --- start and stop depths for terrain following coordinate
+      if     (nsigma.eq.0) then
+        dpns    = dp0k(1)
+        dsns    = 0.0
+        ds0k(1) = dp0k(1)
+        do k= 2,kk
+          ds0k(k)=0.0
+        enddo !k
+      else
+        dpns = 0.0
+        dsns = 0.0
+        do k=1,nsigma
+          dpns = dpns + dp0k(k)
+          dsns = dsns + ds0k(k)
+        enddo !k
+        do k= nsigma+1,kk
+          ds0k(k)=0.0
+        enddo !k
+      endif !nsigma
+      dpns = dpns*qonem  !depths is in m
+      dsns = dsns*qonem  !depths is in m
+c
+      if     (mnproc.eq.1) then
+      write(lp,131) nsigma,dpns,dsns
+      endif
+ 131  format('nsigma = ',i2,
+     &       '    deep    =',f8.2,' m',
+     &       '    shallow =',f8.2,' m' )
+      call flush(lp)
 c
 c --- initialize thermobaric reference state arrays.
 c
@@ -544,6 +648,8 @@ c --- set depthu,dpu,utotn,pgfx,depthv,dpv,vtotn,pgfy to zero everywhere,
 c --- so that they can be used at "lateral neighbors" of u and v points.
 c --- similarly for pbot,dp at neighbors of q points.
 c
+      disp_count=0
+c
 !$OMP PARALLEL DO PRIVATE(j,i,k,ktr)
 !$OMP&         SCHEDULE(STATIC,jblk)
       do j=1-nbdy,jj+nbdy
@@ -560,6 +666,10 @@ c
           depthu(i,j)=0.0
           depthv(i,j)=0.0
           pbot(  i,j)=0.0
+c
+          displd_mn(i,j)=0.0
+          dispqd_mn(i,j)=0.0
+          tidepg_mn(i,j)=0.0
 c
           psikk( i,j,1)=0.0
           psikk( i,j,2)=0.0
@@ -619,7 +729,7 @@ c
 !$OMP PARALLEL DO PRIVATE(j,l,i,k)
 !$OMP&         SCHEDULE(STATIC,jblk)
       do j=1,jj
-        do l=1,isp(j)
+        do l=1,isp(j) !ok
           do i=max(1,ifp(j,l)),min(ii,ilp(j,l)+1)
             ubavg(i,j,1)=0.0
             ubavg(i,j,2)=0.0
@@ -653,7 +763,7 @@ c
 !$OMP PARALLEL DO PRIVATE(i,l,j,k)
 !$OMP&         SCHEDULE(STATIC)
       do i=1,ii
-        do l=1,jsp(i)
+        do l=1,jsp(i) !ok
           do j=max(1,jfp(i,l)),min(jj,jlp(i,l)+1)
             vbavg(i,j,1)=0.0
             vbavg(i,j,2)=0.0
@@ -702,3 +812,6 @@ c> Jan. 2002 - more flexible Z-sigma-Z vertical configuration
 c> Jan. 2002 - all grids now via array input
 c> Sep. 2004 - define kapi and skap for thermobaricity
 c> Oct. 2008 - dp0k and ds0k can now be input, see blkdat.F
+c> Mar. 2012 - replaced dssk with dpns and dsns
+c> Apr. 2014 - added ishlf
+c> Apr. 2014 - added ipa

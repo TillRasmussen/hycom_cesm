@@ -88,12 +88,6 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
 c
       integer   ios,nrecl
       character cfile*256,cenv*7
@@ -257,12 +251,6 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
 c
       integer   ios,nrecl
       character cfile*256
@@ -423,12 +411,6 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
 c
       integer   ios,nrecl
       character cact*9
@@ -582,6 +564,14 @@ c
       do i= 1,999
         iarec(i) = -1
       enddo
+#if defined(RELO)
+c
+c --- n2drec = size of output 2-d array, multiple of 4096
+      n2drec = ((itdm*jtdm+4095)/4096)*4096
+c
+      allocate( w(n2drec),wminy(jtdm),wmaxy(jtdm),htmp(idm*jdm) )
+      call mem_stat_add( (n2drec+2*jtdm+idm*jdm)/2) !real*4, so /2
+#endif
 #if defined(TIMER)
 c
 c     initialize timers.
@@ -882,19 +872,6 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
-c
-      real*4         awtmp(itdm,jtdm)
-      equivalence   (w(1),awtmp(1,1))  !saves a data copy
-c
-      real*4         htmp
-      common/czioxr/ htmp(idm*jdm)
-      save  /czioxr/
 c
       character cfile*256
       integer   ios, i,j
@@ -973,7 +950,7 @@ c
        endif !end I/O from first processor only
 c
 c --- put field from 1st processor to all tiles
-      call xcaput4(awtmp,htmp, 1)
+      call xcaput4(w,htmp, 1)  !w cast to a 2-d array
 c
 c --- Each processor loads h from htmp (where mask = 1)
 c --- Each processor does local min max if lmask is true
@@ -1235,19 +1212,6 @@ c --- spval  = data void marker, 2^100 or about 1.2676506e30
 c --- n2drec = size of output 2-d array, multiple of 4096
       real*4     spval
       parameter (spval=2.0**100)
-      integer    n2drec
-      parameter (n2drec=((itdm*jtdm+4095)/4096)*4096)
-c
-      real*4         w,wminy,wmaxy
-      common/czioxw/ w(n2drec),wminy(jtdm),wmaxy(jtdm)
-      save  /czioxw/
-c
-      real*4         awtmp(itdm,jtdm)
-      equivalence   (w(1),awtmp(1,1))  !saves a data copy
-c
-      real*4         htmp
-      common/czioxr/ htmp(idm*jdm)
-      save  /czioxr/
 c
       character cfile*256
       integer   ios, i,j
@@ -1377,7 +1341,7 @@ c --- htmp and data_void are already big-endian
 c
       vsave4 = vland4
       vland4 = data_void(1)
-      call xcaget4(awtmp,htmp, 1)  !htmp to w (awtmp) on 1st processor
+      call xcaget4(w,htmp, 1)  !htmp to w (as a 2-d array) on 1st processor
       vland4 = vsave4
 c
       if     (mnproc.eq.1) then

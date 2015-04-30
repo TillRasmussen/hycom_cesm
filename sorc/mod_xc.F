@@ -15,6 +15,11 @@ c --- tile dimensions and tile numbers (counting from 1), see xcspmd
 c
 c --- needed for some versions of mod_za
       integer, public, save      :: group_1st_in_row
+#if defined(OCEANS2)
+c
+c --- two copies of HYCOM on distinct MPI tasks, master/slave via mod_pipe.
+      integer, public, save      :: nocean,idp1_1,idp1_2
+#endif
 #endif
 c
 c --- region type (-1==unknown,
@@ -59,9 +64,11 @@ c --- generic subroutine names
 #if defined(USE_ESMF)
 c
 c --- public data structures for ESMF, see xcspmd
-      integer, public,  save :: countde1(iqr),
-     &                          countde2(jqr)
+      integer, public,  save :: deBlockList(2,2,iqr*jqr)
 #endif
+c
+c --- private subroutines
+      private xciget_sm
 c
 c --- private timer variables, see xctmri
       character*6, private, dimension(97), save :: cc
@@ -72,13 +79,18 @@ c --- private timer variables, see xctmri
 #if defined(MPI) || defined(SHMEM)
 c
 c --- private message passing data structures, see xcspmd
+#if defined(RELO)
+      integer, private, save, allocatable, dimension(:,:) :: mpe_i
+      integer, private, save, allocatable, dimension(:)   :: npe_j
+#else
+      integer, private, save :: mpe_i(0:itdm+1,0:jqr),npe_j(0:jtdm+1)
+#endif
       integer, private, save :: idproc( 0: iqr+1,0:jqr+1),
      &                          idproc1(0:ijqr+1),idhalo(2),
      &                          i0_pe(iqr,jqr),ii_pe(iqr,jqr),
      &                          j0_pe(iqr,jqr),jj_pe(iqr,jqr),
-     &                          mpe_1(     jqr),
-     &                          mpe_e(     jqr),
-     &                          mpe_i(itdm,jqr),npe_j(jtdm)
+     &                          mpe_1(jqr),
+     &                          mpe_e(jqr)
       integer, private, save :: i1sum(iqr,jqr),iisum(iqr,jqr)
       integer, private, save :: m0_top,i0_st(iqr),ii_st(iqr),
      &                          mm_top,i0_gt(iqr),ii_gt(iqr),
@@ -89,48 +101,45 @@ c --- private message passing data structures, see xcspmd
 #if defined(MPI)
       integer, private, save :: mpi_comm_hycom
 #endif
-#if defined(NUOPC)
+#if defined(MPI) || defined(SHMEM)
 c
-c --- NUOPC glue code structures
-c==>  import from coupler
-      real ocn_cpl_frq
-      
-c==>  import from atm
-      real nstep1_cpl,nstep2_cpl
-      logical cpl_taux, cpl_tauy, cpl_wndspd, cpl_ustara,
-     & cpl_airtmp, cpl_vapmix, cpl_swflx, cpl_lwmdnflx, cpl_lwmupflx,
-     & cpl_latflx, cpl_sensflx,
-     & cpl_precip, cpl_surtmp, cpl_seatmp
-
-      real cpl_w2, cpl_w3
-      logical cpl_implicit
-      logical t0flag
-
-      real, target, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) ::
-     & imp_taux, imp_tauy, imp_taue, imp_taun, imp_wndspd, imp_ustara,
-     & imp_airtmp, imp_vapmix, imp_swflx, imp_lwdflx, imp_lwuflx,
-     & imp_latflx, imp_sensflx,
-     & imp_precip, imp_surtmp, imp_seatmp
-
-c==>  import from ice
-      logical cpl_sic, cpl_sitx, cpl_sity, cpl_siqs, cpl_sifh,
-     &        cpl_sifs, cpl_sifw, cpl_sit, cpl_sih, cpl_siu,
-     &        cpl_siv
-
-c
-      real, target, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
-     &       sic_import !Sea Ice Concentration
-     &,     sitx_import !Sea Ice X-Stress
-     &,     sity_import !Sea Ice Y-Stress
-     &,     siqs_import !Solar Heat Flux thru Ice to Ocean
-     &,     sifh_import !Ice Freezing/Melting Heat Flux
-     &,     sifs_import !Ice Freezing/Melting Salt Flux
-     &,     sifw_import !Ice Net Water Flux
-     &,      sit_import !Sea Ice Temperature
-     &,      sih_import !Sea Ice Thickness
-     &,      siu_import !Sea Ice X-Velocity
-     &,      siv_import !Sea Ice Y-Velocity
-     
+c --- private message passing buffers, used by more than one routine
+#if defined(RELO)
+      real,   save, private, allocatable, dimension(:,:) ::
+     &   al    ! xcaget and xcaput
+      real,   save, private, allocatable, dimension(:) ::
+     &   at    ! xcaget and xcaput
+      real*4, save, private, allocatable, dimension(:,:) ::
+     &   al4   ! xcaget4 and xcaput4
+      real*4, save, private, allocatable, dimension(:) ::
+     &   at4   ! xcaget4 and xcaput4
+      integer, save, private ::
+     &   mxsum
+      real*8, save, private, allocatable, dimension(:) ::
+     &  sum8t, ! xcsum and xcsumj
+     &  sum8j  ! xcsum and xcsumj
+      real*8, save, private ::
+     &  sum8s
+#else
+      real,   save, private, dimension(itdm,jdm) ::
+     &   al    ! xcaget and xcaput
+      real,   save, private, dimension(idm*jdm) ::
+     &   at    ! xcaget and xcaput
+      real*4, save, private, dimension(itdm,jdm) ::
+     &   al4   ! xcaget4 and xcaput4
+      real*4, save, private, dimension(idm*jdm) ::
+     &   at4   ! xcaget4 and xcaput4
+      integer, private, parameter :: mxsum=(idm+4*nbdy)/(2*nbdy+1)
+      real*8, save, private, dimension(mxsum*jdm) ::
+     &  sum8t  ! xcsum and xcsumj
+      real*8, save, private, dimension(jdm) ::
+     &  sum8j  ! xcsum and xcsumj
+      real*8, save, private ::
+     &  sum8s  ! xcsum and xcsumj
+#endif
+      integer, private, parameter :: nmax=1024
+      real,   save, private, dimension(nmax) ::
+     &  b,c    ! xcastr, xcmaxr, xcminr
 #endif
 c
 c --- actual module subroutines

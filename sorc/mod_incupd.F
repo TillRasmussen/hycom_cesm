@@ -1,3 +1,16 @@
+#if defined(ROW_LAND)
+#define SEA_P .true.
+#define SEA_U .true.
+#define SEA_V .true.
+#elif defined(ROW_ALLSEA)
+#define SEA_P allip(j).or.ip(i,j).ne.0
+#define SEA_U alliu(j).or.iu(i,j).ne.0
+#define SEA_V alliv(j).or.iv(i,j).ne.0
+#else
+#define SEA_P ip(i,j).ne.0
+#define SEA_U iu(i,j).ne.0
+#define SEA_V iv(i,j).ne.0
+#endif
       module mod_incupd
       use mod_xc  ! HYCOM communication interface
 c
@@ -6,9 +19,10 @@ c
 c --- HYCOM incremental updating (for data assimilation)
 c
       integer, save, public  ::
-     & incflg,   ! incremental update flag (0=no, 1=yes, 2=full-velocity)
+     & incflg,   ! incremental update flag (0=no,1=yes,2=full-velocity)
      & incstp,   ! no. timesteps for full update (1=full insertion)
-     & incupf    ! number of days of incremental updating input
+     & incupf,   ! number of days of incremental updating input
+     & incice    ! direct insertion of sea ice concentration flag
 c
       integer, save, private :: 
      & ncount,   ! increment time step counter
@@ -26,7 +40,7 @@ c
       real,    allocatable, dimension(:,:,:),
      &         save, private ::
      &  tinc,    !     t increment
-     & thinc,    !    th increment
+     &  sinc,    !     s increment
      & dpinc,    !    dp increment
      &  uinc,    !     u increment
      &  vinc     !     v increment
@@ -40,18 +54,20 @@ c
 c --- subroutine used to calculate increment field for the incremental updating
 c --- version: dec 2005
 c
-      integer i,j,l,k
+      integer i,j,k
       logical lopen
 c
 c --- allocate arrays
 c
       allocate(  tinc(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm),
-     &          thinc(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm),
+     &           sinc(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm),
      &          dpinc(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm),
      &           uinc(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm),
      &           vinc(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm),
      &          ubinc(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &          vbinc(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)     )
+      call mem_stat_add( 5*(idm+2*nbdy)*(jdm+2*nbdy)*kdm )
+      call mem_stat_add( 2*(idm+2*nbdy)*(jdm+2*nbdy) )
 c
 c --- set counter to zero
 c
@@ -73,17 +89,20 @@ c
 c --- subroutine used to calculate increment field for the incremental updating
 c --- version: dec 2005
 c
-      integer i,j,l,k
+      integer i,j,k
       logical lopen
 c
       if     (ncountd.gt.incupf) then
-         if (mnproc.eq.1) then
-         write(lp,*) '... ended updating fields with increments ...'
-         write(lp,*) 'ncountd= ',ncountd
-         write(lp,*)
-         endif !1st tile
-         call xcsync(flush_lp)
-         return
+        if     (ncountd.eq.incupf+1) then
+c         should never get here
+          if (mnproc.eq.1) then
+          write(lp,*) '... ended updating fields with increments ....'
+          write(lp,*) 'ncountd= ',ncountd
+          write(lp,*)
+          endif !1st tile
+          call xcsync(flush_lp)
+        endif
+        return
       endif
 c
 c --- read the target fields, and initialize the "inc" arrays.
@@ -94,8 +113,8 @@ c
       end subroutine incupd_rd
 
       subroutine incupd(n)
-c
-      include 'common_blocks.h'
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_pipe       ! HYCOM debugging interface
 C
       integer n
 c
@@ -112,21 +131,29 @@ c 4)  Ole Martin Smedstad (PSI), December 2005
 c
 c**********
 c
-      real       zero,one
-      parameter (zero=0.0, one=1.0)
+      logical, parameter :: lpipe_incupd=.false.  !extra checking
 c
-      integer i,j,k,l
-      real    utotij,vtotij
+      character utxt*12,vtxt*12
+      integer   i,j,k
+      real      utotij,vtotij
 c
       include 'stmt_fns.h'
+c
+      if     (ncountd.gt.incupf) then
+c-------if (mnproc.eq.1) then
+c-------write(lp,*) '... ended updating fields with increments .....'
+c-------write(lp,*) 'ncountd= ',ncountd
+c-------write(lp,*)
+c-------endif !1st tile
+c-------call xcsync(flush_lp)
+        return
+      endif
 c
 c --- update counter
 c
       if     (incstp.ne.1) then
         ncount=ncount+1
       endif
-c
-      margin=0
 c
       if     (ncount.gt.incstp) then
         if     (ncount.eq.incstp+1) then
@@ -139,16 +166,6 @@ c
         endif !ncount==incstp+1
         return
       endif !ncount>incstp
-
-      if     (ncountd.gt.incupf) then
-        if (mnproc.eq.1) then
-         write(lp,*) '... ended updating fields with increments ...'
-         write(lp,*) 'ncountd= ',ncountd
-         write(lp,*)
-        endif !1st tile
-         call xcsync(flush_lp)
-         return
-      endif
 c
       if (mnproc.eq.1) then
       write(lp,*)
@@ -159,60 +176,64 @@ c
         write(lp,'(2a)') 'update fields with increments, ',
      &                   'including ubavg and vbavg'
       endif !incflg
-      write(lp,*) 'ncount= ',ncount
+      write(lp,*) '..........ncount= ',ncount
       endif !1st tile
       call xcsync(flush_lp)
 c
 c --- incremental update of dp (dpu, dpv).
 c
-!$OMP PARALLEL DO PRIVATE(j,k,l,i)
+!$OMP PARALLEL DO PRIVATE(j,k,i)
 !$OMP&         SCHEDULE(STATIC,jblk)
-      do j=1-margin,jj+margin
-        do l=1,isp(j)
-          do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+      do j=1,jj
+        do i=1,ii
+          if (SEA_P) then
             do k=1,kk-1
-              dp(i,j,k,n) = dp(i,j,k,n) + dpinc(i,j,k)
+c ---         dp must be non-negative
+              dp(i,j,k,n) = max( dp(i,j,k,n) + dpinc(i,j,k), 0.0 )
+c ---          p must be at or above the bottom
                p(i,j,k+1) = min( p(i,j,k) + dp(i,j,k,n),
-     &                           p(i,j,kk+1) )  !min may be unnecessary
-            enddo !k
-c ---       dp must be non-negative.
-            do k=1,kk-1
-               p(i,j,k+1) = max( p(i,j,k+1),  p(i,j,k) )
+     &                           p(i,j,kk+1) )
               dp(i,j,k,n) =      p(i,j,k+1) - p(i,j,k)
-            enddo ! k
+            enddo !k
 c ---       layer kk always touches the bottom
             dp(i,j,kk,n) = p(i,j,kk+1) - p(i,j,kk)
-          enddo !i
-        enddo !l 
+          endif !ip
+        enddo !i
       enddo !j
 !$OMP END PARALLEL DO
 c
       call dpudpv(dpu(1-nbdy,1-nbdy,1,n),
      &            dpv(1-nbdy,1-nbdy,1,n),
-     &            p,depthu,depthv, 0)
+     &            p,depthu,depthv, 0,0)
+c
+      if     (lpipe_incupd) then
+        do k= 1,kk
+          write (utxt,'(a9,i3)') 'up dpu k=',k
+          write (vtxt,'(a9,i3)') 'up dpv k=',k
+          call pipe_compare_sym2(dpu(1-nbdy,1-nbdy,1,n),iu,utxt,
+     &                           dpv(1-nbdy,1-nbdy,1,n),iv,vtxt)
+        enddo !k
+      endif !lpipe_incupd
 c
 c --- incremental update of the other fields.
 c --- salinity from updated th&S.
 c --- rebalance u and v via utotij and vtotij.
 c
-!$OMP PARALLEL DO PRIVATE(j,l,i,k,utotij,vtotij)
+!$OMP PARALLEL DO PRIVATE(j,i,k,utotij,vtotij)
 !$OMP&         SCHEDULE(STATIC,jblk)
-      do j=1-margin,jj+margin
-        do l=1,isp(j)
-          do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+      do j=1,jj
+        do i=1,ii
+          if (SEA_P) then
             do k=1,kk
-              if     ( tinc(i,j,k).ne.0.0 .or.
-     &                thinc(i,j,k).ne.0.0     ) then
-                temp(i,j,k,n) = temp(i,j,k,n) +  tinc(i,j,k)
-                th3d(i,j,k,n) = th3d(i,j,k,n) + thinc(i,j,k)
-                saln(i,j,k,n) = sofsig(th3d(i,j,k,n)+thbase,
-     &                                 temp(i,j,k,n)       )
+              if     (tinc(i,j,k).ne.0.0 .or.
+     &                sinc(i,j,k).ne.0.0     ) then
+                temp(i,j,k,n) = temp(i,j,k,n) + tinc(i,j,k)
+                saln(i,j,k,n) = saln(i,j,k,n) + sinc(i,j,k)
+                th3d(i,j,k,n) = sig(temp(i,j,k,n),saln(i,j,k,n))-thbase
               endif !non-zero increment
             enddo ! k
-          enddo !i
-        enddo !l
-        do l=1,isu(j)
-          do i=max(1-margin,ifu(j,l)),min(ii+margin,ilu(j,l))
+          endif !ip
+          if (SEA_U) then
             utotij = 0.0
             do k=1,kk
               u(i,j,k,n) = u(i,j,k,n) + uinc(i,j,k)
@@ -226,10 +247,8 @@ c
               ubavg(i,j,n) = ubavg(i,j,n) + ubinc(i,j)
 *             ubavg(i,j,n) = ubavg(i,j,n) + ubinc(i,j) + utotij
             endif !incflg==2
-          enddo !i
-        enddo !l
-        do l=1,isv(j)
-          do i=max(1-margin,ifv(j,l)),min(ii+margin,ilv(j,l))
+          endif !iu
+          if (SEA_V) then
             vtotij = 0.0
             do k=1,kk
               v(i,j,k,n) = v(i,j,k,n) + vinc(i,j,k)
@@ -243,8 +262,8 @@ c
               vbavg(i,j,n) = vbavg(i,j,n) + vbinc(i,j)
 *             vbavg(i,j,n) = vbavg(i,j,n) + vbinc(i,j) + vtotij
             endif !incflg==2
-          enddo !i
-        enddo !l
+          endif !iv
+        enddo !i
       enddo ! j
 !$OMP END PARALLEL DO
 c
@@ -258,11 +277,11 @@ c
       end subroutine incupd
 
       subroutine incupd_read(dtime)
-      use mod_za  ! HYCOM I/O interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      use mod_pipe       ! HYCOM debugging interface
 c
       real*8    dtime
-c
-      include 'common_blocks.h'
 c
 c --- input 3-d HYCOM fields (from an archive file) on model day dtime.
 c --- directly insert the input covice and thkice (if they exist).
@@ -271,15 +290,15 @@ c
 c --- filenames incup/incupd.iyear_iday_ihour.[ab].
 c --- I/O and array I/O unit 925 used here, but not reserved.
 c
-      logical    ldebug_incupd_read
-      parameter (ldebug_incupd_read=.false.)
+      logical, parameter :: ldebug_incupd_read=.false. !usually .false.
 c
       character flnm*24, cline*80, cvarin*6, cfield*8
+      character ptxt*12,utxt*12,vtxt*12
       integer   i,idmtst,ios,j,jdmtst,k,l,layer,nskip
       integer   iyear,iday,ihour
       logical   nodens
       real      tincstp
-*     real      sumdp1,sumdp2,sumdpinc
+*     real      sumdpi
 c
       integer   nstep0
       real*8    dtime0
@@ -297,14 +316,17 @@ c
       ncount=0
 c
       if     (ncountd.gt.incupf) then
-        if (mnproc.eq.1) then
-         write(lp,*) '... ended updating fields with increments ...'
-         write(lp,*) 'ncountd= ',ncountd
-         write(lp,*)
-        endif !1st tile
-         call xcsync(flush_lp)
-         return
-      endif
+        if     (ncountd.eq.incupf+1) then
+          if (mnproc.eq.1) then
+          write(lp,*) '... ended updating fields with increments ...'
+          write(lp,*) 'ncountd= ',ncountd
+          write(lp,*)
+          endif !1st tile
+          call xcsync(flush_lp)
+          ncountd=incupf+99 !turn off "ended" printout
+        endif
+        return
+      endif !ncountd>incupf
 c
       if (mnproc.eq.1) then
       write(lp,*) 'read incremental updating ...'
@@ -456,15 +478,15 @@ c
         write(lp,'(2a)') "surface: ",cfield
         endif
         call xcsync(flush_lp)
-!$OMP   PARALLEL DO PRIVATE(j,k,l,i)
+!$OMP   PARALLEL DO PRIVATE(j,k,i)
 !$OMP&           SCHEDULE(STATIC,jblk)
-        do j=1-margin,jj+margin
-          do l=1,isp(j)
-            do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+        do j=1,jj
+          do i=1,ii
+            if (SEA_P) then
               covice(i,j)=ubinc(i,j)
               thkice(i,j)=util5(i,j)
-            enddo !i
-          enddo !l 
+            endif !ip
+          enddo !li
         enddo !j
 !$OMP   END PARALLEL DO
         call zaiosk(925)  !temice
@@ -476,6 +498,9 @@ c
         write(lp,'(2a)') "surface: ",cfield
         endif
         call xcsync(flush_lp)
+        incice =  1  !have     input covice, don't direct insert si_c
+      else
+        incice = -1  !have not input covice, might direct insert si_c
       endif
       call rd_archive(vbinc, cfield,layer, 925)
       if     (mnproc.eq.1) then
@@ -552,32 +577,21 @@ c          endif
           call xcstop('(incupd_read)')
                  stop '(incupd_read)'
         endif
-        if     (nodens) then
-c ---     read salinity into thinc, later convert it to density
-          call rd_archive(thinc(1-nbdy,1-nbdy,k), cfield,layer, 925)
-          if     (cfield.ne.'salin   ') then
-            if     (mnproc.eq.1) then
-            write(lp,'(/ a / a,a /)') cfield,
-     &             'error in incupd_read - expected ','salin   '
-            endif !1st tile
-            call xcstop('(incupd_read)')
-                   stop '(incupd_read)'
-          endif
-        else
-c ---     skip salinity, and read density
+        call rd_archive(sinc(1-nbdy,1-nbdy,k), cfield,layer, 925)
+        if     (cfield.ne.'salin   ') then
+          if     (mnproc.eq.1) then
+          write(lp,'(/ a / a,a /)') cfield,
+     &           'error in incupd_read - expected ','salin   '
+          endif !1st tile
+          call xcstop('(incupd_read)')
+                 stop '(incupd_read)'
+        endif
+        if     (.not. nodens) then
+c ---     skip density
           if     (mnproc.eq.1) then  ! .b file from 1st tile only
             read (uoff+925,*)
           endif
           call zaiosk(925)
-          call rd_archive(thinc(1-nbdy,1-nbdy,k), cfield,layer, 925)
-          if     (cfield.ne.'density ') then
-            if     (mnproc.eq.1) then
-            write(lp,'(/ a / a,a /)') cfield,
-     &             'error in incupd_read - expected ','density '
-            endif !1st tile
-            call xcstop('(incupd_read)')
-                   stop '(incupd_read)'
-          endif
         endif !nodens:else
 c
 c ---   skip (nskip) tracers
@@ -589,6 +603,8 @@ c
           call zaiosk(925)
         enddo !l
       enddo !k
+c
+      call xctilr(dpinc,1,kk, 1,1, halo_ps)
 c
       if     (mnproc.eq.1) then  ! .b file from 1st tile only
       close( unit=uoff+925)
@@ -622,15 +638,11 @@ c
 *     if     (iutest.gt.0 .and. jutest.gt.0) then
 *       write(lp,*) '*',' iutest= ',iutest+i0,' jutest= ',jutest+j0,' *'
 *       write(lp,*) '*********** dpinc input ************'
-*               sumdp1=0.0
-*               sumdp2=0.0
-*               sumdpinc=0.0
+*               sumdpi=0.0
 *             write(lp,'(a)')
 *    &                'k,dp1,dp2,dpinc='
 *               do k= 1,kk
-*                sumdp1=sumdp1+dp(iutest,jutest,k,1)
-*                sumdp2=sumdp2+dp(iutest,jutest,k,2)
-*                sumdpinc=sumdpinc+dpinc(iutest,jutest,k)
+*                sumdpi=sumdpi+dpinc(iutest,jutest,k)
 *                   write(lp,'(a,i3,3f20.5)')
 *    &                'k= ',
 *    &                 k,dp(iutest,jutest,k,1)*qonem,
@@ -638,70 +650,79 @@ c
 *    &                 dpinc(iutest,jutest,k)*qonem
 *                   call flush(lp)
 *               enddo !k
-*            write(lp,*) 'sumdp1,sumdp2= ', sumdp1*qonem,sumdp2*qonem
-*            write(lp,*) 'sumdpinc= ', sumdpinc*qonem
+*            write(lp,*) 'sumdpi= ', sumdpi*qonem
 *            call flush(lp)
 *     endif
 c
-      margin=0
-c
-!$OMP PARALLEL DO PRIVATE(j,k,l,i)
+!$OMP PARALLEL DO PRIVATE(j,k,i)
 !$OMP&         SCHEDULE(STATIC,jblk)
-      do j=1-margin,jj+margin
-        do l=1,isu(j)
-          do i=max(1-margin,ifu(j,l)),min(ii+margin,ilu(j,l))
+      do j=1,jj
+          do i=1,ii
+            if (SEA_U) then
             ubinc(i,j)=(ubinc(i,j) - ubavg(i,j,1))*tincstp
             do k=1,kk
 c             use an approximate 2*dpu
-              if     (dpinc(i,j,k)+dpinc(i-1,j,k).gt.2.0*onem) then
+              if     (dpinc(i,j,k)+dpinc(i-1,j,k).gt.2.0*onemm) then
                 uinc(i,j,k)=(uinc(i,j,k) - u(i,j,k,1))*tincstp
               else
                 uinc(i,j,k)=0.0  !thin target layer
               endif
             enddo !k
-          enddo !i
-        enddo !l 
-        do l=1,isv(j)
-          do i=max(1-margin,ifv(j,l)),min(ii+margin,ilv(j,l))
+          endif !iu
+          if (SEA_V) then
             vbinc(i,j)=(vbinc(i,j) - vbavg(i,j,1))*tincstp
             do k=1,kk
 c             use an approximate 2*dpv
-              if     (dpinc(i,j,k)+dpinc(i,j-1,k).gt.2.0*onem) then
+              if     (dpinc(i,j,k)+dpinc(i,j-1,k).gt.2.0*onemm) then
                 vinc(i,j,k)=(vinc(i,j,k) - v(i,j,k,1))*tincstp
               else  
                 vinc(i,j,k)=0.0  !thin target layer
               endif
             enddo !k
-          enddo !i
-        enddo !l 
-        do l=1,isp(j)
-          do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+          endif !iv
+          if (SEA_P) then
             do k=1,kk
-              if     (dpinc(i,j,k).gt.onem) then
-                if     (nodens) then
-                  thinc(i,j,k)=sig(tinc(i,j,k),thinc(i,j,k))-thbase
-                endif
-                thinc(i,j,k)=(thinc(i,j,k) - th3d(i,j,k,1))*tincstp
-                 tinc(i,j,k)= (tinc(i,j,k) - temp(i,j,k,1))*tincstp
+              if     (dpinc(i,j,k).gt.onemm) then
+                sinc(i,j,k)=(sinc(i,j,k) - saln(i,j,k,1))*tincstp
+                tinc(i,j,k)=(tinc(i,j,k) - temp(i,j,k,1))*tincstp
               else
-                 tinc(i,j,k)=0.0  !thin target layer
-                thinc(i,j,k)=0.0  !thin target layer
+                tinc(i,j,k)=0.0  !thin target layer
+                sinc(i,j,k)=0.0  !thin target layer
               endif
               dpinc(i,j,k)=(dpinc(i,j,k) - dp(i,j,k,1))*tincstp
             enddo !k
-          enddo !i
-        enddo !l 
+          endif !ip
+        enddo !li
       enddo !j
 !$OMP END PARALLEL DO
 c
+      call xctilr(dpinc,1,kk, 1,1, halo_ps)
+c
+      if     (ldebug_incupd_read) then
+         call pipe_compare_sym2(ubinc,iu,'incupd:ubinc',
+     &                          vbinc,iv,'incupd:vbinc')
+         do k= 1,kk
+           write (utxt,'(a9,i3)') '  uinc k=',k
+           write (vtxt,'(a9,i3)') '  vinc k=',k
+           call pipe_compare_sym2(uinc(1-nbdy,1-nbdy,k),iu,utxt,
+     &                            vinc(1-nbdy,1-nbdy,k),iv,vtxt)
+           write (ptxt,'(a9,i3)') ' dpinc k=',k
+           call pipe_compare_sym1(dpinc(1-nbdy,1-nbdy,k),ip,ptxt)
+           write (ptxt,'(a9,i3)') '  tinc k=',k
+           call pipe_compare_sym1( tinc(1-nbdy,1-nbdy,k),ip,ptxt)
+           write (ptxt,'(a9,i3)') '  sinc k=',k
+           call pipe_compare_sym1( sinc(1-nbdy,1-nbdy,k),ip,ptxt)
+         enddo !k
+       endif !ldebug_incupd_read
+*
 *     if     (iutest.gt.0 .and. jutest.gt.0) then
 *       write(lp,*) '*',' iutest= ',iutest+i0,' jutest= ',jutest+j0,' *'
 *       write(lp,*) '*********** dpinc out ************'
 *             write(lp,'(a)')
 *    &                'k,dp1,dp2,dpinc='
-*               sumdpinc=0.0
+*               sumdpi=0.0
 *               do k= 1,kk
-*                sumdpinc=sumdpinc+dpinc(iutest,jutest,k)
+*                sumdpi=sumdpi+dpinc(iutest,jutest,k)
 *                   write(lp,'(a,i3,3f20.5)')
 *    &                'k= ',
 *    &                 k,dp(iutest,jutest,k,1)*qonem,
@@ -709,12 +730,12 @@ c
 *    &                 dpinc(iutest,jutest,k)*qonem
 *                   call flush(lp)
 *               enddo !k
-*            write(lp,*) 'inc sumdpinc= ', sumdpinc*qonem
+*            write(lp,*) 'inc sumdpi= ', sumdpi*qonem
 *            call flush(lp)
 *     endif
 c
       if (mnproc.eq.1) then
-       write(lp,*) '... finnished reading incupd',dtime,dtime0
+       write(lp,*) '... finished reading incupd',dtime,dtime0
       endif !1st tile
       call xcsync(flush_lp)
 c
@@ -722,6 +743,43 @@ c
 c
       return
       end subroutine incupd_read
+
+      subroutine incupd_si_c(dtime)
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      use mod_pipe       ! HYCOM debugging interface
+c
+      real*8    dtime
+c
+c --- directly insert si_c into covice and thkice.
+c
+      integer   i,j,l
+c
+      if     (incice.eq.-1) then
+        incice = 0  !will have directly inserted si_c
+c
+c ---   directly insert covice and thkice.
+c
+!$OMP   PARALLEL DO PRIVATE(j,i)
+!$OMP&           SCHEDULE(STATIC,jblk)
+        do j=1-nbdy,jj+nbdy
+          do i=1,ii
+            if (SEA_P) then
+              covice(i,j)=si_c(i,j)
+              thkice(i,j)=covice(i,j)*hicemn
+            endif !ip
+          enddo !i
+        enddo !j
+!$OMP   END PARALLEL DO
+c
+        if (mnproc.eq.1) then
+         write(lp,*) '... finished inserting si_c',dtime
+        endif !1st tile
+        call xcsync(flush_lp)
+      endif !incice
+c
+      return
+      end subroutine incupd_si_c
 c
       end module mod_incupd
 c
@@ -730,3 +788,9 @@ c> Revision history:
 c>
 c> Feb  2006 - 1st module version
 c> May  2006 - changed to read multiple increment files
+c> Jul  2011 - thin layer is now 1mm (no longer 1m)
+c> Jul  2011 - replace thinc with sinc
+c> Nov  2012 - bugfix: added xctilr(dpinc to update halo
+c> Dec  2012 - cleaned up printing to .log file
+c> Apr  2012 - added incice and incupd_si_c
+c> May  2014 - use land/sea masks (e.g. ip) to skip land

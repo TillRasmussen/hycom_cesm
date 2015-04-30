@@ -1,10 +1,9 @@
       subroutine restart_in(nstep0, dtime0, flnmra,flnmrb)
-      use mod_xc      ! HYCOM communication interface
-      use mod_za      ! HYCOM I/O interface
-      use mod_tides   ! HYCOM tides
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      use mod_tides      ! HYCOM tides
       implicit none
-c
-      include 'common_blocks.h'
 c
       integer       nstep0
       real*8        dtime0
@@ -16,6 +15,9 @@ c
       logical   lmyin,ltidin,lold
       integer   i,ios,j,k,kskip,ktr
       character cline*80
+
+!!Alex add tmp variables
+      real*8 tmp(3)
 c
       include 'stmt_fns.h'
 c
@@ -170,13 +172,32 @@ c
       if     (ltidin) then
 c
 c       DETIDE in restart file.
+c       25 or 49 hrs present?
+c
+        call restart_inrw(kskip+25)
+        call zagetc(cline,ios, uoff+11)
+        if     (ios.ne.0) then
+          if     (mnproc.eq.1) then
+            write(lp,'(/ a,i4,i9 /)')
+     &        'I/O error from zagetc, iunit,ios = ',uoff+11,ios
+          endif !1st tile
+          call xcstop('(restart_in)')
+                 stop '(restart_in)'
+        endif
+        if     (cline(1:8).eq.'uhrly   ') then !49 hrs
+          nhrly = 49  ![uv]ntide will be initialised in tides_set (tides_detide)
+        else
+          nhrly = 25  ![uv]ntide will be initialised in tides_set (tides_detide)
+        endif
+        call restart_inrw(kskip)
 c
         if (tidflg.gt.0) then
           if     (.not.allocated(uhrly)) then
-             allocate(  uhrly(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,25),
-     &                  vhrly(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,25),
+             allocate(  uhrly(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,49),
+     &                  vhrly(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,49),
      &                 untide(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &                 vntide(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)    )
+            call mem_stat_add( 2*(idm+2*nbdy)*(jdm+2*nbdy)*50 )
           else
             if     (mnproc.eq.1) then
               write(lp,'(/ a /)')
@@ -185,15 +206,14 @@ c
             call xcstop('(restart_in)')
                    stop '(restart_in)'
           endif !allocated:else
-          call restart_in3d(uhrly ,25, iu, 'uhrly   ')
-          call restart_in3d(vhrly ,25, iv, 'vhrly   ')
-          nhrly = 25  ![uv]ntide will be initialised in tides_set (tides_detide)
+          call restart_in3d(uhrly ,nhrly, iu, 'uhrly   ')
+          call restart_in3d(vhrly ,nhrly, iv, 'vhrly   ')
         else
           if     (mnproc.eq.1) then
           write(lp,'(a)') 'RESTART: skipping DETIDE input fields'
           call flush(lp)
           endif !1st tile
-          do k= 1,50
+          do k= 1,2*nhrly
             call zagetc(cline,ios, uoff+11)
             if     (ios.ne.0) then
               if     (mnproc.eq.1) then
@@ -210,6 +230,7 @@ c
           enddo !k
         endif !tidflg:else
       elseif (tidflg.gt.0) then
+c ---   [uv]hrly & [uv]ntide will be allocated/initialized in tides_set
         if     (mnproc.eq.1) then
         write(lp,'(a)') 'RESTART: no DETIDE fields input'
         call flush(lp)
@@ -260,7 +281,7 @@ c ---       reposition file for tracer input
               kskip = kskip + 7*kdm+14
             endif
             if     (ltidin) then
-              kskip = kskip + 50
+              kskip = kskip + 2*nhrly
             endif
             call restart_inrw(kskip)
           endif
@@ -277,7 +298,7 @@ c
             kskip = kskip + 7*kdm+14
           endif
           if     (ltidin) then
-            kskip = kskip + 50
+            kskip = kskip + 2*nhrly
           endif
           call restart_inrw(kskip)
 c
@@ -292,6 +313,25 @@ c
      &                             2*kdm, ip, 'tracer  ')
         enddo
       endif
+!!Alex add pcpadj
+      if (pcpadj) then
+          if (mnproc.eq.1) then
+              read(uoff+11,'(a15,1pe22.15)') cline, tmp(1)
+              read(uoff+11,'(a15,1pe22.15)') cline, tmp(2)
+              read(uoff+11,'(a15,1pe22.15)') cline, tmp(3)
+              do k=1,kdm 
+                read(uoff+11,'(a15,i2.2, 2x,1pe22.15)') cline, ktr,
+     &                                           sal_initial(k)
+                                     
+              enddo
+          endif
+          call xcastr(tmp        , 1) !! broadcast to all nodes
+          call xcastr(sal_initial, 1) !! broadcast to all nodes
+          pcp_fact    = tmp(1)
+          sum_precip  = tmp(2)
+          ssh_initial = tmp(3)
+      endif
+      
       if     (mnproc.eq.1) then  ! .b file from 1st tile only
         close (unit=uoff+11)
       endif
@@ -299,15 +339,19 @@ c
 c
       do j=1-nbdy,jj+nbdy
         do i=1-nbdy,ii+nbdy
-          klist(i,j) = kk  !for MY2.5 mixed layer
+          srfhgt(i,j) = 0.0 !for pipe_compareall
+          montg1(i,j) = 0.0 !for pipe_compareall
+            dpbl(i,j) = 0.0 !for pipe_compareall
+           klist(i,j) = kk  !for MY2.5 mixed layer
         enddo
       enddo
+
       return
       end subroutine restart_in
 
       subroutine restart_in3d(field,l, mask, cfield)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_za         ! HYCOM I/O interface
       implicit none
 c
       integer   l
@@ -320,7 +364,7 @@ c
 c --- read a single restart 3-d array field.
 c
       integer   i,ios,layer,level,k
-      real      hmina(2*kdm+25),hminb,hmaxa(2*kdm+25),hmaxb  !+25 for [uv]hrly
+      real      hmina(2*kdm+49),hminb,hmaxa(2*kdm+49),hmaxb  !+49 for [uv]hrly
       character cline*80
 c
       if     (mnproc.eq.1) then
@@ -371,8 +415,8 @@ c
       end subroutine restart_in3d
 
       subroutine restart_inrw(kline)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_za         ! HYCOM I/O interface
       implicit none
 c
       integer   kline
@@ -406,20 +450,20 @@ c
 
       subroutine restart_out(nstepx, dtimex, flnmra,flnmrb, last,
      &                       restart)
-      use mod_xc      ! HYCOM communication interface
-      use mod_za      ! HYCOM I/O interface
-      use mod_tides   ! HYCOM tides
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      use mod_tides      ! HYCOM tides
       implicit none
-c
-      include 'common_blocks.h'
 c
       logical last
       integer nstepx
       real*8  dtimex
       character*(*) flnmra,flnmrb
-      logical, intent(in), optional :: restart !!Alex
+      logical, intent(in) :: restart !!Alex CESM-NUOPC
 c
 c     write out in a restart file on unit 12 or 22 (and a flux file on 25).
+c     write out in a restart file on unit 15 for CESM-NUOPC.
 c
 c     flnmra is the ".a" file (usually without the .a, and
 c     flnmrb is the ".b" file (usually without the .b).
@@ -429,7 +473,7 @@ c     filenames (including any .a and .b).
 c
       logical   lopen
       integer   i,iunit,iunta,j,k,ktr,l
-      real      xmin(2*kdm+25),xmax(2*kdm+25)  !+25 for [uv]hrly
+      real      xmin(2*kdm+49),xmax(2*kdm+49)  !+49 for [uv]hrly
       character cline*80
 c
       integer, save :: icount = 0
@@ -443,12 +487,11 @@ c
       else
         iunta = 22  ! backup   restart file
       endif
-!!Alex unit of restart     
+      iunit = uoff+iunta
+!!Alex add unit for CESM restart     
       if (restart) then
           iunta = 15
       endif 
-      
-      iunit = uoff+iunta
 c
       call zaiopi(lopen, iunta)
       if (.not.lopen) then
@@ -633,20 +676,20 @@ c
       endif !mxlmy
 c
       if (tidflg.gt.0) then
-        call zaiowr3(uhrly,   25, iu,.false., xmin,xmax, iunta,.true.)
-        call xctilr( uhrly, 1,25, nbdy,nbdy, halo_uv)
+        call zaiowr3(uhrly,   49, iu,.false., xmin,xmax, iunta,.true.)
+        call xctilr( uhrly, 1,49, nbdy,nbdy, halo_uv)
         if     (mnproc.eq.1) then
-        do l= 1,25
+        do l= 1,49
           do k= 0,0
             write(iunit,4100) 'uhrly   ',k,l,  xmin(l),xmax(l)
           enddo
         enddo
         call flush(iunit)
         endif !1st tile
-        call zaiowr3(vhrly,   25, iv,.false., xmin,xmax, iunta,.true.)
-        call xctilr( vhrly, 1,25, nbdy,nbdy, halo_vv)
+        call zaiowr3(vhrly,   49, iv,.false., xmin,xmax, iunta,.true.)
+        call xctilr( vhrly, 1,49, nbdy,nbdy, halo_vv)
         if     (mnproc.eq.1) then
-        do l= 1,25
+        do l= 1,49
           do k= 0,0
             write(iunit,4100) 'vhrly   ',k,l,  xmin(l),xmax(l)
           enddo
@@ -774,7 +817,23 @@ c
           endif !1st tile
         enddo !ktr
       endif !trcout
+
 c
+!!Alex add pcpadj
+      if (pcpadj) then
+          if     (mnproc.eq.1) then
+          write(iunit,'(a15,1pe22.15)') 'pcp_fact    = ', pcp_fact
+          write(iunit,'(a15,1pe22.15)') 'sum_precip  = ', sum_precip
+          write(iunit,'(a15,1pe22.15)') 'ssh_initial = ', ssh_initial 
+          do k=1,kdm 
+            write(iunit,'(a15,i2.2,2x,1pe22.15)')
+     &          'sal_initial = ',k, sal_initial(k)
+          enddo 
+          call flush(iunit)
+          endif !1st tile
+      endif 
+
+      
       if     (flnmra.ne.flnmrb) then  !unique restart file
         call zaiocl(iunta)
         if     (mnproc.eq.1) then
@@ -783,6 +842,14 @@ c
      &      ' unique restart created at model day',dtimex
           call flush(lp)
         endif                     !1st tile
+      elseif (iunta.eq.15) then
+        call zaiocl(iunta)
+        if     (mnproc.eq.1) then
+          close(unit=iunit)
+          write(lp,'(a,f11.3)') 
+     &      ' coupled restart created at model day',dtimex
+          call flush(lp)
+        endif                     !1st tile          
       elseif (iunta.eq.15) then
         call zaiocl(iunta)
         if     (mnproc.eq.1) then
@@ -889,10 +956,71 @@ c
       return
  4100 format(a,': layer,tlevel,range = ',i3,i3,2x,1p2e16.7)
       end subroutine restart_out
+
+      subroutine restart_zero
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      use mod_tides      ! HYCOM tides
+      implicit none
+c
+c     replacement for restart_in in dummy version
+c     set all fields to zero
+c
+      call restart_zero3d(u,     2*kdm, iu, 'u       ')
+      call restart_zero3d(v,     2*kdm, iv, 'v       ')
+      call restart_zero3d(dp,    2*kdm, ip, 'dp      ')
+      call restart_zero3d(temp,  2*kdm, ip, 'temp    ')
+      call restart_zero3d(saln,  2*kdm, ip, 'saln    ')
+      call restart_zero3d(th3d,  2*kdm, ip, 'th3d    ')
+c
+      call restart_zero3d(ubavg,     3, iu, 'ubavg   ')
+      call restart_zero3d(vbavg,     3, iv, 'vbavg   ')
+      call restart_zero3d(pbavg,     3, ip, 'pbavg   ')
+      call restart_zero3d(pbot,      1, ip, 'pbot    ')
+      call restart_zero3d(psikk,kapnum, ip, 'psikk   ')  !kapnum 1 or 2
+      call restart_zero3d(thkk, kapnum, ip, 'thkk    ')  !kapnum 1 or 2
+      call restart_zero3d(dpmixl,    2, ip, 'dpmixl  ')
+      call restart_zero3d(temice,    1, ip, 'temice  ')
+      call restart_zero3d(covice,    1, ip, 'covice  ')
+      call restart_zero3d(thkice,    1, ip, 'thkice  ')
+c
+c --- not in a actual restart, but zero them anyway
+c
+      call restart_zero3d(srfhgt,    1, ip, 'srfhgt  ')
+      call restart_zero3d(montg1,    1, ip, 'montg1  ')
+      call restart_zero3d(dpbl,      1, ip, 'dpbl    ')
+      return
+      end subroutine restart_zero
+
+      subroutine restart_zero3d(field,l, mask, cfield)
+      use mod_xc         ! HYCOM communication interface
+      use mod_za         ! HYCOM I/O interface
+      implicit none
+c
+      integer   l
+      real,    dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,l) ::
+     & field
+      integer, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
+     & mask
+      character cfield*8
+c
+c --- zero a single restart 3-d array field.
+c
+      if     (mnproc.eq.1) then
+      write(lp,'(a,i3,2x,a)') 'restart_zero3d - l,cfield = ',l,cfield
+      call flush(lp)
+      endif !1st tile
+      field(:,:,:) = 0.0
+c
+      return
+      end subroutine restart_zero3d
 c
 c
 c> Revision history:
 c>
-c> May. 2007 - removed th3d from the restart file
+c> May  2007 - removed th3d from the restart file
 c> Mar. 2010 - removed  DETIDE from the restart file
 c> Apr. 2010 - put back DETIDE into the restart file
+c> Aug. 2010 - 49-hour DETIDE
+c> May  2012 - added restart_zero

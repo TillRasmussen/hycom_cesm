@@ -1,5 +1,22 @@
+#if defined(ROW_LAND)
+#define SEA_P .true.
+#define SEA_U .true.
+#define SEA_V .true.
+#elif defined(ROW_ALLSEA)
+#define SEA_P allip(j).or.ip(i,j).ne.0
+#define SEA_U alliu(j).or.iu(i,j).ne.0
+#define SEA_V alliv(j).or.iv(i,j).ne.0
+#else
+#define SEA_P ip(i,j).ne.0
+#define SEA_U iu(i,j).ne.0
+#define SEA_V iv(i,j).ne.0
+#endif
       module mod_mean
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+#if defined(STOKES)
+      use mod_stokes     ! HYCOM Stokes drift
+#endif
 c
       implicit none
 c
@@ -21,7 +38,8 @@ c
 c
       real,    allocatable, dimension(:,:,:),
      &         save, private ::
-     &   u_m,v_m,ke_m,temp_m,saln_m,th3d_m,dp_m
+     &   u_m,v_m,ke_m,temp_m,saln_m,th3d_m,dp_m,uflx_m,vflx_m
+!!Alex add uflx_m, vflx_m
 c
       real,    allocatable, dimension(:,:),
      &         save, private ::
@@ -29,33 +47,29 @@ c
      &   montg_m,srfht_m,steric_m,dpbl_m,dpmixl_m,
      &   surflx_m,salflx_m, covice_m,thkice_m,temice_m,
      &   radfla_m,snsfla_m,evafla_m,surtx_m,surty_m,sssflx_m
-!!Alex output radiative, evap and latent
-
-      real,    allocatable, dimension(:,:),
-     &         save, private ::
-     &   kmelth_m,kmeltw_m,
-     &   eice_m,pice_m,pcip_m
-!!Alex output debug
+!!Alex output radiative, evap,latent,wind-stress
 
       contains
 
       subroutine mean_allocate
 c
-      include 'common_blocks.h'
-c
 c --- Allocate mean fields.
 c
       if     (ntracr.gt.0) then
         allocate( tracer_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm,ntracr) )
+        call mem_stat_add(       (idm+2*nbdy)*(jdm+2*nbdy)*kdm*ntracr )
       endif
 c
       allocate(      u_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm) )
       allocate(      v_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm) )
+      allocate(   uflx_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm) ) !!Alex
+      allocate(   vflx_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm) ) !!Alex
       allocate(     ke_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm) )
       allocate(   temp_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm) )
       allocate(   saln_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm) )
       allocate(   th3d_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm) )
       allocate(     dp_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm) )
+      call mem_stat_add(     9*(idm+2*nbdy)*(jdm+2*nbdy)*kdm )
 c
       allocate(  ubaro_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       allocate(  vbaro_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
@@ -70,6 +84,8 @@ c
       allocate( covice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       allocate( thkice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       allocate( temice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      call mem_stat_add(     13*(idm+2*nbdy)*(jdm+2*nbdy) )
+
 !!Alex add rad, sns eva
       allocate( sssflx_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       allocate( radfla_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
@@ -77,14 +93,8 @@ c
       allocate( evafla_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       allocate(  surtx_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       allocate(  surty_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      call mem_stat_add(      6*(idm+2*nbdy)*(jdm+2*nbdy) )
 c
-!!Alex add eice, pice,...
-      allocate( pice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
-      allocate( eice_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
-      allocate( pcip_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
-      allocate( kmelth_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
-      allocate( kmeltw_m(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
-
       return
       end subroutine mean_allocate
 
@@ -92,17 +102,15 @@ c
 c
       real*8 time_now
 c
-      include 'common_blocks.h'
-c
 c --- Zero all mean fields
 c
-      integer i,j,k,ktr,l
+      integer i,j,k,ktr
 c
       snmean   = 0.0
       nmean    = 0
       time_min = time_now
 c
-!$OMP PARALLEL DO PRIVATE(j,l,i,k,ktr)
+!$OMP PARALLEL DO PRIVATE(j,i,k,ktr)
       do j=1,jj
         do i=1,ii
           kebaro_m(i,j) = 0.0
@@ -125,13 +133,6 @@ c
           evafla_m(i,j) = 0.0
            surtx_m(i,j) = 0.0
            surty_m(i,j) = 0.0
-!!Alex
-          eice_m(i,j) = 0.0
-          pice_m(i,j) = 0.0
-          pcip_m(i,j) = 0.0
-          kmelth_m(i,j) = 0.0
-          kmeltw_m(i,j) = 0.0
-
         enddo !i
         do k= 1,kk
           do i=1,ii
@@ -142,7 +143,11 @@ c
               ke_m(i,j,k) = 0.0
                u_m(i,j,k) = 0.0
                v_m(i,j,k) = 0.0
-            do ktr= 1,ntracr
+!!Alex
+            uflx_m(i,j,k) = 0.0
+            vflx_m(i,j,k) = 0.0
+               
+               do ktr= 1,ntracr
               tracer_m(i,j,k,ktr) = 0.0
             enddo !ktr
           enddo !i
@@ -154,15 +159,13 @@ c
 
       subroutine mean_add(n, s)
 c
-      include 'common_blocks.h'
-c
       integer n
       real    s
 c
 c --- Add to mean fields
 c --- s is 1.0 or 0.5
 c
-      integer i,j,k,ktr,l
+      integer i,j,k,ktr
       real    q,ke
 c
       snmean = snmean + s
@@ -173,17 +176,26 @@ c --- halos only needed for kinetic energy
 c
       call xctilr(u(      1-nbdy,1-nbdy,1,n),1,kk, 1,1, halo_uv)
       call xctilr(ubavg(  1-nbdy,1-nbdy,  n),1, 1, 1,1, halo_uv)
+      call xctilr(uflx(   1-nbdy,1-nbdy,1  ),1,kk, 1,1, halo_uv)
       call xctilr(v(      1-nbdy,1-nbdy,1,n),1,kk, 1,1, halo_vv)
       call xctilr(vbavg(  1-nbdy,1-nbdy,  n),1, 1, 1,1, halo_vv)
+      call xctilr(vflx(   1-nbdy,1-nbdy,1  ),1,kk, 1,1, halo_vv)
 c
-!$OMP PARALLEL DO PRIVATE(j,l,i,k,ktr,q,ke)
+!$OMP PARALLEL DO PRIVATE(j,i,k,ktr,q,ke)
       do j=1,jj
-        do l=1,isp(j)
-          do i=ifp(j,l),ilp(j,l)
+        do i=1,ii
+          if (SEA_P) then
+#if defined(STOKES)
+       ke = 0.5*((0.5*(ubavg(i,  j,n) + usdbavg(i,j) +
+     &                 ubavg(i+1,j,n) + usdbavg(i+1,j)  ))**2 +
+     &           (0.5*(vbavg(i,j,  n) + vsdbavg(i,j) +
+     &                 vbavg(i,j+1,n) + vsdbavg(i,j+1) ))**2  )
+#else
                        ke = 0.5*((0.5*(ubavg(i,  j,n) +
      &                                 ubavg(i+1,j,n)  ))**2 +
      &                           (0.5*(vbavg(i,j,  n) +
      &                                 vbavg(i,j+1,n)  ))**2  )
+#endif
             kebaro_m(i,j) = kebaro_m(i,j) + s*ke
              montg_m(i,j) =  montg_m(i,j) + s*montg1(i,j)
             steric_m(i,j) = steric_m(i,j) + s*steric(i,j)
@@ -193,7 +205,9 @@ c
             surflx_m(i,j) = surflx_m(i,j) + s*surflx(i,j)
             salflx_m(i,j) = salflx_m(i,j) + s*salflx(i,j)
             covice_m(i,j) = covice_m(i,j) + s*covice(i,j)
-
+!!Alex
+!            thkice_m(i,j) = thkice_m(i,j) + s*thkice(i,j)
+!            temice_m(i,j) = temice_m(i,j) + s*temice(i,j)
             thkice_m(i,j) = thkice_m(i,j) + s*flxice(i,j)
             temice_m(i,j) = temice_m(i,j) + s*sflice(i,j)
 !!Alex
@@ -201,32 +215,44 @@ c
             radfla_m(i,j) = radfla_m(i,j) + s*radfla(i,j)
             snsfla_m(i,j) = snsfla_m(i,j) + s*snsfla(i,j)
             evafla_m(i,j) = evafla_m(i,j) + s*evafla(i,j)
-!!Alex
-            pcip_m(i,j) = pcip_m(i,j) + s*pcip(i,j)
-
-         if (abs(surtx(i,j)) .lt. 100.) then
-             surtx_m(i,j) =  surtx_m(i,j) + s*surtx(i,j)
-             surty_m(i,j) =  surty_m(i,j) + s*surty(i,j)
-        endif
-          enddo !i
-        enddo !l
-        do l=1,isu(j)
-          do i=ifu(j,l),ilu(j,l)
+            if (abs(surtx(i,j)) .lt. 100.) then
+                surtx_m(i,j) =  surtx_m(i,j) + s*surtx(i,j)
+                surty_m(i,j) =  surty_m(i,j) + s*surty(i,j)
+            endif
+        endif !ip
+          if (SEA_U) then
+#if defined(STOKES)
+        ubaro_m(i,j)=ubaro_m(i,j)+s*(ubavg(i,j,n)+usdbavg(i,j))
+#else
             ubaro_m(i,j) = ubaro_m(i,j) + s*ubavg(i,j,n)
-          enddo !i
-        enddo !l
-        do l=1,isv(j)
-          do i=ifv(j,l),ilv(j,l)
+#endif
+          endif !iu
+          if (SEA_V) then
+#if defined(STOKES)
+        vbaro_m(i,j)=vbaro_m(i,j)+s*(vbavg(i,j,n)+vsdbavg(i,j))
+#else
             vbaro_m(i,j) = vbaro_m(i,j) + s*vbavg(i,j,n)
-          enddo !i
-        enddo !l
+#endif
+          endif !ip
+        enddo !i
         do k= 1,kk
-          do l=1,isp(j)
-            do i=ifp(j,l),ilp(j,l)
+          do i=1,ii
+            if (SEA_P) then
+#if defined(STOKES)
+        ke = 0.5*((0.5*(u(i,  j,k,n) + usd(i,j,k) +
+     &             ubavg(i,  j,n) + usdbavg(i,j) +
+     &    u(i+1,j,k,n) + usd(i+1,j,k) +
+     &             ubavg(i+1,j,n) + usdbavg(i+1,j) ))**2 +
+     &            (0.5*(v(i,j  ,k,n) + vsd(i,j,k) + 
+     &             vbavg(i,j,  n) + vsdbavg(i,j) +
+     &    v(i,j+1,k,n) + vsd(i,j+1,k) + 
+     &             vbavg(i,j+1,n) + vsdbavg(i,j+1) ))**2  )
+#else
               ke = 0.5*((0.5*(u(i,  j,k,n) + ubavg(i,  j,n) +
      &                        u(i+1,j,k,n) + ubavg(i+1,j,n)  ))**2 +
      &                  (0.5*(v(i,j  ,k,n) + vbavg(i,j,  n) +
      &                        v(i,j+1,k,n) + vbavg(i,j+1,n)  ))**2  )
+#endif
 c
                           q =                   s*dp(i,j,k,n)
                 dp_m(i,j,k) =   dp_m(i,j,k) +                   q
@@ -238,20 +264,29 @@ c
                 tracer_m(i,j,k,ktr) = tracer_m(i,j,k,  ktr) +
      &                                  tracer(i,j,k,n,ktr) * q
               enddo !ktr
-            enddo !i
-          enddo !l
-          do l=1,isu(j)
-            do i=ifu(j,l),ilu(j,l)
+            endif !ip
+            if (SEA_U) then
                        q = s*dpu(i,j,k,n)
+#if defined(STOKES)
+         u_m(i,j,k) = u_m(i,j,k) + q*(u(i,j,k,n) + usd(i,j,k) + 
+     &               ubavg(i,j,n) + usdbavg(i,j))
+
+#else
               u_m(i,j,k) = u_m(i,j,k) + q*(u(i,j,k,n) + ubavg(i,j,n))
-            enddo !i
-          enddo !l
-          do l=1,isv(j)
-            do i=ifv(j,l),ilv(j,l)
+#endif
+              uflx_m(i,j,k) = uflx_m(i,j,k) + uflx(i,j,k)*qonem  !convert to m3/s !!Alex
+            endif !iu
+            if (SEA_V) then
                        q = s*dpv(i,j,k,n)
+#if defined(STOKES)
+              v_m(i,j,k) = v_m(i,j,k) + q*(v(i,j,k,n) + vsd(i,j,k) + 
+     &               vbavg(i,j,n) + vsdbavg(i,j))
+#else
               v_m(i,j,k) = v_m(i,j,k) + q*(v(i,j,k,n) + vbavg(i,j,n))
-            enddo !i
-          enddo !l
+#endif
+              vflx_m(i,j,k) = vflx_m(i,j,k) + vflx(i,j,k)*qonem  !convert to m3/s !!Alex
+            endif !iv
+          enddo !i
         enddo !k
       enddo !j
 c
@@ -262,11 +297,9 @@ c
 c
       real*8 time_now
 c
-      include 'common_blocks.h'
-c
 c --- Reduce sums to their mean.
 c
-      integer i,j,k,ktr,l
+      integer i,j,k,ktr
       real    dpthin,q,qdp
       real*8  time_int
 c
@@ -283,24 +316,24 @@ c ---   1st and last sample scaled by 1/2.
 c
       dpthin   = 0.001*onemm
 c
-!$OMP PARALLEL DO PRIVATE(j,l,i,k,qdp)
+!$OMP PARALLEL DO PRIVATE(j,i,k,qdp)
       do j=1,jj
-        do l=1,isp(j)
-          do i=ifp(j,l),ilp(j,l)
+        do i=1,ii
+          if (SEA_P) then
             p(i,j,1) = 0.0
             do k= 1,kk
               p(i,j,k+1) = p(i,j,k) + q*dp_m(i,j,k)
             enddo !k
-          enddo !i
-        enddo !l
+          endif !ip
+        enddo !i
       enddo !j
 c
       call xctilr(p(1-nbdy,1-nbdy,2),1,kk, 1,1, halo_ps)
 c
-!$OMP PARALLEL DO PRIVATE(j,l,i,k,qdp)
+!$OMP PARALLEL DO PRIVATE(j,i,k,qdp)
       do j=1,jj
-        do l=1,isp(j)
-          do i=ifp(j,l),ilp(j,l)
+        do i=1,ii
+          if (SEA_P) then
             kebaro_m(i,j) = kebaro_m(i,j) * q
              montg_m(i,j) =  montg_m(i,j) * q
             steric_m(i,j) = steric_m(i,j) * q
@@ -317,24 +350,19 @@ c
             radfla_m(i,j) = radfla_m(i,j) * q
             snsfla_m(i,j) = snsfla_m(i,j) * q
             evafla_m(i,j) = evafla_m(i,j) * q
-            pcip_m(i,j) = pcip_m(i,j) * q
              surtx_m(i,j) =  surtx_m(i,j) * q
              surty_m(i,j) =  surty_m(i,j) * q
-          enddo !i
-        enddo !l
-        do l=1,isu(j)
-          do i=ifu(j,l),ilu(j,l)
+          endif !ip
+          if (SEA_U) then
             ubaro_m(i,j) = ubaro_m(i,j) * q
-          enddo !i
-        enddo !l
-        do l=1,isv(j)
-          do i=ifv(j,l),ilv(j,l)
+          endif !iu
+          if (SEA_V) then
             vbaro_m(i,j) = vbaro_m(i,j) * q
-          enddo !i
-        enddo !l
+          endif !iv
+        enddo !i
         do k= 1,kk
-          do l=1,isp(j)
-            do i=ifp(j,l),ilp(j,l)
+          do i=1,ii
+            if (SEA_P) then
               dp_m(i,j,k) = dp_m(i,j,k) * q
               if     (dp_m(i,j,k).ge.dpthin) then
                           qdp = q/dp_m(i,j,k)
@@ -354,10 +382,8 @@ c
                   tracer_m(i,j,k,ktr) = tracer_m(i,j,k-1,ktr)
                 enddo !ktr
               endif
-            enddo !i
-          enddo !l
-          do l=1,isu(j)
-            do i=ifu(j,l),ilu(j,l)
+            endif !ip
+            if (SEA_U) then
               qdp = min(depthu(i,j), 0.5*(p(i,j,k+1)+p(i-1,j,k+1))) -
      &              min(depthu(i,j), 0.5*(p(i,j,k  )+p(i-1,j,k  )))
               if     (qdp.ge.dpthin) then
@@ -366,10 +392,9 @@ c
               else 
                 u_m(i,j,k) = u_m(i,j,k-1)
               endif
-            enddo !i
-          enddo !l
-          do l=1,isv(j)
-            do i=ifv(j,l),ilv(j,l)
+              uflx_m(i,j,k) = uflx_m(i,j,k) * q
+            endif !iu
+            if (SEA_V) then
               qdp = min(depthv(i,j), 0.5*(p(i,j,k+1)+p(i,j-1,k+1))) -
      &              min(depthv(i,j), 0.5*(p(i,j,k  )+p(i,j-1,k  )))
               if     (qdp.ge.dpthin) then
@@ -378,8 +403,9 @@ c
               else 
                 v_m(i,j,k) = v_m(i,j,k-1)
               endif
-            enddo !i
-          enddo !l
+              vflx_m(i,j,k) = vflx_m(i,j,k) * q
+            endif !iv
+          enddo !i
         enddo !k
       enddo !j
 c
@@ -387,24 +413,15 @@ c
       end subroutine mean_end
 
 
-#if defined(USE_CCSM3)
-      subroutine mean_archiv(n, iyear,imonth,iday,ihour)
-      use mod_za  ! HYCOM I/O interface
-c
-      integer n, iyear,imonth,iday,ihour
-#else
       subroutine mean_archiv(n, iyear,iday,ihour)
       use mod_za  ! HYCOM I/O interface
 c
       integer n, iyear,iday,ihour
-#endif
-c
-      include 'common_blocks.h'
 c
 c --- write a mean archive file.
 c
       character*80 cformat
-      integer      i,j,k,ktr,l,ldot,nop,nopa
+      integer      i,j,k,ktr,ldot,nop,nopa
       integer      itst1,jtst1
       real         ssha,sshn,sshs,sssc,sstc,ubpnt,upnt,vbpnt,vpnt
       real         coord,xmin,xmax
@@ -422,20 +439,9 @@ c
       ldot = min(ldot,len(flnmarcm)-11)  !need 11 characters for archive date
 c
 c --- indicate the archive date
-#if defined(USE_CCSM3)
-      if     (imonth.eq. 1) then
-        write(flnmarcm(ldot+1:ldot+8),'(i4.4,a2,i2.2)')
-     &    iyear-1,'_m',12
-      else
-        write(flnmarcm(ldot+1:ldot+8),'(i4.4,a2,i2.2)')
-     &    iyear,  '_m',imonth-1
-      endif
-      ldot=ldot+8
-#else
       write(flnmarcm(ldot+1:ldot+11),'(i4.4,a1,i3.3,a1,i2.2)') 
      &   iyear,'_',iday,'_',ihour
       ldot=ldot+11
-#endif
       nopa=13
       nop =13+uoff
 c
@@ -527,38 +533,8 @@ c
       write (nop,117) 'surty   ',nmean,time_ave,0,coord,xmin,xmax
       call flush(nop)
       endif !1st tile
-
 !!Alex
-      call zaiowr(kmeltw_m,ip,.true., xmin,xmax, nopa, .false.)
-      if     (mnproc.eq.1) then
-      write (nop,117) 'kmeltw  ',nmean,time_ave,0,coord,xmin,xmax
-      call flush(nop)
-      endif !1st tile
-      call zaiowr(pice_m,ip,.true., xmin,xmax, nopa, .false.)
-      if     (mnproc.eq.1) then
-      write (nop,117) 'pice    ',nmean,time_ave,0,coord,xmin,xmax
-      call flush(nop)
-      endif !1st tile
-
-      call zaiowr(eice_m,ip,.true., xmin,xmax, nopa, .false.)
-      if     (mnproc.eq.1) then
-      write (nop,117) 'eice    ',nmean,time_ave,0,coord,xmin,xmax
-      call flush(nop)
-      endif !1st tile
-
-      call zaiowr(pcip_m,ip,.true., xmin,xmax, nopa, .false.)
-      if     (mnproc.eq.1) then
-      write (nop,117) 'pcip    ',nmean,time_ave,0,coord,xmin,xmax
-      call flush(nop)
-      endif !1st tile
-
-      call zaiowr(kmelth_m,ip,.true., xmin,xmax, nopa, .false.)
-      if     (mnproc.eq.1) then
-      write (nop,117) 'kmelth  ',nmean,time_ave,0,coord,xmin,xmax
-      call flush(nop)
-      endif !1st tile
-!!
-
+      
       call zaiowr(dpbl_m,ip,.true., xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
       write (nop,117) 'bl_dpth ',nmean,time_ave,0,coord,xmin,xmax
@@ -655,6 +631,20 @@ c
       write (nop,117) 'v-vel.  ',nmean,time_ave,k,coord,xmin,xmax
       call flush(nop)
       endif !1st tile
+!!Alex add vflx in  archm 
+      call zaiowr(uflx_m(1-nbdy,1-nbdy,k),iu,.true.,
+     &            xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'uflx    ',nmean,time_ave,k,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      call zaiowr(vflx_m(1-nbdy,1-nbdy,k),iv,.true.,
+     &            xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) 'vflx    ',nmean,time_ave,k,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+!!Alex
       call zaiowr(ke_m(1-nbdy,1-nbdy,k),ip,.true.,
      &            xmin,xmax, nopa, .false.)
       if     (mnproc.eq.1) then
@@ -729,10 +719,15 @@ c
      &           twall(itest,jtest,1,lc2)*wc2+
      &           twall(itest,jtest,1,lc3)*wc3
         else !synoptic observed sst
-          sstc = seatmp(itest,jtest,l0)*w0+
-     &           seatmp(itest,jtest,l1)*w1+
-     &           seatmp(itest,jtest,l2)*w2+
-     &           seatmp(itest,jtest,l3)*w3
+          if     (natm.eq.2) then
+            sstc = seatmp(itest,jtest,l0)*w0+
+     &             seatmp(itest,jtest,l1)*w1
+          else
+            sstc = seatmp(itest,jtest,l0)*w0+
+     &             seatmp(itest,jtest,l1)*w1+
+     &             seatmp(itest,jtest,l2)*w2+
+     &             seatmp(itest,jtest,l3)*w3
+          endif !natm
         endif
         sssc = swall(itest,jtest,1,lc0)*wc0+
      &         swall(itest,jtest,1,lc1)*wc1+
@@ -838,3 +833,5 @@ c
 c> Revision history:
 c>
 c> Apr  2007 - 1st version
+c> Dec. 2012 - fixed array out of bounds bug
+c> May  2014 - use land/sea masks (e.g. ip) to skip land

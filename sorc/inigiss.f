@@ -1,10 +1,9 @@
       subroutine inigiss
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
 c
 c --- hycom version 2.1
       implicit none
-c
-      include 'common_blocks.h'
 c
 c -----------------------------------------------
 c --- initialize nasa-giss vertical mixing scheme
@@ -31,9 +30,9 @@ c --- initialize viscosity and diffusivity arrays
       do j=1,jdm
         do i=1,idm
           do k=1,kdm+1
-            vcty(i,j,k)=difmiw
-            dift(i,j,k)=difsiw
-            difs(i,j,k)=difsiw
+            vcty(i,j,k)=diwm(i,j)
+            dift(i,j,k)=diws(i,j)
+            difs(i,j,k)=diws(i,j)
 c --- no nonlocal forcing
             ghats(i,j,k)=0.0
           enddo
@@ -627,8 +626,8 @@ c
       end
 c
       subroutine oursal2_1a(ri,rid,slq2,sm,sh,sc,c_y0,c_y00,iri,irid)
-c
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
 c
 c --- hycom version 1.0
       implicit none
@@ -636,7 +635,7 @@ c
 c --- Replace the numerical value of 6.25 by 1/(tpvot**2) .
 c --- Version in which following OTsalche/plot000127 
 c --- the timescale ratios are calculated in the 'smshsc' routine 
-c --- and passed back hrough the common block bb0/
+c --- and passed back hrough the common block /bb/
 c --- to simplify the process of adjustment of timescale ratios.
 c --- Submodule to calculate turbulence functions (Sl/q)^2 and S_M,S_H,S_S
 c --- of Ri(=Ri_T+Ri_C) and Ri_d(=Ri_T-Ri_C) in our NCAR turbulence module.
@@ -678,14 +677,14 @@ c --- Take \tau_pv/\tau as being calculated in the smshsc routine instead.
 c --- From the printed notes Canuto gave me on 980601 have:
 c ---          \tau_pv = {2 \over 5} \tau  (B.1) or parameter(tpvot = 0.4)
 c
-      include 'common_blocks.h'
-c
       real ri,rid,slq2,sm,sh,sc,c_y0,c_y00
-      real eeps,c_yst,c_yst0,rit,ric,c_y,val,c_n,c_c
+      real eeps,c_yst,c_yst0,c_y,val,c_n,c_c
 !DBI: all eps ==> eeps in this routine!
       integer iri,irid,iend,ier
+      real       rit,ric
       common /bb/rit,ric       !rit is the temperature's part of 
      .                         !Ri and ric the concentration's.
+      save   /bb/
 c
       parameter(c_yst0 = 8.527882) !Need a guess for c_y for the solver 
      .                             !for the neutral case, c_yst. Take 
@@ -822,17 +821,17 @@ c
       end
 c-----------------------------------------------------------------------
       function fct_sal(sm,sh,sc,c_y)                              
-c
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
 c
 c --- hycom version 1.0
       implicit none  
 c
-      real fct_sal,c_n,c_c,c_y,sm,sh,sc,bb,rit,ric
+      real fct_sal,c_n,c_c,c_y,sm,sh,sc
 c
-      include 'common_blocks.h'
-c
+      real       rit,ric
       common /bb/rit,ric
+      save   /bb/
 c
 c --- Decide to use the parameter "tpvot" instead of its value 2/5 \tau .
       c_n = -((tcot*tctot)/(tpvot**2))*c_y*rit
@@ -846,13 +845,11 @@ c --- y = 0.32/(S_\nu - Ri_T S_h - Ri_C S_c).
       end                                            
 c-----------------------------------------------------------------------
       subroutine smshsc_a3(yyy,nnn,ccc,sm,sh,sc)
-c
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
 c
 c --- hycom version 1.0
       implicit none   
-c
-      include 'common_blocks.h'
 c
 c --- .eW SUBROUTI.e WHICH calculates the "p's" from the timescale ratios.
 c --- BA.eD on "smshsc2":
@@ -1073,19 +1070,19 @@ C*******************************************************************************
       end
 c-----------------------------------------------------------------------
       subroutine rtwi(xx,val,xst,eeps,sm,sh,sc,iend,ier)                      
-c
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
 c
 c --- hycom version 1.0
       implicit none
 c
-      include 'common_blocks.h'
-c
       real fct_sal,xx,val,xst,eeps,sm,sh,sc
-      real tol,a,b,d,bb,rit,ric
+      real tol,a,b,d
       integer iend,ier,i
 c
+      real       rit,ric
       common /bb/rit,ric
+      save   /bb/
 c
 c --- to solve general nonlinear equations of the form x=fct_sal(x)       
 c --- by means of wegsteins iteration method                         
@@ -1140,13 +1137,11 @@ c
       end                                       
 c
       subroutine interp2d_expabs(ri,rid,slq2,sm,sh,ss,m,m0,delta,rat)
-c
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
 c
 c --- hycom version 1.0
       implicit none
-c
-      include 'common_blocks.h'
 c
 c --- Subroutine for a modular interpolation calculation.
 c --- provides a faster interpolation calculation in the ifexpabstable=1 case.

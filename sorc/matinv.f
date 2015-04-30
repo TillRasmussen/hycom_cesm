@@ -4,10 +4,9 @@ c --- diffusion equation - tri-diagonal matrix
 c ------------------------------------------------------------------
 c
       subroutine tridcof(diff,tri,nlayer,tcu,tcc,tcl)
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
       implicit none
-c
-      include 'common_blocks.h'
 c
 c --- compute coefficients for tridiagonal matrix (dimension=kdm).
 c --- Note: tcu(1) = 0. and tcl(kdm+1) = 0. are necessary conditions.
@@ -46,10 +45,9 @@ c --- in the bottom layer
 ***********************************************************************
 
       subroutine tridrhs(h,yo,diff,ghat,ghatflux,tri,nlayer,rhs)
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
       implicit none
-c
-      include 'common_blocks.h'
 c
 c --- compute right hand side of tridiagonal matrix for scalar fields:
 c --- =  yo (old field) 
@@ -97,7 +95,9 @@ c
 ***********************************************************************
 
       subroutine tridmat(tcu,tcc,tcl,nlayer,h,rhs,yo,yn,diff, i,j)
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      implicit none
 c
 c --- solve tridiagonal matrix for new vector yn, given right hand side
 c --- vector rhs.
@@ -105,8 +105,6 @@ c
 c --- note: if surface and bottom fluxes are nonzero, the following must apply
 c ---    surface layer needs +delt1*surfaceflux/(h(1)*bet)
 c ---    bottom  layer needs +tri(nlayer,1)*diff(nlayer+1)*yo(nlayer+1))/bet
-c
-      include 'common_blocks.h'
 c
 c --- input
       real tcu (kdm),     ! upper coeff. for (k-1) on k line of tridmatrix

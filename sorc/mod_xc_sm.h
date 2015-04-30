@@ -53,7 +53,7 @@ c     call xctmr1( 1)
       subroutine xcaput(aa, a, mnflg)
       implicit none
 c
-      real,    intent(in)    :: aa(itdm,jtdm)
+      real,    intent(inout) :: aa(itdm,jtdm)
       real,    intent(out)   :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
       integer, intent(in)    :: mnflg
 c
@@ -123,24 +123,31 @@ c
       return
       end subroutine xcastr
 
-      subroutine xceget(aelem, a, ia,ja)
+      subroutine xceget(aelem, a, ia,ja, mnflg)
       implicit none
 c
-      real,    intent(out)   :: aelem
+      real,    intent(out)   ::         aelem
       real,    intent(in)    :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
-      integer, intent(in)    :: ia,ja
+      integer, intent(in)    ::         ia,ja
+      integer, intent(in), optional ::  mnflg
 c
 c**********
 c*
 c  1) find the value of a(ia,ja) on the non-tiled 2-D grid.
 c
-c  2) parameters:
+c  2) mnflg selects which nodes must return the line
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     mnflg is ignored here (only have a single node).
+c
+c  3) parameters:
 c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
 c    aelem           real           output    required element
 c    a               real           input     source array
 c    ia              integer        input     1st index into a
 c    ja              integer        input     2nd index into a
+c    mnflg           integer        input     node return flag
 c*
 c**********
 #if defined(TIMER)
@@ -158,24 +165,31 @@ c
       return
       end subroutine xceget
 
-      subroutine xceput(aelem, a, ia,ja)
+      subroutine xceput(aelem, a, ia,ja, mnflg)
       implicit none
 c
-      integer, intent(in)    :: ia,ja
-      real,    intent(in)    :: aelem
+      integer, intent(in), optional ::  mnflg
+      integer, intent(in)    ::         ia,ja
+      real,    intent(in)    ::         aelem
       real,    intent(inout) :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
 c
 c**********
 c*
 c  1) fill a single element in the non-tiled 2-D grid.
 c
-c  2) parameters:
+c  2) mnflg selects which nodes hold the element on entry
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     mnflg is ignored here (only have a single node).
+c
+c  3) parameters:
 c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
 c    aelem           real           input     element value
 c    a               real           in/out    target array
 c    ia              integer        input     1st index into a
 c    ja              integer        input     2nd index into a
+c    mnflg           integer        input     node source flag
 c*
 c**********
 #if defined(TIMER)
@@ -223,6 +237,153 @@ c
       endif
       stop '(xchalt)'
       end subroutine xchalt
+
+      subroutine xciget(alist,nl, a, ia,ja, mnflg)
+      implicit none
+c
+      integer, intent(in)    ::         nl
+      real,    intent(out)   ::         alist(nl)
+      real,    intent(in)    :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
+      integer, intent(in)    ::         ia(nl),ja(nl)
+      integer, intent(in), optional ::  mnflg
+c
+c**********
+c*
+c  1) find the value of a(ia(:),ja(:)) on the non-tiled 2-D grid.
+c
+c  2) mnflg selects which nodes must return the list of elements
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     mnflg is ignored here (only have a single node).
+c
+c  3) parameters:
+c       name            type         usage            description
+c    ----------      ----------     -------  ----------------------------
+c    alist           real           output    required elements
+c    nl              integer        input     dimension of alist
+c    a               real           input     source array
+c    ia              integer        input     1st indexes into a
+c    ja              integer        input     2nd indexes into a
+c    mnflg           integer        input     node return flag
+c*
+c**********
+c
+      integer i
+c
+#if defined(TIMER)
+c
+      call xctmr0( 2)
+#endif
+c
+c     single node version - trivial indexing.
+c
+      do i= 1,nl
+        alist(i) = a(ia(i),ja(i))
+      enddo !i
+#if defined(TIMER)
+c
+      call xctmr1( 2)
+#endif
+      return
+      end subroutine xciget
+
+      subroutine xciget_sm(alist,nl, a, ia,ja, mnflg)
+      implicit none
+c
+      integer, intent(in)    ::         nl
+      real,    intent(out)   ::         alist(nl)
+      real,    intent(in)    :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
+      integer, intent(in)    ::         ia(nl),ja(nl)
+      integer, intent(in), optional ::  mnflg
+c
+c**********
+c*
+c  1) find the value of a(ia(:),ja(:)) on the non-tiled 2-D grid.
+c     identical to xciget and never invoked (for compatibility only)
+c
+c  2) mnflg selects which nodes must return the list of elements
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     mnflg is ignored here (only have a single node).
+c
+c  3) parameters:
+c       name            type         usage            description
+c    ----------      ----------     -------  ----------------------------
+c    alist           real           output    required elements
+c    nl              integer        input     dimension of alist
+c    a               real           input     source array
+c    ia              integer        input     1st indexes into a
+c    ja              integer        input     2nd indexes into a
+c    mnflg           integer        input     node return flag
+c*
+c**********
+c
+      integer i
+c
+#if defined(TIMER)
+c
+      call xctmr0( 2)
+#endif
+c
+c     single node version - trivial indexing.
+c
+      do i= 1,nl
+        alist(i) = a(ia(i),ja(i))
+      enddo !i
+#if defined(TIMER)
+c
+      call xctmr1( 2)
+#endif
+      return
+      end subroutine xciget_sm
+
+      subroutine xciput(alist,nl, a, ia,ja, mnflg)
+      implicit none
+c
+      integer, intent(in)    ::         nl
+      integer, intent(in), optional ::  mnflg
+      integer, intent(in)    ::         ia(nl),ja(nl)
+      real,    intent(inout) ::         alist(nl)
+      real,    intent(inout) :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
+c
+c**********
+c*
+c  1) fill a list of elements in the non-tiled 2-D grid.
+c
+c  2) mnflg selects which nodes hold the elements on entry
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     mnflg is ignored here (only have a single node).
+c
+c  3) parameters:
+c       name            type         usage            description
+c    ----------      ----------     -------  ----------------------------
+c    alist           real           in/out    element values
+c    nl              integer        input     dimension of alist
+c    a               real           in/out    target array
+c    ia              integer        input     1st indexes into a
+c    ja              integer        input     2nd indexes into a
+c    mnflg           integer        input     node source flag
+c*
+c**********
+c
+      integer i
+#if defined(TIMER)
+c
+      call xctmr0( 4)
+#endif
+c
+c     single node version - trivial indexing.
+c
+      do i= 1,nl
+        a(ia(i),ja(i)) = alist(i)
+      enddo !1
+#if defined(TIMER)
+c
+      call xctmr1( 4)
+#endif
+      return
+      end subroutine xciput
 
       subroutine xclget(aline,nl, a, i1,j1,iinc,jinc, mnflg)
       implicit none
@@ -297,11 +458,12 @@ c
       return
       end subroutine xclget
 
-      subroutine xclput(aline,nl, a, i1,j1,iinc,jinc)
+      subroutine xclput(aline,nl, a, i1,j1,iinc,jinc, mnflg)
       implicit none
 c
-      integer, intent(in)    ::  nl,i1,j1,iinc,jinc
-      real,    intent(in)    ::  aline(nl)
+      integer, intent(in), optional ::  mnflg
+      integer, intent(in)    ::         nl,i1,j1,iinc,jinc
+      real,    intent(inout) ::         aline(nl)
       real,    intent(inout) ::  a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)
 c
 c**********
@@ -311,16 +473,22 @@ c
 c  2) aline(i) = a(i1+i1*(i-1),j1+j1*(i-1)), for i=1...nl.
 c     one of iinc and jinc must be 0, and the other must be 1.
 c
-c  3) parameters:
+c  3) mnflg selects which nodes hold the line on entry
+c        = 0; all nodes (default)
+c        = n; node number n (mnproc=n)
+c     mnflg is ignored here (only have a single node).
+c
+c  4) parameters:
 c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
-c    aline           real           input     line of element values
+c    aline           real           in/out    line of element values
 c    nl              integer        input     dimension of aline
 c    a               real           in/out    target array
 c    i1              integer        input     1st index into a
 c    j1              integer        input     2nd index into a
 c    iinc            integer        input     1st index increment
 c    jinc            integer        input     2nd index increment
+c    mnflg           integer        input     node source flag
 c*
 c**********
 c
@@ -622,7 +790,6 @@ c      i0      -     1st dimension tile offset
 c      ii      -     1st dimension tile extent
 c      j0      -     2nd dimension tile offset
 c      jj      -     2nd dimension tile extent
-c      margin  -     how much of the halo is currently valid
 c      nreg    -     region type
 c      vland   -     fill value for land (standard value 0.0)
 c
@@ -639,6 +806,8 @@ c
                stop '(xcspmd)'
       endif
 c
+      lp = 6
+c
       ipr    = 1
       jpr    = 1
       ijpr   = 1
@@ -646,12 +815,17 @@ c
       mproc  = 1
       nproc  = 1
 c
+#if defined(RELO)
+c --- region's horizontal dimensions are from blkdat.input.
+c
+      itdm = -1
+      jtdm = -1
+#endif
+c
       i0  = 0
       ii  = itdm
       j0  = 0
       jj  = jtdm
-c
-      margin = 0
 c
       nreg   = -1  ! unknown region type
 c
@@ -671,7 +845,9 @@ c
       call xctmrn( 9,'xcastr')
       call xctmrn(10,'xcmaxr')
       call xctmrn(12,'xctilr')
-*     call xctmrn(13,'xcshft')
+#if defined(ARCTIC)
+      call xctmrn(13,'xctila')
+#endif
 #endif
       return
       end subroutine xcspmd
@@ -860,6 +1036,63 @@ c
       end subroutine xcsync
 
 #if defined(ARCTIC)
+      subroutine xctila(a,l1,ld,itype)
+      implicit none
+c
+      integer, intent(in)    :: l1,ld,itype
+      real,    intent(inout) :: a(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,ld)
+c
+c**********
+c*
+c  1) update the top row of a real array.
+c     only needed when importing a tripole grid array.
+c
+c  2) parameters:
+c       name            type         usage            description
+c    ----------      ----------     -------  ----------------------------
+c    a               real           in/out    target array
+c    l1              integer        input     3rd dim. start index
+c    ld              integer        input     3rd dimension of a
+c    itype           integer        input     grid and field type
+c
+c  3) itype selects both the grid and field type
+c        itype= 1; p-grid, scalar field
+c        itype=11; p-grid, vector field
+c
+c  4) this version for a global tripole (arctic bipolar patch) grid
+c*
+c**********
+c
+      integer i,io,k
+#if defined(TIMER)
+c
+      call xctmr0(13)
+#endif
+      do k= l1,ld
+        if     (itype.eq.1) then
+c
+c         scalar on p-grid
+c
+          do i= 1,ii
+            io = ii-mod(i-1,ii)
+            a(i,jj,k) = a(io,jj-1,k)
+          enddo
+        else
+c
+c         vector p-grid field, swap sign
+c
+          do i= 1,ii
+            io = ii-mod(i-1,ii)
+            a(i,jj,k) = -a(io,jj-1,k)
+          enddo
+        endif
+      enddo
+#if defined(TIMER)
+c
+      call xctmr1(13)
+#endif
+      return
+      end subroutine xctila
       subroutine xctilr(a,l1,ld,mh,nh,itype)
       implicit none
 c
@@ -1169,7 +1402,7 @@ c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
 c    n               integer        input     timer number
 c
-c  3) time every 50-th event above 1,000.
+c  3) time every 50-th event above 5,000.
 c*
 c**********
 c
@@ -1182,7 +1415,7 @@ c
       endif
 #endif
       if     (timer_on) then
-        if     (mod(nc(n),50).eq.0 .or. nc(n).le.1000) then
+        if     (mod(nc(n),50).eq.0 .or. nc(n).le.5000) then
           t0(n) = wtime()
         endif
       endif !timer_on
@@ -1203,14 +1436,14 @@ c       name            type         usage            description
 c    ----------      ----------     -------  ----------------------------
 c    n               integer        input     timer number
 c                                                                        
-c  3) time every 50-th event above 1,000.                 
+c  3) time every 50-th event above 5,000.                 
 c*
 c**********
 c
       real*8  wtime
 c
       if     (timer_on) then
-        if     (nc(n).gt.1000) then
+        if     (nc(n).gt.5000) then
           if     (mod(nc(n),50).eq.0) then
             tc(n) = tc(n) + 50.0*(wtime() - t0(n))
           endif                                   
@@ -1261,6 +1494,7 @@ c  2) on exit all timers are reset to zero.
 c*
 c**********
 c
+      real*8  tci
       integer i
 c
       real*8     zero8
@@ -1275,10 +1509,15 @@ c
       write(lp,6000)
       do i= 1,97
         if     (nc(i).ne.0) then
+          if     (nc(i).le.5000) then
+            tci = tc(i)
+          else !correct for timing every 50th event
+            tci = (tc(i)*nc(i))/(nc(i)-mod(nc(i),50))
+          endif
           if     (cc(i).ne.'      ') then
-            write(lp,6100) cc(i),nc(i),tc(i),tc(i)/nc(i)
+            write(lp,6100) cc(i),nc(i),tci,tci/nc(i)
           else
-            write(lp,6150)    i, nc(i),tc(i),tc(i)/nc(i)
+            write(lp,6150)    i, nc(i),tci,tci/nc(i)
           endif
         endif
       enddo
@@ -1310,3 +1549,10 @@ c
      +   '   time/call =',f14.8)
  6200 format(/ /)
       end subroutine xctmrp
+c
+c  Revision history:
+c
+c> Nov. 2011 - time every 50-th event above 5,000 (was 1,000).
+c> Mar. 2012 - added optional mnflg to xclput
+c> Apr. 2012 - added optional mnflg to xceget and xceput
+c> Apr. 2012 - added xciget and xciput

@@ -1,41 +1,52 @@
+#if defined(ROW_LAND)
+#define SEA_P .true.
+#define SEA_U .true.
+#define SEA_V .true.
+#elif defined(ROW_ALLSEA)
+#define SEA_P allip(j).or.ip(i,j).ne.0
+#define SEA_U alliu(j).or.iu(i,j).ne.0
+#define SEA_V alliv(j).or.iv(i,j).ne.0
+#else
+#define SEA_P ip(i,j).ne.0
+#define SEA_U iu(i,j).ne.0
+#define SEA_V iv(i,j).ne.0
+#endif
       module mod_floats
       use mod_xc    ! HYCOM communication interface
       use mod_pipe  ! HYCOM debugging interface
+#if defined(STOKES)
+      use mod_stokes   !  Stokes Drift Velocity Module
+#endif
 c
       implicit none
 c
 c --- HYCOM synthetic floats, drifters and moorings
 c --- See subroutine floats (below) for more information
 c
-      integer, parameter, public :: 
-     & nfldim=400  !maximum number of synthetic floats
+      integer, parameter, public ::  nfldim=400  !maximum number of synthetic floats
 
-      real,    allocatable, dimension(:,:,:),
-     &         save, public ::
-     & wveli,        ! interface vertical velocity
-     & uold2,
-     & vold2,
-     & wold2u,
-     & wold2d
+      real, allocatable, dimension(:,:,:), save, public ::  
+     &   wveli,        ! interface vertical velocity
+     &   uold2,
+     &   vold2,
+     &   wold2u,
+     &   wold2d
 
-      real,    allocatable, dimension(:,:),
-     &         save, public ::
-     & dlondx,
-     & dlondy,
-     & dlatdx,
-     & dlatdy
+      real, allocatable, dimension(:,:),   save, public ::
+     &   dlondx,
+     &   dlondy,
+     &   dlatdx,
+     &   dlatdy
 
-      real,    allocatable, dimension(:,:,:),
-     &         save, private ::
-     & wvelup,
-     & wveldn
+      real, allocatable, dimension(:,:,:), save, private ::
+     &   wvelup,
+     &   wveldn
 
-      real,    allocatable, dimension(:,:),
-     &         save, private ::
-     & dpdxup,
-     & dpdyup,
-     & dpdxdn,
-     & dpdydn
+      real, allocatable, dimension(:,:),   save, private :: 
+     &  dpdxup,
+     &  dpdyup,
+     &  dpdxdn,
+     &  dpdydn
 
       real,    save :: flt(nfldim,13),
      &                 deltfl,fldepm,tbvar,tdecri,dtturb,uturb0
@@ -46,20 +57,20 @@ c
 
       logical, save :: synflt,turbvel,samplfl,wvelfl,hadvfl,nonlatlon
 
-      character*48 , save :: flnmflti,flnmflto,flnmfltio
+      character(48), save :: flnmflti,flnmflto,flnmfltio
 
       contains
 
       subroutine floats_init(m,n,time0)
+      use mod_cb_arrays  ! HYCOM saved arrays
+      implicit none
       integer m,n
       real    time0
-c
-      include 'common_blocks.h'
 c
 c --- read initial float data
 c --- initialize parameters and arrays required for floats
 c
-      integer i,j,k,l
+      integer i,j,k,l,margin
       integer nbcday,nsmday,ityp
 c
       include 'stmt_fns.h'
@@ -261,7 +272,7 @@ c ---------------------------------------------------------------------------
 c
       allocate( wvelup(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm),
      &          wveldn(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm),
-     &          dpdxup(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &          dpdxup(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy), 
      &          dpdyup(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &          dpdxdn(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &          dpdydn(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
@@ -274,6 +285,9 @@ c
      &          dlondy(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &          dlatdx(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &          dlatdy(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      call mem_stat_add( 11*(idm+2*nbdy)*(jdm+2*nbdy)*kdm )
+      call mem_stat_add(  9*(idm+2*nbdy)*(jdm+2*nbdy) )
+c
       if (synflt) then
 !$OMP   PARALLEL DO PRIVATE(j,i,k)
 !$OMP&           SCHEDULE(STATIC,jblk)
@@ -305,29 +319,35 @@ c
       margin = nbdy - 1
 c
       do j=1-margin,jj+margin
-c
-        do l=1,isu(j)
-          do i=max(1-margin,ifu(j,l)),min(ii+margin,ilu(j,l))
+        do i=1-margin,ii+margin
+          if (SEA_U) then
             do k=1,kk
+#if defined(STOKES)                
+      uold2(i,j,k   )=u(i,j,k,n)+usd(i,j,k)+ubavg(i,j,n)
+      uold2(i,j,k+kk)=u(i,j,k,n)+usd(i,j,k)+ubavg(i,j,n)
+#else                
               uold2(i,j,k   )=u(i,j,k,n)+ubavg(i,j,n)
               uold2(i,j,k+kk)=u(i,j,k,n)+ubavg(i,j,n)
-            enddo
-            dlondx(i,j)=(plon(i  ,j)*scpy(i  ,j)-
+#endif              
+            enddo !k
+            dlondx(i,j)=(plon(i  ,j)*scpy(i  ,j)- 
      &                   plon(i-1,j)*scpy(i-1,j))/scu2(i,j)
             dlatdx(i,j)=(plat(i  ,j)*scpy(i  ,j)-
      &                   plat(i-1,j)*scpy(i-1,j))/scu2(i,j)
             if (plat(i,j)-plat(i-1,j).ne.0.0) then
               nonlatlon=.true.
             endif
-          enddo
-        enddo
-c
-        do l=1,isv(j)
-          do i=max(1-margin,ifv(j,l)),min(ii+margin,ilv(j,l))
+          endif !iu
+          if (SEA_V) then
             do k=1,kk
+#if defined(STOKES)                
+      vold2(i,j,k   )=v(i,j,k,n)+vsd(i,j,k)+vbavg(i,j,n)+vsdbavg(i,j)
+      vold2(i,j,k+kk)=v(i,j,k,n)+vsd(i,j,k)+vbavg(i,j,n)+vsdbavg(i,j)
+#else                 
               vold2(i,j,k   )=v(i,j,k,n)+vbavg(i,j,n)
               vold2(i,j,k+kk)=v(i,j,k,n)+vbavg(i,j,n)
-            enddo
+#endif                  
+            enddo !k
             dlondy(i,j)=(plon(i,j  )*scpx(i,j  )-
      &                   plon(i,j-1)*scpx(i,j-1))/scv2(i,j)
             dlatdy(i,j)=(plat(i,j  )*scpx(i,j  )-
@@ -335,22 +355,18 @@ c
             if (plon(i,j)-plon(i,j-1).ne.0.0) then
               nonlatlon=.true.
             endif
-          enddo
-        enddo
-c
-        do l=1,isp(j)
-          do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+          endif !iv
+          if (SEA_P) then
             do k=1,kk
               wold2u(i,j,k   )=0.0
               wold2d(i,j,k   )=0.0
               wold2u(i,j,k+kk)=0.0
               wold2d(i,j,k+kk)=0.0
               wveli (i,j,k   )=0.0
-            enddo
+            enddo !k
             wveli(i,j,kk+1)=0.0
-          enddo
-        enddo
-c
+          endif !ip
+        enddo !i
       enddo !j
 c
 c ----------------------------------------
@@ -373,6 +389,7 @@ c
       end subroutine floats_init
 
       subroutine floats_restart
+      implicit none
 c
 c -----------------------------
 c --- output float restart file
@@ -400,11 +417,11 @@ c
         do l=1,nflt
           if (flt(l,1).gt.-999.0) then
             if (ifltyp(l).ne.2) then
-              write(uoff+802,971) iflnum(l),ifltyp(l),flt(l,8),flt(l,9),
-     &                      (flt(l,k),k=1,3)
+            write(uoff+802,971) iflnum(l),ifltyp(l),flt(l,8),flt(l,9),
+     &                          (flt(l,k),k=1,3)
             else
-              write(uoff+802,971) iflnum(l),ifltyp(l),flt(l,8),flt(l,9),
-     &                      (flt(l,k),k=1,2),flt(l,7)
+            write(uoff+802,971) iflnum(l),ifltyp(l),flt(l,8),flt(l,9),
+     &                          (flt(l,k),k=1,2),flt(l,7)
             endif
           endif
         enddo !l
@@ -418,17 +435,17 @@ c
       end subroutine floats_restart
 
       subroutine floats(m,n,timefl,ioflag)
+      use mod_cb_arrays  ! HYCOM saved arrays
+      implicit none 
 c
       integer, parameter :: nfl_debug = -1  !no debugging
-*     integer, parameter :: nfl_debug =  6  !debug float nfl_debug
-c
-      include 'common_blocks.h'
+c     integer, parameter :: nfl_debug =  6  !debug float nfl_debug
 c
       integer m,n,ioflag
       real    timefl
 c
 c --- local variables
-      integer i,j,k,l
+      integer i,j,k,l,margin
       real    tflt,sflt,thlo,thhi,thflt,
      &        uflt1,uflt2,uflt3,uflt4,uflt,
      &        vflt1,vflt2,vflt3,vflt4,vflt,
@@ -444,8 +461,8 @@ c --- local variables
      &        ntermn,i1,j1,ngoodi
       integer ied,iede,ifladv
 c
-      integer*4 seed,numran,inisee,iflag
-      integer*2 iseed1,iseed2
+      integer*4  seed,numran,inisee,iflag
+      integer*4  iseed1,iseed2
       equivalence ( iseed1, iseed2, seed ) 
 c
 c --- local velocity component storage for synthetic moorings
@@ -460,7 +477,7 @@ c --- arrays required for parallelization
       integer iproc
 c
       real   timer1, timer2, totime
-      real*8 wtime
+      real*8  wtime
 c
       include 'stmt_fns.h'
 c
@@ -574,15 +591,15 @@ c
 c
 c --- set pressure array at p points
       do j=1-margin,jj+margin
-        do l=1,isp(j)
-          do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+        do i=1-margin,ii+margin
+          if (SEA_P) then
             do k=1,kk
               k1=k+1
               p(i,j,k+1)=p(i,j,k)+dp(i,j,k,n)
-            enddo
-          enddo
-        enddo
-      enddo
+            enddo !k
+          endif !ip
+        enddo !i
+      enddo !j
 c
 c --- set pressure array at u and v points
 c --- calculate dpdx, dpdy at interfaces above and below layer k for
@@ -593,35 +610,30 @@ c
         margin = 5
 c
         do j=1-margin,jj+margin
-c
-          do l=1,isu(j)
-            do i=max(1-margin,ifu(j,l)),min(ii+margin,ilu(j,l))
+          do i=1-margin,ii+margin
+            if (SEA_U) then
               pu(i,j,k+1)=pu(i,j,k)+dpu(i,j,k,n)
               if (wvelfl) then
                 dpdxup(i,j)=
-     &                (p(i,j,k  )*scpy(i,j)-p(i-1,j,k  )*scpy(i-1,j))
-     &                /scu2(i,j)
+     &            (p(i,j,k  )*scpy(i,j)-p(i-1,j,k  )*scpy(i-1,j))
+     &            /scu2(i,j)
                 dpdxdn(i,j)=
-     &                  (p(i,j,k+1)*scpy(i,j)-p(i-1,j,k+1)*scpy(i-1,j))
-     &              /scu2(i,j)
+     &            (p(i,j,k+1)*scpy(i,j)-p(i-1,j,k+1)*scpy(i-1,j))
+     &            /scu2(i,j)
               endif
-            enddo
-          enddo
-c
-          do l=1,isv(j)
-            do i=max(1-margin,ifv(j,l)),min(ii+margin,ilv(j,l))
+            endif !iu
+            if (SEA_V) then
               pv(i,j,k+1)=pv(i,j,k)+dpv(i,j,k,n)
               if (wvelfl) then
                 dpdyup(i,j)=
-     &                (p(i,j,k  )*scpx(i,j)-p(i,j-1,k  )*scpx(i,j-1))
-     &                /scv2(i,j)
+     &            (p(i,j,k  )*scpx(i,j)-p(i,j-1,k  )*scpx(i,j-1))
+     &            /scv2(i,j)
                 dpdydn(i,j)=
-     &                (p(i,j,k+1)*scpx(i,j)-p(i,j-1,k+1)*scpx(i,j-1))
-     &                /scv2(i,j)
+     &            (p(i,j,k+1)*scpx(i,j)-p(i,j-1,k+1)*scpx(i,j-1))
+     &            /scv2(i,j)
               endif
-            enddo
-          enddo
-c
+            endif !iv
+          enddo !i
         enddo !j
 c
 c --- calculate the vertical velocity arrays
@@ -629,30 +641,52 @@ c
         margin = 4
 c
         do j=1-margin,jj+margin
-          do l=1,isp(j)
-            do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+          do i=1-margin,ii+margin
+            if (SEA_P) then
               if (wvelfl) then
                 wveli(i,j,k+1)=deltfl*wveli(i,j,k+1)/delt1
                 if (dp(i,j,k,n).gt.tencm) then
-                  wvelup(i,j,k)=-0.5*deltfl*
-     &             ((u(i  ,j  ,k,n)+ubavg(i  ,j  ,n))*dpdxup(i  ,j  )+
-     &              (u(i+1,j  ,k,n)+ubavg(i+1,j  ,n))*dpdxup(i+1,j  )+
-     &              (v(i  ,j  ,k,n)+vbavg(i  ,j  ,n))*dpdyup(i  ,j  )+
-     &              (v(i  ,j+1,k,n)+vbavg(i  ,j+1,n))*dpdyup(i  ,j+1))
-     &              /onem+wveli(i,j,k  )
+                    wvelup(i,j,k)=-0.5*deltfl*
+#if defined(STOKES)             
+     &         ((u(i  ,j  ,k,n)+usd(i  ,j  ,k)+
+     &           ubavg(i  ,j  ,n))*dpdxup(i  ,j  )+
+     &          (u(i+1,j  ,k,n)+usd(i+1,j  ,k)+
+     &           ubavg(i+1,j  ,n))*dpdxup(i+1,j  )+
+     &          (v(i  ,j  ,k,n)+vsd(i  ,j  ,k)+
+     &           vbavg(i  ,j  ,n))*dpdyup(i  ,j  )+
+     &          (v(i  ,j+1,k,n)+vsd(i  ,j+1,k)+
+     &           vbavg(i  ,j+1,n))*dpdyup(i  ,j+1))
+#else             
+     &            ((u(i  ,j  ,k,n)+ubavg(i  ,j  ,n))*dpdxup(i  ,j  )+
+     &             (u(i+1,j  ,k,n)+ ubavg(i+1,j  ,n))*dpdxup(i+1,j  )+
+     &             (v(i  ,j  ,k,n)+vbavg(i  ,j  ,n) )*dpdyup(i  ,j  )+
+     &             (v(i  ,j+1,k,n)+vbavg(i  ,j+1,n))*dpdyup(i  ,j+1))
+#endif
+     &             /onem+wveli(i,j,k  )
                   wveldn(i,j,k)=-0.5*deltfl*
-     &             ((u(i  ,j  ,k,n)+ubavg(i  ,j  ,n))*dpdxdn(i  ,j  )+
-     &              (u(i+1,j  ,k,n)+ubavg(i+1,j  ,n))*dpdxdn(i+1,j  )+
-     &              (v(i  ,j  ,k,n)+vbavg(i  ,j  ,n))*dpdydn(i  ,j  )+
-     &              (v(i  ,j+1,k,n)+vbavg(i  ,j+1,n))*dpdydn(i  ,j+1))
-     &              /onem+wveli(i,j,k+1)
+#if defined(STOKES)
+     &      ((u(i  ,j  ,k,n)+usd(i  ,j  ,k)+
+     &        ubavg(i  ,j  ,n))*dpdxdn(i  ,j  )+
+     &       (u(i+1,j  ,k,n)+usd(i+1,j  ,k)+
+     &        ubavg(i+1,j,n))*dpdxdn(i+1,j  )+
+     &       (v(i  ,j  ,k,n)+vsd(i  ,j  ,k)+
+     &        vbavg(i  ,j  ,n))*dpdydn(i  ,j  )+
+     &       (v(i  ,j+1,k,n)+vsd(i  ,j+1,k)+
+     &        vbavg(i  ,j+1,n))*dpdydn(i  ,j+1))
+#else 
+     &            ((u(i  ,j  ,k,n)+ubavg(i  ,j  ,n))*dpdxdn(i  ,j  )+
+     &             (u(i+1,j  ,k,n)+ubavg(i+1,j  ,n))*dpdxdn(i+1,j  )+
+     &             (v(i  ,j  ,k,n)+vbavg(i  ,j  ,n))*dpdydn(i  ,j  )+
+     &             (v(i  ,j+1,k,n)+vbavg(i  ,j+1,n))*dpdydn(i  ,j+1))
+#endif
+     &             /onem+wveli(i,j,k+1)
                 else
                   wvelup(i,j,k)=0.0
                   wveldn(i,j,k)=0.0
                 endif
               endif
-            enddo
-          enddo
+            endif !ip
+          enddo !i
         enddo !j
 c
       enddo !k
@@ -763,8 +797,8 @@ c --- when it does, again suppress float advection during first pass
         endif
 c
 c --- check if model time has reached float termination time
-        if (flt(nfl,9).gt.0.0 .and.
-     &      timefl-flt(nfl,9).gt. 0.001) then
+        if (       flt(nfl,9).gt.0.0 .and.
+     &      timefl-flt(nfl,9).gt.0.001    ) then
           ntermn=-10
         endif
 c
@@ -780,8 +814,8 @@ c
         margin = 0
 c
         do j=1-margin,jj+margin
-          do l=1,isp(j)
-            do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+          do i=1-margin,ii+margin
+            if (SEA_P) then
 c
 c --- search for the surrounding p-grid points
               if (i+i0.lt.itdm .and. j+j0.lt.jtdm) then
@@ -819,7 +853,7 @@ c --- search for the surrounding u-grid points
                         if (flt(nfl,1).ge.alomin .and.
      &                      flt(nfl,1).lt.alomax .and.
      &                      flt(nfl,2).ge.alamin .and.
-     &                      flt(nfl,2).lt.alamax) then
+     &                      flt(nfl,2).lt.alamax) then  
                           ifltll(2)=i1
                           jfltll(2)=j1
 c
@@ -850,7 +884,7 @@ c --- search for the surrounding v-grid points
                         if (flt(nfl,1).ge.alomin .and.
      &                      flt(nfl,1).lt.alomax .and.
      &                      flt(nfl,2).ge.alamin .and.
-     &                      flt(nfl,2).lt.alamax) then
+     &                      flt(nfl,2).lt.alamax) then      
                           ifltll(3)=i1
                           jfltll(3)=j1
 c
@@ -872,8 +906,8 @@ c --- point search
                   go to 13
                 endif
               endif
-            enddo !i
-          enddo !l
+            endif !ip
+          enddo !i
         enddo !j
 c
  13     continue
@@ -891,7 +925,7 @@ c
      &                    plon(ifltll(1),jfltll(1)),
      &                    plat(ifltll(1),jfltll(1))
  100        format(/'diagnostics for float',i6,' of',i6,', time step',
-     &            i9/'float time step',i9)
+     &              i9/'float time step',i9)
  101        format('float',i6,' ntermn:',i6,' position:',2(1pe12.4)/
      &             'lower left points, p,u,v:',3(2i5,2x)/
      &             'mnproc =',i4,'  plon,plat =',1pe12.4,1pe12.4)
@@ -1375,9 +1409,9 @@ c
                   varb2d(i1,j1)=dlatdx(i,j)*uold2(i,j,k+kold1)
                 enddo
               enddo
-              call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
-     &                    xpos0,ypos0,maskpt(1,1,ngrid),
-     &                    ngood(ngrid),ngrid,intpfl,radian,vfltm,ier)
+             call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
+     &                   xpos0,ypos0,maskpt(1,1,ngrid),
+     &                   ngood(ngrid),ngrid,intpfl,radian,vfltm,ier)
               vflt2=vflt2+vfltm
             endif
 c
@@ -1431,9 +1465,9 @@ c
                   varb2d(i1,j1)=dlatdx(i,j)*uold2(i,j,k+kold1)
                 enddo
               enddo
-              call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
-     &                    xpos0,ypos0,maskpt(1,1,ngrid),
-     &                    ngood(ngrid),ngrid,intpfl,radian,vfltm,ier)
+             call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
+     &                   xpos0,ypos0,maskpt(1,1,ngrid),
+     &                   ngood(ngrid),ngrid,intpfl,radian,vfltm,ier)
               vflt3=vflt3+vfltm
             endif
 c
@@ -1453,15 +1487,23 @@ c
             do j1=1,4
               j=j1+jfltll(ngrid)-2
               if (ifltyp(nfl).ne.4) then
+#if defined(STOKES)
+                 varb2d(i1,j1)=dlondx(i,j)*(u(i,j,k,n)+usd(i,j,k)+
+     &              ubavg(i,j,n))
+              else
+      varb2d(i1,j1)=u(i,j,k,n)+usd(i,j,k)+ubavg(i,j,n)
+#else
                 varb2d(i1,j1)=dlondx(i,j)*(u(i,j,k,n)+ubavg(i,j,n))
               else
                 varb2d(i1,j1)=u(i,j,k,n)+ubavg(i,j,n)
+#endif                
+                
               endif
             enddo
           enddo
-          call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
-     &                xpos3,ypos3,maskpt(1,1,ngrid),
-     &                ngood(ngrid),ngrid,intpfl,radian,uflt4,ier)
+         call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
+     &               xpos3,ypos3,maskpt(1,1,ngrid),
+     &               ngood(ngrid),ngrid,intpfl,radian,uflt4,ier)
 c
           if (nonlatlon .and. ifltyp(nfl).ne.4) then
             ngrid=3
@@ -1469,7 +1511,13 @@ c
               i=i1+ifltll(ngrid)-2
               do j1=1,4
                 j=j1+jfltll(ngrid)-2
+                
+#if defined(STOKES)
+                varb2d(i1,j1)=dlondy(i,j)*(v(i,j,k,n)+vsd(i,j,k)+
+     &                  vbavg(i,j,n))
+#else                
                 varb2d(i1,j1)=dlondy(i,j)*(v(i,j,k,n)+vbavg(i,j,n))
+#endif                          
               enddo
             enddo
             call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
@@ -1484,9 +1532,17 @@ c
             do j1=1,4
               j=j1+jfltll(ngrid)-2
               if (ifltyp(nfl).ne.4) then
+                  
+#if defined(STOKES)
+               varb2d(i1,j1)=dlatdy(i,j)*(v(i,j,k,n)+vsd(i,j,k)+
+     &             vbavg(i,j,n))
+              else
+       varb2d(i1,j1)=v(i,j,k,n)+vsd(i,j,k)+vbavg(i,j,n)
+#else
                 varb2d(i1,j1)=dlatdy(i,j)*(v(i,j,k,n)+vbavg(i,j,n))
               else
                 varb2d(i1,j1)=v(i,j,k,n)+vbavg(i,j,n)
+#endif                      
               endif
             enddo
           enddo
@@ -1500,7 +1556,14 @@ c
               i=i1+ifltll(ngrid)-2
               do j1=1,4
                 j=j1+jfltll(ngrid)-2
+                
+#if defined(STOKES)
+                varb2d(i1,j1)=dlatdx(i,j)*(u(i,j,k,n)+usd(i,j,k)+
+     &                   ubavg(i,j,n))
+#else           
                 varb2d(i1,j1)=dlatdx(i,j)*(u(i,j,k,n)+ubavg(i,j,n))
+#endif                
+                
               enddo
             enddo
             call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
@@ -1543,9 +1606,9 @@ c
                     varb2d(i1,j1)=dlatdx(i,j)
                   enddo
                 enddo
-                call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
-     &                      xpos0,ypos0,maskpt(1,1,ngrid),
-     &                      ngood(ngrid),ngrid,intpfl,radian,dladx,ier)
+               call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
+     &                     xpos0,ypos0,maskpt(1,1,ngrid),
+     &                     ngood(ngrid),ngrid,intpfl,radian,dladx,ier)
                 ngrid=3
                 do i1=1,4
                   i=i1+ifltll(ngrid)-2
@@ -1642,9 +1705,9 @@ c
                 varb2d(i1,j1)=q*wvhi+(1.0-q)*wvlo
               enddo
             enddo
-            call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
-     &                  xpos1,ypos1,maskpt(1,1,ngrid),
-     &                  ngood(ngrid),ngrid,intpfl,radian,wflt2,ier)
+           call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
+     &                 xpos1,ypos1,maskpt(1,1,ngrid),
+     &                 ngood(ngrid),ngrid,intpfl,radian,wflt2,ier)
 c
             call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
      &                  xpos2,ypos2,maskpt(1,1,ngrid),
@@ -1812,9 +1875,9 @@ c --- temperature interpolation
                 endif
               enddo
             enddo
-            call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
-     &                  flt(nfl,1),flt(nfl,2),maskpt(1,1,ngrid),
-     &                  ngood(ngrid),ngrid,intpfl,radian,tflt,ier)
+           call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
+     &                 flt(nfl,1),flt(nfl,2),maskpt(1,1,ngrid),
+     &                 ngood(ngrid),ngrid,intpfl,radian,tflt,ier)
             flt(nfl,5)=tflt
 c
 c --- salinity interpolation
@@ -1859,9 +1922,19 @@ c --- 3-d u and v interpolation
                   j=j1+jfltll(ngrid)-2
                   k1=max(1 ,k-1)
                   k2=min(kk,k+1)
+                  
+#if defined(STOKES)
+                  varb2d(i1,j1)=ubavg(i,j,n)+
+     &                0.5*(     q *(u(i,j,k1,n)+u(i,j,k,n)+
+     &                            usd(i,j,k1)+usd(i,j,k))+
+     &                     (1.0-q)*(u(i,j,k2,n)+u(i,j,k,n)+
+     &                            usd(i,j,k2)+usd(i,j,k)))
+#else                 
                   varb2d(i1,j1)=ubavg(i,j,n)+
      &                0.5*(     q *(u(i,j,k1,n)+u(i,j,k,n))+
      &                     (1.0-q)*(u(i,j,k2,n)+u(i,j,k,n)))
+#endif                
+                  
                 enddo
               enddo
               call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
@@ -1875,9 +1948,19 @@ c
                   j=j1+jfltll(ngrid)-2
                   k1=max(1 ,k-1)
                   k2=min(kk,k+1)
+                  
+#if defined(STOKES)
+                  varb2d(i1,j1)=vbavg(i,j,n)+
+     &                0.5*(     q *(v(i,j,k1,n)+v(i,j,k,n)+
+     &                            vsd(i,j,k1)+vsd(i,j,k))+
+     &                     (1.0-q)*(v(i,j,k2,n)+v(i,j,k,n)+
+     &                            vsd(i,j,k2)+vsd(i,j,k)))
+#else                 
                   varb2d(i1,j1)=vbavg(i,j,n)+
      &                0.5*(     q *(v(i,j,k1,n)+v(i,j,k,n))+
      &                     (1.0-q)*(v(i,j,k2,n)+v(i,j,k,n)))
+#endif                  
+                  
                 enddo
               enddo
               call intrph(varb2d,ptlon(1,1,ngrid),ptlat(1,1,ngrid),
@@ -2049,8 +2132,8 @@ c
         open(unit=uoff+801,file=flnmflto,status='unknown',
      &       form='formatted',position='append')
         do nfl=1,nflt
-          if (flt(nfl,1).gt.-999. .and. timefl-flt(nfl,8).ge.-0.001)
-     &        then
+          if (       flt(nfl,1).gt.-999. .and.
+     &        timefl-flt(nfl,8).ge.-0.001     ) then
 c
             if (samplfl) then
               if (ifltyp(nfl).ne.4) then
@@ -2091,32 +2174,24 @@ c
         margin = 6
 c
         do j=1-margin,jj+margin
-c
-          do l=1,isu(j)
-            do i=max(1-margin,ifu(j,l)),min(ii+margin,ilu(j,l))
+          do i=1-margin,ii+margin
+            if (SEA_U) then
               do k=1,kk
                 uold2(i,j,k+kold2)=u(i,j,k,n)+ubavg(i,j,n)
-              enddo
-            enddo
-          enddo
-c
-          do l=1,isv(j)
-            do i=max(1-margin,ifv(j,l)),min(ii+margin,ilv(j,l))
+              enddo !k
+            endif !iu
+            if (SEA_V) then
               do k=1,kk
                 vold2(i,j,k+kold2)=v(i,j,k,n)+vbavg(i,j,n)
-              enddo
-            enddo
-          enddo
-c          
-          do l=1,isp(j)
-            do i=max(1-margin,ifp(j,l)),min(ii+margin,ilp(j,l))
+              enddo !k
+            endif !iv
+            if (SEA_P) then
               do k=1,kk
                 wold2u(i,j,k+kold2)=wvelup(i,j,k)
                 wold2d(i,j,k+kold2)=wveldn(i,j,k)
-              enddo
-            enddo
-          enddo
-c
+              enddo !k
+            endif !ip
+          enddo !i
         enddo !j
 c
       endif
@@ -2138,11 +2213,14 @@ c
 c --- nptmin is presently set to 9
 c
       implicit none
-      real varb2d(4,4),ptlon(4,4),ptlat(4,4)
+      real, dimension(4,4)   ::  varb2d,ptlon,ptlat
       real fllon,fllat,fllon2,fllat2,vfbint
       real wghtx,wghty,vrbint,suma,wghts,xcen,ycen,xo,yo,xsd,ysd,var
       real dx,dy,dxflt,dyflt,det,denom,radian
-      real at(16),xt(16),yt(16),parm(12),rtr(10,10),rtri(10,10),rta(10)
+      real, dimension(16)    :: at,xt,yt
+      real, dimension(12)    :: parm
+      real, dimension(10,10) :: rtr,rtri
+      real, dimension(10)    :: rta
       integer iarea(200)
       integer ngood,ngrid,intpfl,ier,iflag,ict,nptmin
       integer i,j,nd,nds,np,na
@@ -2415,19 +2493,23 @@ c
       endif
 c
       end subroutine intrph
-
-      end module mod_floats
 c
 c
       SUBROUTINE F_INVMTX (A,NA,V,NV,N,D,IP,IER)
+      implicit none
 c
 c --- this matrix inversion code is used in the parameter matrix
 c --- objective analysis algorithm of mariano and brown (1994), specifically
 c --- in the code used to calculate the large scale 2-d trend surface
 c
       INTEGER NA,NV,N,IP(2*N),IER
-      DIMENSION A(NA,N),V(NV,N)
-      DATA IEXMAX/75/
+      REAL D
+      REAL, DIMENSION(NA,N) ::  A
+      REAL, DIMENSION(NV,N) ::  V
+c     DATA IEXMAX/75/
+      integer, parameter :: iexmax=75
+      integer j,m,i,iex, k, l, npm
+      real    vmax,ch, pvt,pvtmx, hold, vh
   115 FORMAT(28H0*MATRIX SINGULAR IN INVMTX*)
   116 FORMAT(34H0*DETERMINANT TOO LARGE IN INVMTX*)
       IER = IERINV_F(N,NA,NV)
@@ -2506,6 +2588,8 @@ c      PRINT 115
       END SUBROUTINE F_INVMTX
 c
       INTEGER FUNCTION IERINV_F (N,NA,NV)
+      implicit none
+      INTEGER N, NA, NV
   103 FORMAT(23H0* N .LT. 1 IN INVMTX *)
   104 FORMAT(24H0* NA .LT. N IN INVMTX *)
   105 FORMAT(24H0* NV .LT. N IN INVMTX *)
@@ -2525,9 +2609,14 @@ c
       END FUNCTION IERINV_F
 
       subroutine f_stat(ser,ls,amean,var,std)
+      implicit none
 c
 c --- computes mean, variance, standard deviation of data sequence
-      dimension ser(*)
+      real, dimension(16) :: ser
+      integer ls
+      real amean,var,std
+      real sum,value
+      integer j
       sum=0.0
       do j=1,ls
         sum=sum+ser(j)
@@ -2549,10 +2638,12 @@ c --- following are subprograms provided by Geoff Samuels, and inserted
 c --- by Nasseer Idrisi (10/5/01)
 
       subroutine rantab_ini(rtab,iseed1,iseed2,iflag)
+      implicit none
 c
       real*4     rtab(200,2)
-      integer*2 iseed1,iseed2
-      integer*4 iflag
+      integer*4  iseed1,iseed2
+      integer*4  iflag
+      integer    ic, inisee, itime
 c
 c --- get the two seeds
 c --- iseed1 is for the 'usual'    random number generator  (udev_rt)
@@ -2602,7 +2693,8 @@ c
 c --- each time this routine is called one of the 200 records in "rtab"
 c --- is randomly selected and new random numbers are inserted
 c
-      real*4 rtab(200,2)
+      real*4     rtab(200,2)
+      integer*4  iseed1,iseed2,numran
 c
 c --- pick a number between 1 and 200
       numran = nint(1+199*udev_rt(iseed1))
@@ -2618,15 +2710,21 @@ c
       end subroutine rantab
 c
       real function grand_rt(idum)
+      implicit none
 c
 c provides random number from gaussian distribution, mean 0, varaince 1,
 c for finding random component of turbulent u
 c
 c from arthur mariano using routines from numerical recipes
 c
-      data iset/0/
-      save iset,gset
-c
+      integer*4  idum
+      integer*4  iset
+      real*4     gset,v1,v2,r,fac
+c      data iset/0/
+c      save iset,gset
+c 
+      iset = 0
+      gset=0.0
       if (iset.eq.0) then
  1      v1=2.*udev_rt(idum)-1.0
         v2=2.*udev_rt(idum)-1.0
@@ -2645,13 +2743,15 @@ c
       end function grand_rt
 c
       real function udev_rt(iseed)
-
-      parameter (m=714025,ia=1366,ic=150889,rm=1./m)
-
-      dimension ir(97)
-
-      data iff / 0 /
+      
+      integer*4  iseed
+      integer, parameter :: m=714025,ia=1366,ic=150889
+      real  rm
+      integer, dimension(97) :: ir
+      integer iy, iff,j
 c
+      iff = 0
+      rm = 1./m
       if (iseed .lt. 0 .or. iff .eq. 0) then
         iff = 1
         iseed = mod(ic-iseed,m)
@@ -2671,8 +2771,11 @@ c
       ir(j) = iseed
       return
       end function udev_rt
+      end module mod_floats
 c
 c
 c> Revision history:
 c>
 c> Nov  2006 - 1st module version
+c> Nov  2012 - implicit none added by Till Andreas Rasmussen
+c> May  2014 - use land/sea masks (e.g. ip) to skip land

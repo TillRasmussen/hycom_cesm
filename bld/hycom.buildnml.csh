@@ -13,7 +13,7 @@ mkdir -p OUTPUT
 mv  archv.* archm.* OUTPUT/
 mv *cice.h.*.nc OUTPUT/
 rm ovrtn_out 
-cp -p -f /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT/* .
+cp -p -f /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_h98/* .
 set base_filename = "hycom_in"
 
 set inst_counter = 1

@@ -296,6 +296,82 @@ c ---   east boundary is all land.
         enddo
       endif
 c
+c --- logical alliX indicates entire row is sea
+!$OMP PARALLEL DO PRIVATE(j,i)
+!$OMP&         SCHEDULE(STATIC,jblk)
+      do j=1-nbdy+1,jj+nbdy-1
+        allip(j) = .true.
+        alliq(j) = .true.
+        alliu(j) = .true.
+        alliv(j) = .true.
+        do i=1-nbdy,ii+nbdy
+c ---     are all iX(:,j) sea points?
+          allip(j) = allip(j) .and. ip(i,j).ne.0
+          alliq(j) = alliq(j) .and. iq(i,j).ne.0
+          alliu(j) = alliu(j) .and. iu(i,j).ne.0
+          alliv(j) = alliv(j) .and. iv(i,j).ne.0
+        enddo !i
+      enddo !j
+c
+c --- determine sea-only i-1, i+1, j-1, and j+1 indexes
+!$OMP PARALLEL DO PRIVATE(j,i)
+!$OMP&         SCHEDULE(STATIC,jblk)
+      do j=1-nbdy+1,jj+nbdy-1
+        do i=1-nbdy+1,ii+nbdy-1
+c ---     W,E,S,N if sea, otherwise center point
+          if     (ip(i-1,j).ne.0) then
+            ipim1(i,j) = i-1
+          else
+            ipim1(i,j) = i
+          endif
+          if     (ip(i+1,j).ne.0) then
+            ipip1(i,j) = i+1
+          else
+            ipip1(i,j) = i
+          endif
+          if     (ip(i,j-1).ne.0) then
+            ipjm1(i,j) = j-1
+          else
+            ipjm1(i,j) = j
+          endif
+          if     (ip(i,j+1).ne.0) then
+            ipjp1(i,j) = j+1
+          else
+            ipjp1(i,j) = j
+          endif
+c
+c ---     W,E,S,N if sea, otherwise E,W,N,S if sea, otherwise center point
+          if     (ip(i-1,j).ne.0) then
+            ipim1x(i,j) = i-1
+          elseif (ip(i+1,j).ne.0) then
+            ipim1x(i,j) = i+1
+          else
+            ipim1x(i,j) = i
+          endif
+          if     (ip(i+1,j).ne.0) then
+            ipip1x(i,j) = i+1
+          elseif (ip(i-1,j).ne.0) then
+            ipip1x(i,j) = i-1
+          else
+            ipip1x(i,j) = i
+          endif
+          if     (ip(i,j-1).ne.0) then
+            ipjm1x(i,j) = j-1
+          elseif (ip(i,j+1).ne.0) then
+            ipjm1x(i,j) = j+1
+          else
+            ipjm1x(i,j) = j
+          endif
+          if     (ip(i,j+1).ne.0) then
+            ipjp1x(i,j) = j+1
+          elseif (ip(i,j-1).ne.0) then
+            ipjp1x(i,j) = j-1
+          else
+            ipjp1x(i,j) = j
+          endif
+        enddo !i
+      enddo !j
+c
 c --- determine loop bounds for vorticity points, including interior and
 c --- promontory points
       call indxi(iq,ifq,ilq,isq)
@@ -459,3 +535,5 @@ c> Revision history
 c>
 c> Nov  2000 - error stop on single-width inlets and 1-point seas
 c> Oct  2008 - warning    on single-width inlets
+c> May  2014 - added ipim1,ipip1,ipjm1,ipjp1,ipim1x,ipip1x,ipjm1x,ipjp1x
+c> May  2014 - added allip,alliq,alliu,alliv

@@ -1,56 +1,42 @@
-      subroutine blkdat
-#if defined(USE_CCSM3)
-      use ccsm3_io    ! CCSM3 I/O interface, includes common_blocks.h
-      use mod_xc,     ! HYCOM communication interface
-     &    only: xcstop, xcsync, mnproc
-#else
-      use mod_xc      ! HYCOM communication interface
+      subroutine blkdat(hycom_start_dtg)
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+
+      use mod_incupd     ! HYCOM incremental update (for data assimilation)
+      use mod_floats     ! HYCOM synthetic floats, drifters and moorings
+      use mod_tides      ! HYCOM tides
+#if defined(STOKES)
+      use mod_stokes     ! HYCOM Stokes Drift effects from Wave fields
 #endif
-      use mod_incupd  ! HYCOM incremental update (for data assimilation)
-      use mod_floats  ! HYCOM synthetic floats, drifters and moorings
-      use mod_tides   ! HYCOM tides
       implicit none
 c
-#if ! defined(USE_CCSM3)
-      include 'common_blocks.h'
-#endif
-c
-      real      day1,hybrlx
+!!Alex add variable for CESM
+      real,         intent(in), optional :: hycom_start_dtg
+            
+      real      day1,hybrlx,cplifq,frzifq
       integer   k,kdmblk,mlflag,thflag,trcflg1
+      integer   lngblk
       character sigfmt*26
 c
       include 'stmt_fns.h'
 c
 c --- initialize common variables.
 c
-#if defined(USE_CCSM3)
-      flnminp = flnmpard
+#if defined(OCEANS2)
+      if     (nocean.eq.2) then
+c ---   slave HYCOM works from ./OCEAN2
+        flnminp = './OCEAN2/'
+      else
+c ---   master HYCOM
+        flnminp = './'
+      endif
 #else
       flnminp = './'
 #endif
       open(unit=uoff+99,file=trim(flnminp)//'blkdat.input')  !on all nodes
 c
 c --- 'lp' = logical unit number for printer output
-      lp = 6
-c
-c --- 'g'      = gravitational acceleration (m/s**2)
-c --- 'thref'  = reference value of specific volume (m**3/kg)
-      g     =   9.806
-      thref =   1.0e-3
-c
-c --- layer thicknesses in units of pressure:
-      tenm   = 98060.0    ! g/thref *10.0
-      onem   =  9806.0    ! g/thref
-      tencm  =   980.6    ! g/thref * 0.1
-      onecm  =    98.06   ! g/thref * 0.01
-      onemm  =     9.806  ! g/thref * 0.001
-c
-      qonem  = 1.0/onem   ! thref/g
-      qthref = 1.0/thref
-c
-c --- pi-related values
-      pi = 4.d0*atan(1.d0)
-      radian=pi/180.0
+c     lp = 6  !now defined in xcspmd
 c
 c --- four lines (80-characters) describing the simulation
       read( uoff+99,'(a80/a80/a80/a80)') ctitle
@@ -85,6 +71,15 @@ c --- 'jdm   ' = latitudinal  array size
       endif !1st tile
       call blkini(itest ,'idm   ')
       call blkini(jtest ,'jdm   ')
+c
+      if     (itdm.eq.-1) then !serial relo case only
+        itdm = itest
+        idm  = itest
+        ii   = itest
+        jtdm = jtest
+        jdm  = jtest
+        jj   = jtest
+      endif
 c
       if     (itest.ne.itdm) then
         if (mnproc.eq.1) then
@@ -154,6 +149,33 @@ c
 *     enddo !k
 c
 c --- 'kdm   ' = number of layers
+      if (mnproc.eq.1) then
+      write(lp,*)
+      endif !1st tile
+      call blkini(kdmblk,'kdm   ')
+c
+#if defined(RELO)
+      kdm = kdmblk
+      kk  = kdmblk
+c
+      allocate(
+     &    dp0k(kdm),
+     &    ds0k(kdm),
+     &   sigma(kdm),
+     &  salmin(kdm) )
+      call mem_stat_add( 4*kdm )
+#else
+      if     (kdmblk.ne.kdm) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a,i3 /)') 
+     &    'error - expected kdm =',kdm
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif !error
+#endif
+c
 c --- 'nhybrd' = number of hybrid levels (0=all isopycnal)
 c --- 'nsigma' = number of sigma  levels (nhybrd-nsigma z-levels)
 c --- 'dp00'   = deep    z-level spacing minimum thickness (m)
@@ -198,10 +220,16 @@ c ---              k=1,kdm; dp0k must be zero for k>nhybrd
 c --- 'ds0k  ' = layer k shallow z-level spacing minimum thickness (m)
 c ---              k=1,nsigma
 c
-      if (mnproc.eq.1) then
-      write(lp,*)
-      endif !1st tile
-      call blkini(kdmblk,'kdm   ')
+c --- uses version 2.2.58 definition of deep and shallow z-levels.
+c --- terrain following starts at depth dpns=sum(dp0k(k),k=1,nsigma) and
+c --- ends at depth dsns=sum(ds0k(k),k=1,nsigma), and the depth of the
+c --- k-th layer interface varies linearly with total depth between
+c --- these two reference depths.
+c
+c --- previous to 2.2.58, it was layer thickness (not layer interface
+c --- depth) that varied linearly with total depth.  These two approachs
+c --- are identical for "pure sigma-z", but differ if ds00f/=dp00f.
+c
       call blkini(nhybrd,'nhybrd')
       call blkini(nsigma,'nsigma')
       call blkinr2(dp00,k,
@@ -255,15 +283,6 @@ c --- isopycnal (MICOM-like) iff nhybrd is 0
                stop '(blkdat)'
       endif
 c
-      if     (kdmblk.ne.kdm) then
-        if (mnproc.eq.1) then
-        write(lp,'(/ a,i3 /)') 
-     &    'error - expected kdm =',kdm
-        call flush(lp)
-        endif !1st tile
-        call xcstop('(blkdat)')
-               stop '(blkdat)'
-      endif !error
       if     (nhybrd.gt.kdm) then
         if (mnproc.eq.1) then
         write(lp,'(/ a,i3 /)') 
@@ -515,7 +534,7 @@ c
       enddo !k
 c
 c --- 'iniflg' = initial state flag (0=level,1=zonal,2=climatology)
-c --- 'jerlv0' = initial jerlov water type (1 to 5; 0 to use kpar)
+c --- 'jerlv0' = initial jerlov water type (1 to 5; 0 kpar, -1 chl)
       if (mnproc.eq.1) then
       write(lp,*)
       endif !1st tile
@@ -531,33 +550,15 @@ c
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
-      if (jerlv0.lt.0 .or. jerlv0.gt.5) then
+      if (jerlv0.lt.-1 .or. jerlv0.gt.5) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - jerlv0 must be 0 or between 1 and 5'
+     &    'error - jerlv0 must be -1 or 0 or between 1 and 5'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
-c
-c --- red and blue light extinction coefficients (1/pressure units)
-c --- for jerlov water types 1 to 5 - fraction of penetrating red light
-      betard(1) = 1.0/( 0.35*onem)
-      betard(2) = 1.0/( 0.6 *onem)
-      betard(3) = 1.0/( 1.0 *onem)
-      betard(4) = 1.0/( 1.5 *onem)
-      betard(5) = 1.0/( 1.4 *onem)
-      betabl(1) = 1.0/(23.0 *onem)
-      betabl(2) = 1.0/(20.0 *onem)
-      betabl(3) = 1.0/(17.0 *onem)
-      betabl(4) = 1.0/(14.0 *onem)
-      betabl(5) = 1.0/( 7.9 *onem)
-      redfac(1) = 0.58
-      redfac(2) = 0.62
-      redfac(3) = 0.67
-      redfac(4) = 0.77
-      redfac(5) = 0.78
 c
 c --- 'yrflag' = days in year flag   (0=360,1=366,2=366Jan1,3=actual)
 c ---             (-2=366Jan1 with 732-day forcing repeat)
@@ -570,12 +571,11 @@ c ---             (-ve same as -diagfq but always write archive at end)
 c --- 'proffq' = number of days between model diagnostics at selected locations
 c --- 'tilefq' = number of days between model diagnostics on selected tiles
 c --- 'meanfq' = number of days between model diagnostics (time averaged)
-c ---             (1.0 with tidflg>0 implies daily 25-hour average)
 c --- 'rstrfq' = number of days between model restart output
 c ---             (-ve same as -rstrfq but no restart at end)
 c --- 'bnstfq' = number of days between baro nesting archive input
 c ---             (-ve for mean archives spanning -bnstfq days;
-c ---              0.0 if lbflag is not 2)
+c ---              0.0 if lbflag is not 2 or 4)
 c --- 'nestfq' = number of days between 3-d  nesting archive input
 c ---             (-ve for mean archives spanning -nestfq days;
 c ---              0.0 turns off relaxation to 3-d nesting input)
@@ -612,6 +612,35 @@ c
       elseif (yrflag.eq. 4) then
         wndrep = 365.0d0  !one year forcing repeat period
       endif
+#if defined(RELO)
+      if     (yrflag.lt.2) then
+        natm = 4  !monthly forcing
+      else
+        natm = 2  !high-frequency forcing
+      endif
+#else
+      if     (yrflag.lt.2) then
+        if (natm.lt.4) then
+          if (mnproc.eq.1) then
+          write(lp,'(/ a /)') 
+     &      'error - natm must be 4 for monthly forcing (yrflag==0,1)'
+          call flush(lp)
+          endif !1st tile
+          call xcstop('(blkdat)')
+                 stop '(blkdat)'
+        endif
+      else
+        if (natm.ne.2) then
+          if (mnproc.eq.1) then
+          write(lp,'(/ a /)') 
+     &      'warning - natm can be 2 for this forcing (yrflag!=0,1)'
+          call flush(lp)
+          endif !1st tile
+          call xcstop('(blkdat)')
+                 stop '(blkdat)'
+        endif
+      endif
+#endif
 c
       dsur1p = dsurfq .lt. 0.0
       if     (dsur1p) then
@@ -622,20 +651,19 @@ c
       diagfq = abs(diagfq)
 c
       if     (cplifq.ge.0.0) then
-        icefrq = nint( cplifq*(86400.0/baclin) )
+        icpfrq = nint( cplifq*(86400.0/baclin) )
       else
-        icefrq = nint(-cplifq)
+        icpfrq = nint(-cplifq)
       endif
       if (mnproc.eq.1) then
       write(lp,*)
-      write(lp,'(a,i10)') 'icefrq =',icefrq
+      write(lp,'(a,i10)') 'icpfrq =',icpfrq
       endif !1st tile
 c
-!!Alex NEW calendar
-      if (yrflag.lt.0 .or. yrflag.gt.4) then
+      if (yrflag.lt.0 .or. yrflag.gt.4) then !!Alex add yrflag = 4 calendar for CESM
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - yrflag must be between 0 and 3'
+     &    'error - yrflag must be between 0 and 4'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
@@ -759,6 +787,13 @@ c
         meanfq = nint((meanfq*86400.d0)/baclin)*(baclin/86400.d0)
 *       write(lp,*) 'new meanfq = ',meanfq
       endif
+#if defined(RELO)
+      if (nestfq.ne.0.0) then
+        kknest = kdm
+      else
+        kknest =   1
+      endif
+#else
       if (kknest.ne.kdm .and. nestfq.ne.0.0) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
@@ -768,6 +803,7 @@ c
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
+#endif
 c
 c --- 'incflg' = incremental update flag (0=no, 1=yes, 2=full-velocity)
 c --- 'incstp' = no. timesteps for full update (1=full insertion)
@@ -779,9 +815,14 @@ c --- 'incupf' = number of days of incremental updating input
       call blkini(incstp, 'incstp')
       call blkini(incupf, 'incupf')
 c
-c --- 'wbaro ' = barotropic time smoothing weight
+c --- 'ra2fac' = weight for Robert-Asselin time filter
+c ---             (old equivalent: wuv2=wts2=0.5*ra2fac,
+c ---                              wuv2>wts2 no longer supported)
+c --- 'wbaro ' = weight for time smoothing of barotropic fields
 c --- 'btrlfr' = leapfrog barotropic time step (0=F,1=T)
 c --- 'btrmas' = barotropic is mass conserving (0=F,1=T)
+c --- 'hybraf' = HYBGEN:  Robert-Asselin flag  (0=F,1=T)
+c ---             (use 'hybraf'=0 to recover pre-2.2.38 behaviour)
 c --- 'hybrlx' = HYBGEN: inverse relaxation coefficient (time steps)
 c                 (1.0 for no relaxation)
 c --- 'hybiso' = HYBGEN: Use PCM if layer is within hybiso of target density
@@ -795,6 +836,7 @@ c --- 'slip'   = +1 for free-slip, -1  for non-slip boundary conditions
 c --- 'visco2' = deformation-dependent Laplacian  viscosity factor
 c --- 'visco4' = deformation-dependent biharmonic viscosity factor
 c --- 'facdf4' =       speed-dependent biharmonic viscosity factor
+c ---                   (diffusion velocity is facdf4*|v|)
 c --- 'veldf2' = diffusion velocity (m/s) for Laplacian  momentum dissipation
 c ---             (negative to input spacially varying diffusion velocity)
 c --- 'veldf4' = diffusion velocity (m/s) for biharmonic momentum dissipation
@@ -809,15 +851,16 @@ c ---             (vertmx only used in MICOM-like isopycnal mode)
 c --- 'cbar'   = rms flow speed     (m/s) for linear bottom friction
 c ---             (negative to input spacially varying rms flow speed)
 c --- 'cb'     = coefficient of quadratic bottom friction
+c ---             (negative to input spacially varying coefficient)
 c --- 'drglim' = limiter for explicit friction (1.0 no limiter, 0.0 implicit)
-c --- 'drgscl' = scale factor for tidal drag (0.0 for no tidal drag)
-c --- 'thkdrg' = thickness of bottom boundary layer for tidal drag (m)
       if (mnproc.eq.1) then
       write(lp,*)
       endif !1st tile
+      call blkinr(ra2fac,'ra2fac','(a6," =",f10.4," ")')
       call blkinr(wbaro ,'wbaro ','(a6," =",f10.4," ")')
       call blkinl(btrlfr,'btrlfr')
       call blkinl(btrmas,'btrmas')
+      call blkinl(hybraf,'hybraf')
       call blkinr(hybrlx,'hybrlx','(a6," =",f10.4," time steps")')
       call blkinr(hybiso,'hybiso','(a6," =",f10.4," kg/m^3")')
       call blkini(hybmap,'hybmap')
@@ -830,8 +873,10 @@ c --- 'thkdrg' = thickness of bottom boundary layer for tidal drag (m)
       call blkinr(visco2,'visco2','(a6," =",f10.4," ")')
       call blkinr(visco4,'visco4','(a6," =",f10.4," ")')
       call blkinr(facdf4,'facdf4','(a6," =",f10.4," ")')
-      call blkinr(veldf2,'veldf2','(a6," =",f10.4," m/s")')
-      call blkinr(veldf4,'veldf4','(a6," =",f10.4," m/s")')
+      call blkinr(veldf2,'veldf2','(a6," =",f10.4,
+     &                          " m/s (-ve if variable)")')
+      call blkinr(veldf4,'veldf4','(a6," =",f10.4,
+     &                          " m/s (-ve if variable)")')
       call blkinr(thkdf2,'thkdf2','(a6," =",f10.4," m/s")')
       call blkinr(thkdf4,'thkdf4','(a6," =",f10.4,
      &                          " m/s (-ve if variable)")')
@@ -839,11 +884,11 @@ c --- 'thkdrg' = thickness of bottom boundary layer for tidal drag (m)
       call blkinr(temdfc,'temdfc',
      &    '(a6," =",f10.4," (0.0,1.0 conserve dens,temp resp.)")')
       call blkinr(vertmx,'vertmx','(a6," =",f10.4," m/s")')
-      call blkinr(cbar,  'cbar  ','(a6," =",f10.4," m/s")')
-      call blkinr(cb,    'cb    ','(a6," =",f10.4," ")')
+      call blkinr(cbar,  'cbar  ','(a6," =",f10.4,
+     &                          " m/s (-ve if variable)")')
+      call blkinr(cb,    'cb    ','(a6," =",f10.4,
+     &                          "     (-ve if variable)")')
       call blkinr(drglim,'drglim','(a6," =",f10.4," ")')   
-      call blkinr(drgscl,'drgscl','(a6," =",f10.4," ")')
-      call blkinr(thkdrg,'thkdrg','(a6," =",f10.4," m")')
 c
       if (hybrlx.lt.1.0) then
         if (mnproc.eq.1) then
@@ -972,15 +1017,16 @@ c
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
-      if (thkdf2.ne.0.0 .and. thkdf4.ne.0.0) then
-        if (mnproc.eq.1) then
-        write(lp,'(/ a /)') 
-     &    'error - only one of thkdf2 and thkdf4 can be non-zero'
-        call flush(lp)
-        endif !1st tile
-        call xcstop('(blkdat)')
-               stop '(blkdat)'
-      endif
+!!Alex remove flag for thkdf2.ne.0.0 .and. thkdf4.ne.0.0
+!      if (thkdf2.ne.0.0 .and. thkdf4.ne.0.0) then
+!        if (mnproc.eq.1) then
+!        write(lp,'(/ a /)') 
+!     &    'error - only one of thkdf2 and thkdf4 can be non-zero'
+!        call flush(lp)
+!        endif !1st tile
+!        call xcstop('(blkdat)')
+!               stop '(blkdat)'
+!      endif
       if (isopyc .and. temdfc.ne.0.0) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
@@ -1025,20 +1071,25 @@ c --- 'thkriv' = nominal thickness of river inflow (m)
       call blkinr(thkmlt,'thkmlt','(a6," =",f10.4," m")')
       call blkinr(thkriv,'thkriv','(a6," =",f10.4," m")')
 c
+c --- 'thkcdw' = thickness for near-surface currents in ice-ocean stress (m)
 c --- 'thkfrz' = maximum thickness of near-surface freezing zone (m)
 c --- 'iceflg' = sea ice model flag (0=none,1=energy loan,1>coupled/esmf)
 c ---             2=2-way,3=no IO stress, 4=3+no ocean currents
 c ---             also, icmflg=3 for ENLN relaxed to coupler ice concentration
 c --- 'tfrz_0' = ice melting point (degC) at S=0psu
 c --- 'tfrz_s' = gradient of ice melting point (degC/psu)
+c --- 'frzifq' = e-folding time scale back to tfrz
+c ---             (positive days or negative time steps)
 c --- 'ticegr' = ENLN: vertical temperature gradient inside ice (deg/m)
 c ---                   (0.0 to get ice surface temp. from atmos. surtmp)
 c --- 'hicemn' = ENLN: minimum ice thickness (m)
 c --- 'hicemx' = ENLN: maximum ice thickness (m)
+c --- 'ishelf' = ice shelf flag (0=none,1=ice shelf over ocean)
 c
       if (mnproc.eq.1) then
       write(lp,*)
       endif !1st tile
+      call blkinr(thkcdw,'thkcdw','(a6," =",f10.4," m")')
       call blkinr(thkfrz,'thkfrz','(a6," =",f10.4," m")')
       call blkini(iceflg,'iceflg')
       icegln = iceflg.eq.1  !ENLN, but see icmflg.eq.3 below
@@ -1060,9 +1111,23 @@ c --- tfrz_0=0.0, tfrz_s=-0.054, ticegr=0.0, hicemn=0.5, hicemx=10.0.
 c
       call blkinr(tfrz_0,'tfrz_0','(a6," =",f10.4," degC")')
       call blkinr(tfrz_s,'tfrz_s','(a6," =",f10.4," degC/psu")')
+      call blkinr(frzifq,'frzifq','(a6," =",f10.4,
+     &                           " days (-ve time steps)")')
       call blkinr(ticegr,'ticegr','(a6," =",f10.4," degC/m")')
       call blkinr(hicemn,'hicemn','(a6," =",f10.4," m")')
       call blkinr(hicemx,'hicemx','(a6," =",f10.4," m")')
+c
+      if     (frzifq.ge.0.0) then
+        icefrq = nint( frzifq*(86400.0/baclin) )
+      else
+        icefrq = nint(-frzifq)
+      endif
+      if (mnproc.eq.1) then
+      write(lp,*)
+      write(lp,'(a,i10)') 'icefrq =',icefrq
+      endif !1st tile
+c
+      call blkini(ishelf,'ishelf')
 c
 c --- 'ntracr' = number of tracers (0=none,negative to initialize)
 c --- 'trcflg' = tracer flags      (one digit per tracer, most sig. replicated)
@@ -1162,7 +1227,9 @@ c --- 'difsmo' = KPROF:   number of layers with horiz smooth diff coeffs
 c --- 'difm0'  = KPP:     max viscosity   due to shear instability (m**2/s)
 c --- 'difs0'  = KPP:     max diffusivity due to shear instability (m**2/s)
 c --- 'difmiw' = KPP/MY:  background/internal wave viscosity       (m**2/s)
+c ---             (negative to input spacially varying viscosity)
 c --- 'difsiw' = KPP/MY:  background/internal wave diffusivity     (m**2/s)
+c ---             (negative to input spacially varying diffusivity)
 c --- 'dsfmax' = KPP:     salt fingering diffusivity factor        (m**2/s)
 c --- 'rrho0'  = KPP:     salt fingering rp=(alpha*delT)/(beta*delS)
 c --- 'cs'     = KPP:     value for nonlocal flux term
@@ -1171,6 +1238,12 @@ c --- 'cv'     = KPP:     buoyancy frequency ratio (0.0 to use a fn. of N)
 c --- 'c11'    = KPP:     value for turb velocity scale
 c --- 'hblflg' = KPP:     b. layer interpolation flag (0=con.,1=lin.,2=quad.)
 c --- 'niter'  = KPP:     iterations for semi-implicit soln. (2 recomended)
+c --- 'langmr' = KPP:     Langmuir flag (0=no;1=Sul;2=Smy;3=Har;4=Tak)
+c ---                       0:None
+c ---                       1:McWilliams-Sullivan
+c ---                       2:Smyth
+c ---                       3:McWilliams-Harcourt
+c ---                       4:Takaya
 c
       if (mnproc.eq.1) then
       write(lp,*)
@@ -1241,6 +1314,7 @@ c
       mxlmy = mlflag.eq.5
 c
       if (mxlmy) then
+#if ! defined(RELO)
         if (kkmy25.ne.kdm) then
           if (mnproc.eq.1) then
           write(lp,'(/ a /)') 
@@ -1249,7 +1323,9 @@ c
           endif !1st tile
           call xcstop('(blkdat)')
                  stop '(blkdat)'
-        elseif (dypflg.ne.0) then
+        endif
+#endif
+        if     (dypflg.ne.0) then
           if (mnproc.eq.1) then
           write(lp,'(/ a /)') 
      &      'warning - dypflg reset to 0 for M-Y 2.5'
@@ -1262,6 +1338,7 @@ c
       mxlgiss = mlflag.eq.6
 c
       if (mxlgiss) then
+#if ! defined(RELO)
         if (nlgiss.ne.762) then
           if (mnproc.eq.1) then
           write(lp,'(/ a /)') 
@@ -1270,7 +1347,9 @@ c
           endif !1st tile
           call xcstop('(blkdat)')
                  stop '(blkdat)'
-        elseif (dypflg.ne.0) then
+        endif
+#endif
+        if     (dypflg.ne.0) then
           if (mnproc.eq.1) then
           write(lp,'(/ a /)') 
      &      'warning - dypflg reset to 0 for GISS'
@@ -1322,8 +1401,10 @@ c
       call blkini(difsmo,'difsmo') !now an integer
       call blkinr(difm0 ,'difm0 ','(a6," =",f10.4," m**2/s")')
       call blkinr(difs0 ,'difs0 ','(a6," =",f10.4," m**2/s")')
-      call blkinr(difmiw,'difmiw','(a6," =",f10.4," m**2/s")')
-      call blkinr(difsiw,'difsiw','(a6," =",f10.4," m**2/s")')
+      call blkinr(difmiw,'difmiw','(a6," =",f10.4,
+     &                          " m**2/s (-ve if variable)")')
+      call blkinr(difsiw,'difsiw','(a6," =",f10.4,
+     &                          " m**2/s (-ve if variable)")')
       call blkinr(dsfmax,'dsfmax','(a6," =",f10.4," m**2/s")')
       call blkinr(rrho0 ,'rrho0 ','(a6," =",f10.4," ")')
       call blkinr(cs    ,'cs    ','(a6," =",f10.4," ")')
@@ -1332,6 +1413,32 @@ c
       call blkinr(c11   ,'c11   ','(a6," =",f10.4," ")')
       call blkini(hblflg,'hblflg')
       call blkini(niter ,'niter ')
+      call blkini(lngblk,'langmr')  !lngblk is local for testing 0 <= 4
+c
+#if defined(STOKES)
+      langmr = lngblk
+#else
+      if     (lngblk.ne.0) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ 2a /)') 
+     &    'error - langmr must be =0 unless the macro STOKES',
+     &    ' is defined at compile time'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+#endif   
+      if (difsiw*difmiw.lt.0.0) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ 2a /)') 
+     &    'error - difmiw and difsiw must either both be positive or',
+     &    ' both be negative'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
 c
       if (hblflg.lt.0 .or. hblflg.gt.2) then
         if (mnproc.eq.1) then
@@ -1412,11 +1519,17 @@ c
       call blkinr(tbvar ,'tbvar ','(a6," =",f10.4," m**2/s**2")')
       call blkinr(tdecri,'tdecri','(a6," =",f10.4," 1/day")')
 c
-c --- 'lbflag' = lateral barotropic bndy flag (0=none,1=port,2=nest,3=flather)
-c --- 'tidflg' = TIDES: tidal forcing flag    (0=none,1=open-bdy,2=bdy&body)
-c ---             open boundary for lbflag==3 only at present
+c --- 'lbflag' = lateral baro. bndy flag (0=none;nest:2=B-K,4=Flather)
+c ---             (port: 1=Browning-Kreiss,3=Flather)
+c --- 'tidflg' = TIDES: tidal forcing flag    (0=no;1=bdy;2=body;3=bdy&body)
+c --- 'tidein' = TIDES: tide field input flag (0=no;1=yes;2=sal)
 c --- 'tidcon' = TIDES: 1 digit per constituent (Q1K2P1N2O1K1S2M2), 0=off,1=on
 c --- 'tidsal' = TIDES: scalar self attraction and loading factor
+c ---             (negative to input spacially varying SAL factor)
+c --- 'tiddrg' = TIDES: tidal drag flag (0=no;1=scalar;2=tensor)
+c --- 'thkdrg' = TIDES: thickness of bottom boundary layer for tidal drag (m)
+c ---             (zero to apply tidal drag to barotropic mode)
+c --- 'drgscl' = TIDES: scale factor for tidal drag
 c --- 'tidgen' = TIDES: generic time (0=F,1=T)
 c --- 'tidrmp' = TIDES:            ramp time (days)
 c --- 'tid_t0' = TIDES: origin for ramp time (model day)
@@ -1425,25 +1538,31 @@ c --- 'tid_t0' = TIDES: origin for ramp time (model day)
       endif !1st tile
       call blkini(lbflag,    'lbflag')
       call blkini(tidflg,    'tidflg')
+      call blkini(tidein,    'tidein')
       call blkini(tidcon,    'tidcon')
-      call blkinr(tidsal,    'tidsal','(a6," =",f10.4," ")')
+      call blkinr(tidsal,    'tidsal','(a6," =",f10.4,
+     &                              "  (-ve if variable)")')
+      call blkini(tiddrg,    'tiddrg')
+      call blkinr(thkdrg,    'thkdrg','(a6," =",f10.4,
+     &                              " m (0 if barotropic)")')
+      call blkinr(drgscl,    'drgscl','(a6," =",f10.4," ")')
       call blkinl(tidgen,    'tidgen')
       call blkinr(ramp_time ,'tidrmp','(a6," =",f10.4," days")')
       call blkin8(ramp_orig ,'tid_t0','(a6," =",f10.4," model day")')  !real*8
 c
-      if (tidflg.lt.0 .or. tidflg.gt.2) then
-        if (mnproc.eq.1) then
+      if     (tidflg.lt.0 .or. tidflg.gt.3) then
+        if     (mnproc.eq.1) then
         write(lp,'(/ a /)')
-     &    'error - tidflg must be between 0 and 2'
+     &    'error - tidflg must be between 0 and 3'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
-      if (tidflg.eq.2 .and. .not.tidgen .and. yrflag.ne.3) then
-        if (mnproc.eq.1) then
+      if     (tidflg.ge.2 .and. .not.tidgen .and. yrflag.ne.3) then
+        if     (mnproc.eq.1) then
         write(lp,'(/ a /)')
-     &    'error - tidgen must be .true. for yrflag.ne.3'
+     &    'error - tidgen must be .true. for body tide and yrflag.ne.3'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
@@ -1464,31 +1583,87 @@ c
 *         write(lp,*) 'new baclin = ',baclin 
         endif                                
       endif                                 
-c
-c --- weights for time smoothing
-      wuv1  = 0.75
-      wuv2  = 0.125
-      wts1  = 0.875
-      wts2  = 0.0625
-c
-c --- 'spcifh' = specific heat of sea water (j/kg/deg)
-c --- 'epsil'  = small nonzero number used to prevent division by zero
-      spcifh=3990.
-      epsil =1.0e-11
+      if     (tidein.lt.0 .or. tidein.gt.2) then
+        if     (mnproc.eq.1) then
+        write(lp,'(/ a /)')
+     &    'error - tidein must be between 0 and 2'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if     (tidein.gt.0 .and. tidflg.lt.2) then
+        if     (mnproc.eq.1) then
+        write(lp,'(/ a /)')
+     &    'error - tidein implies input but there is no body tide'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if     (tiddrg.lt.0 .or. tiddrg.gt.2) then
+        if     (mnproc.eq.1) then
+        write(lp,'(/ a /)')
+     &    'error - tiddrg must be between 0 and 2'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if     (tiddrg.eq.0 .and. drgscl.ne.0.0) then
+        if     (mnproc.eq.1) then
+        write(lp,'(/ a /)')
+     &    'error - tiddrg=0 must have drgscl=0.0'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if     (tiddrg.ne.0 .and. drgscl.le.0.0) then
+        if     (mnproc.eq.1) then
+        write(lp,'(/ a /)')
+     &    'error - tiddrg>0 must have drgscl>0.0'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if     (tiddrg.eq.2 .and. thkdrg.ne.0.0) then
+c ---   tensor drag only implemented on barotropic velocity
+        if     (mnproc.eq.1) then
+        write(lp,'(/ a /)')
+     &    'error - tiddrg=2 only implemented for thkdrg=0.0'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
 c
 c --- 'clmflg' = climatology frequency flag (6=bimonthly,12=monthly)
-c --- 'wndflg' = wind stress input flag (0=none,1=u&v-grid,2,3=p-grid)
-c ---             (=3 to calculate wind speed from wind stress)
+c --- 'wndflg' = wind stress input flag (0=none,1=uv-grid,2,3=p-grid,4,5=wnd10m)
+c ---             (=3 wind speed from wind stress; =4,5 wind stress from wind)
+c ---             (=4 for COARE 3.0; =5 for COREv2 bulk parameterization)
 c --- 'ustflg' = ustar forcing   flag          (3=input,1,2=wndspd,4=stress)
-c --- 'flxflg' = thermal forcing flag   (0=none,3=net_flux,1,2,4=sst-based)
-c --- 'empflg' = E-P     forcing flag   (0=none,3=net_E-P, 1,2,4=sst-based_E)
+c --- 'flxflg' = thermal forcing flag   (0=none,3=net_flux,1-2,4-6=sst-based)
+c ---             (=1 MICOM bulk parameterization)
+c ---             (=2 Kara  bulk parameterization)
+c ---             (=4 COARE bulk parameterization, approx.)
+c ---             (=5 L&Y   bulk parameterization)
+c ---             (=6 COARE bulk parameterization, approx., better pressure)
+c --- 'empflg' = E-P     forcing flag   (0=none,3=net_E-P, 1-2,4-6=sst-based_E)
 c ---             (flxflg to use model sst, -flxflg to use seatmp)
 c --- 'dswflg' = diurnal shortwv flag   (0=none,1=daily to diurnal correction)
+c --- 'albflg' = ocean albedo    flag   (0=none,1=const,2=L&Y)
 c --- 'sssflg' = SSS relaxation  flag   (0=none,1=clim,-1=clim&rmx)
 c ---              see thermf.f for a description of sssrmx
-c --- 'lwflag' = longwave corr.  flag   (0=none,1=clim,2=atmos), sst-based
+c --- 'sssrmu' = SSS relaxation (# days of relaxation; -ve spatially varying ) !!Alex
+c --- 'lwflag' = longwave corr.  flag   (0=none,1=clim,2=nwp,-1=lwdn), sst-based
 c --- 'sstflg' = SST relaxation  flag   (0=none,1=clim,2=atmos,3=observed)
+c --- 'sstrmu' = SST relaxation (# days of relaxation; -ve spatially varying ) !!Alex
 c --- 'icmflg' = ice mask        flag   (0=none,1=clim,2=atmos,3=obs/coupled)
+c --- 'prsbas' = msl prs is input field + prsbas (Pa)
+c --- 'mslprf' = msl prs forcing flag   (0=F,1=T)
+c --- 'stroff' = net strs offset flag   (0=F,1=T)
 c --- 'flxoff' = net flux offset flag   (0=F,1=T)
 c --- 'flxsmo' = smooth surface fluxes  (0=F,1=T)
       if (mnproc.eq.1) then
@@ -1500,10 +1675,16 @@ c --- 'flxsmo' = smooth surface fluxes  (0=F,1=T)
       call blkini(flxflg,'flxflg')
       call blkini(empflg,'empflg')
       call blkini(dswflg,'dswflg')
+      call blkini(albflg,'albflg')
       call blkini(sssflg,'sssflg')
+      call blkinr(sssrmu,'sssrmu','(a6," =",f10.4," days")')  !!Alex
       call blkini(lwflag,'lwflag')
       call blkini(sstflg,'sstflg')
+      call blkinr(sstrmu,'sstrmu','(a6," =",f10.4," days")')  !!Alex
       call blkini(icmflg,'icmflg')
+      call blkinr(prsbas,'prsbas','(a6," =",f10.1," Pa")')
+      call blkinl(mslprf,'mslprf')
+      call blkinl(stroff,'stroff')
       call blkinl(flxoff,'flxoff')
       call blkinl(flxsmo,'flxsmo')
 c
@@ -1516,28 +1697,39 @@ c
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
-      if (lbflag.lt.0 .or. lbflag.gt.3) then
+#if defined(RELO)
+      if (lbflag.eq.1 .or. lbflag.eq.3) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - lbflag must be between 0 and 3'
+     &    'error - lbflag 1 and 3 not supported with dynamic memory'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
-      if (lbflag.ne.2 .and. bnstfq.ne.0.0) then
+#endif
+      if (lbflag.lt.0 .or. lbflag.gt.4) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - bnstfq must be 0.0 unless lbflag is 2'
+     &    'error - lbflag must be between 0 and 4'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
-      if (wndflg.lt.0 .or. wndflg.gt.3) then
+      if (lbflag.ne.2 .and. lbflag.ne.4 .and. bnstfq.ne.0.0) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - wndflg must be between 0 and 3'
+     &    'error - bnstfq must be 0.0 unless lbflag is 2 or 4'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if (wndflg.lt.0 .or. wndflg.gt.5) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a /)') 
+     &    'error - wndflg must be between 0 and 5'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
@@ -1552,10 +1744,10 @@ c
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
-      if (flxflg.lt.0 .or. flxflg.gt.4) then
+      if (flxflg.lt.0 .or. flxflg.gt.6) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - flxflg must be between 0 and 4'
+     &    'error - flxflg must be between 0 and 6'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
@@ -1565,7 +1757,17 @@ c
      &    wndflg.eq.0      ) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - wndflg must be 1,2,3 when flxflg>0'
+     &    'error - wndflg must be non-zero when flxflg>0'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if (flxflg.eq.6 .and.
+     &    wndflg.ne.4      ) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a /)') 
+     &    'error - wndflg must be 4 when flxflg==6'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
@@ -1581,10 +1783,10 @@ c
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif    
-      if (abs(empflg).lt.0 .or. abs(empflg).gt.4) then
+      if (abs(empflg).lt.0 .or. abs(empflg).gt.6) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - empflg must be between 0 and 4'
+     &    'error - empflg must be between 0 and 6'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
@@ -1640,24 +1842,37 @@ c
                stop '(blkdat)'
       endif
 c
-      if (lwflag.lt.0 .or. lwflag.gt.2) then
+      if (albflg.gt.0 .and. lwflag.ne.-1) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - lwflag must be between 0 and 2'
+     &    'error - albflg>0 requires lwflag=-1'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
-      if (lwflag.gt.0 .and.
-     &    flxflg.eq.0      ) then
+      if (lwflag.lt.-1 .or. lwflag.gt.2) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
-     &    'error - flxflg must be >0 when lwflag>0'
+     &    'error - lwflag must be between -1 and 2'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
                stop '(blkdat)'
+      endif
+      if (lwflag.ne.0 .and.
+     &    flxflg.eq.0      ) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a /)') 
+     &    'error - flxflg must non-zero when lwflag is non-zero'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+c
+      if (wndflg.eq.0) then
+        stroff = .false. !no wind forcing
       endif
 c
       if (flxflg.eq.0) then
@@ -1691,6 +1906,16 @@ c
         if (mnproc.eq.1) then
         write(lp,'(/ a /)')
      &    'error - icmflg 3 not yet implemented for iceflg==1'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+c
+      if (icmflg.eq.3 .and. icefrq.lt.icpfrq) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a /)') 
+     &    'error - icefrq (frzifq) smaller than icpfrq (cplifq)'
         call flush(lp)
         endif !1st tile
         call xcstop('(blkdat)')
@@ -1734,36 +1959,23 @@ c --- windf       use wind stress forcing (wndflg>0)
 c --- thermo      use thermodynamic forcing 
 c --- pensol      use penetrating solar radiation (input above)
 c --- pcipf       use E-P forcing (may be redefined in forfun)
-c
-c --- relax       activate lateral boundary T/S/p  climatological nudging
-c --- trcrlx      activate lateral boundary tracer climatological nudging
+c --- priver      rivers as a precipitation bogas
+c --- epmass      treat evap-precip as a mass exchange
+c --- pcpadj      allow precip adjustment for water balance !!Alex
 c
 c --- srelax      activate surface salinity        climatological nudging
 c --- trelax      activate surface temperature     climatological nudging
+c --- relax       activate lateral boundary T/S/p  climatological nudging
+c --- trcrlx      activate lateral boundary tracer climatological nudging
 c --- relaxt      input tracer  climatological relaxation fields
 c --- relaxf      input T/S/p   climatological relaxation fields
 c ---              (note that relaxt implies relaxf)
 c --- relaxs      input surface climatological relaxation fields only
-c --- priver      rivers as a precipitation bogas
-c --- epmass      treat evap-precip as a mass exchange
 c
       windf  = wndflg.ne.0
       thermo = flxflg.ne.0
       pensol = pensol .and. thermo
       pcipf  = empflg.ne.0  ! if .true., might later be set .false. by forfun
-c
-      if (.not.(thermo .or. sstflg.gt.0 .or. srelax)) then
-        niter=1
-      elseif (mxlkta) then
-        if (mnproc.eq.1) then
-        write(lp,'(/ a / a /)') 
-     &    'error - KT mixed layer needs thermal forcing, i.e.',
-     &    '        mlflag=2 needs max(sstflg,sstflg,flxflg)>0'
-        call flush(lp)
-        endif !1st tile
-        call xcstop('(blkdat)')
-               stop '(blkdat)'
-      endif !.not(thermo ...):mxlkta
 c
       if (mnproc.eq.1) then
       write(lp,*)
@@ -1772,9 +1984,13 @@ c
       call blkinl(trcrlx,'trcrlx')
       call blkinl(priver,'priver')
       call blkinl(epmass,'epmass')
+!!Alex add pcpadj
+      call blkinl(pcpadj,'pcpadj')
+
       if (mnproc.eq.1) then
       write(lp,*)
       endif !1st tile
+
 c
       if     (priver .and. .not.thermo) then
         if (mnproc.eq.1) then
@@ -1796,36 +2012,119 @@ c
                stop '(blkdat)'
       endif
 c
-      close(unit=uoff+99)  !file='blkdat.input'
-c
       srelax = sssflg.eq.1 .or. sssflg.eq.-1
       trelax = sstflg.eq.1
+c
+      if (.not.(thermo .or. sstflg.gt.0 .or. srelax)) then
+        niter=1
+      elseif (mxlkta) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a / a /)') 
+     &    'error - KT mixed layer needs thermal forcing, i.e.',
+     &    '        mlflag=2 needs max(sstflg,sstflg,flxflg)>0'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif !.not(thermo ...):mxlkta
+c
       relaxt = trcout .and. (trcrlx .or.
      &                       (.not.trcrin .and. iniflg.eq.2))
-      relaxf =        relax
-     &          .or.  srelax
-     &          .or.  trelax
-     &          .or.  lwflag.eq.1
-     &          .or.  relaxt
+      relaxf =       relax
+     &          .or. srelax
+     &          .or. trelax
+     &          .or. lwflag.eq.1
+     &          .or. relaxt
       relaxs = .not. relax
      &         .and. relaxf
+#if defined(STOKES)
 c
-c --- initialize from climatology (update relaxf and relaxs)?
-      if     (iniflg.eq.2 .and. yrflag.ne.3) then
-#if ( defined(USE_CCSM3) || defined(NUOPC) )
-        relaxf = .true.
-        relaxs = .false.
-#else
-        open(unit=uoff+99,file=trim(flnminp)//'limits')  !on all nodes
-        read(uoff+99,*) day1
-        close(unit=uoff+99) !file='limits'
-        if     (day1.le.0.0) then
+c ---  s w i t c h e s  for Stokes Drift effects  (0=F, 1=T)
+c
+c --- 'stdflg'  = STOKES: add Stokes Drift velocities to kinematics and dynamics
+c --- 'stdsur'  = STOKES: add Stokes Drift Surface Stresses  to dynamics
+c --- 'stdbot'  = STOKES: add Stokes Waves Field bottom friction drag
+c
+c ---  s w i t c h e s  for Stokes Drift effects  (Integers)
+c
+c --- 'nsdzi '  = STOKES: number of interfaces in Stokes Drift input
+c
+c --- since they are at the end of blkdat.input they can optionally be
+c --- present even if the macro STOKES is not defined at compile time.
+c
+      call blkinl(stdflg,'stdflg')
+      call blkinl(stdsur,'stdsur') 
+      call blkinl(stdbot,'stdbot')
+      call blkini(nsdzi ,'nsdzi ')
+c
+      if (nsdzi .lt.0) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a /)') 
+     &  'error - nsdzi  must be 0 (no Stokes drift) or positive'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if (nsdzi .eq.0 .and. stdflg) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a /)') 
+     &  'error - nsdzi  must be > 0 with stdflg'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if (nsdzi .eq.0 .and. stdbot) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a /)') 
+     &  'error - nsdzi  must be > 0 with stdbot'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+      if (nsdzi .eq.0 .and. langmr.ne.0) then
+        if (mnproc.eq.1) then
+        write(lp,'(/ a /)') 
+     &  'error - nsdzi  must be > 0 with langmr >0'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(blkdat)')
+               stop '(blkdat)'
+      endif
+#endif   
+c
+      close(unit=uoff+99)  !file='blkdat.input'
+c
+c --- initialize from climatology (update relaxf and relaxs)? !!Alex add condition for CESM
+      if     (iniflg.eq.2) then
+          if (.not.present(hycom_start_dtg)) then 
+              open(unit=uoff+99,file=trim(flnminp)//'limits') !on all nodes
+              read(uoff+99,*) day1
+              close(unit=uoff+99) !file='limits'
+          else 
+              day1 = hycom_start_dtg
+          endif 
+          if     (day1.le.0.0) then
           relaxf = .true.
           relaxs = .false.
         endif !initialize from climatology
-#endif /* USE_CCSM3:else */
       endif
 c
+#if defined(RELO)
+      if (relaxf .and. .not. relaxs) then
+        kkwall = kdm
+      elseif (relaxt) then
+        kkwall = kdm  !needed for tracers
+      else
+        kkwall =   1
+      endif
+      if (mnproc.eq.1) then
+      write(lp,'(a,i10)') 'kkwall =',kkwall
+      write(lp,*)
+      endif !1st tile
+#else
       if (kkwall.ne.kdm .and. relaxf .and. .not. relaxs) then
         if (mnproc.eq.1) then
         write(lp,'(/ a /)') 
@@ -1835,31 +2134,58 @@ c
         call xcstop('(blkdat)')
                stop '(blkdat)'
       endif
+#endif
+#if defined(OCEANS2)
+      if     (nocean.eq.2) then
+c ---   slave HYCOM works from ./OCEAN2
 c
-c --- use 'hugel' to initialize array portions that the code should never access
-      hugel = 2.0**100  ! 2^100, or about 1.2676506e30
-#if defined(USE_CCSM3)
+c ---   i/o file names
 c
-c --- i/o file names
-c --- directory names (eg, flnmgrdd) are read in from namelist in ccsm3_io
+        flnmshlf = './OCEAN2/regional.iceshelf'
+        flnmdep  = './OCEAN2/regional.depth'
+        flnmgrd  = './OCEAN2/regional.grid'
+        flnmarc  = './OCEAN2/archv.0000_000_00'
+        flnmarcs = './OCEAN2/archs.0000_000_00'
+        flnmarcm = './OCEAN2/archm.0000_000_00'
+        flnmarct = './OCEAN2/archt.0000_000_00'
+        flnmovr  = './OCEAN2/ovrtn_out'
+        flnmflx  = './OCEAN2/flxdp_out'
+        flnmrsi  = './OCEAN2/restart_in'
+        flnmrso  = './OCEAN2/restart_out'
 c
-      flnmdep    = trim(flnmdepd)//'regional.depth'
-      flnmgrd    = trim(flnmgrdd)//'regional.grid'
-      flnmarc    = trim(flnmarcd)//'archv.0000_000_00'
-      flnmarcs   = trim(flnmarcd)//'archs.0000_000_00'
-      flnmarcm   = trim(flnmarcd)//'archm.0000_000'
-      flnmarct   = trim(flnmarcd)//'archt.0000_000_00'
-      flnmovr    = trim(flnmovrd)//'ovrtn.txt'
-      flnmflx    = 'flxdp'
-c     
 c --- i/o directory names
 c
-      flnmforw = trim(flnmrlxd)
-      flnmfor  = trim(flnmrlxd)
+        flnmfor  = './OCEAN2/'
+        flnmforw = './OCEAN2/'
+      else
+c ---   master HYCOM
+c
+c ---   i/o file names
+c
+        flnmshlf = 'regional.iceshelf'
+        flnmdep  = 'regional.depth'
+        flnmgrd  = 'regional.grid'
+        flnmarc  = 'archv.0000_000_00'
+        flnmarcs = 'archs.0000_000_00'
+        flnmarcm = 'archm.0000_000_00'
+        flnmarct = 'archt.0000_000_00'
+        flnmovr  = 'ovrtn_out'
+        flnmflx  = 'flxdp_out'
+        flnmrsi  = 'restart_in'
+        flnmrso  = 'restart_out'
+!!Alex add flnmadj
+        flnmadj  = 'pcpadj'
+c
+c --- i/o directory names
+c
+        flnmfor  = './'
+        flnmforw = './'
+      endif
 #else
 c
 c --- i/o file names
 c
+      flnmshlf = 'regional.iceshelf'
       flnmdep  = 'regional.depth'
       flnmgrd  = 'regional.grid'
       flnmarc  = 'archv.0000_000_00'
@@ -1870,19 +2196,20 @@ c
       flnmflx  = 'flxdp_out'
       flnmrsi  = 'restart_in'
       flnmrso  = 'restart_out'
+!!Alex add flnmadj
+      flnmadj  = 'pcpadj'
 c
 c --- i/o directory names
 c
       flnmfor  = './'
       flnmforw = './'
-#endif /* USE_CCSM3:else */
+#endif /* OCEANS2:else */
       return
       end
       subroutine blkinr(rvar,cvar,cfmt)
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
       implicit none
-c
-      include 'common_blocks.h'
 c
       real      rvar
       character cvar*6,cfmt*(*)
@@ -1911,10 +2238,9 @@ c
       return
       end
       subroutine blkinr2(rvar,nvar,cvar1,cfmt1,cvar2,cfmt2)
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
       implicit none
-c
-      include 'common_blocks.h'
 c
       real      rvar
       integer   nvar
@@ -1952,10 +2278,9 @@ c
       return
       end
       subroutine blkin8(rvar,cvar,cfmt)
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
       implicit none
-c
-      include 'common_blocks.h'
 c
       real*8    rvar
       character cvar*6,cfmt*(*)
@@ -1984,10 +2309,9 @@ c
       return
       end
       subroutine blkini(ivar,cvar)
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
       implicit none
-c
-      include 'common_blocks.h'
 c
       integer     ivar
       character*6 cvar
@@ -2017,10 +2341,9 @@ c
  6000 format(a6,' =',i10)
       end
       subroutine blkinl(lvar,cvar)
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
       implicit none
-c
-      include 'common_blocks.h'
 c
       logical     lvar
       character*6 cvar
@@ -2125,3 +2448,41 @@ c> Oct  2010 - added support for 17-term and 12-term equation of state
 c> Nov  2010 - added yrflag=-2
 c> Nov  2010 - empflg negative to use seatmp instead of hycom sst
 c> Apr  2011 - added negative cbar 
+c> Jul  2011 - added negative tidsal
+c> Aug  2011 - added ra2fac, removed global wts[12] and wuv[12]
+c> Aug  2011 - added hybraf
+c> Sep  2011 - added negative cb
+c> Nov  2011 - iniflg=2 now active for yrflag=3
+c> Nov  2011 - added frzifq
+c> Jan  2012 - added thkcdw
+c> Jan  2012 - added lbflag=4
+c> Mar  2012 - new terrain following method, based on dpns and dsns
+c> Apr  2012 - added negative tidflg, to set tidef
+c> May  2012 - added tidein, replaces negative tidflg
+c> Nov  2012 - added OCEANS2 macro for master/slave HYCOM
+c> Nov  2012 - added wndlfg=4 for 10m wind component input
+c> Nov  2012 - added stroff, usualy used with wndflg=4
+c> Jan  2013 - added tiddrg, set to 0 or 1 for backwards compatibility
+c> Jan  2013 - added zero thkdrg to apply tidal drag to barotropic mode
+c> June 2013 - added lbflag=6
+c> July 2013 - added negative (spacially varying) difmiw and difsiw
+c> July 2013 - added 3 Stokes Drift Flags: stkflg,stksur,stkbot
+c> Aug  2013 - added langmr flag for KPP and Stokes Drift
+c> Sep  2013 - added number of interfaces in Stokes Drift Files 
+c> Oct  2013 - added jerlv0=-1 to use chlorophyll-based turbidity
+c> Oct  2013 - fixed srelax used before defined bug
+c> Nov  2013 - added wndlfg=5 for 10m wind component input, COREv2 stress
+c> Nov  2013 - added flxlfg=5 for COREv2 heat flux
+c> Nov  2013 - added lwflag=-1 for radflx=Qlwdn
+c> Nov  2013 - added albflg for ocean albedo, >0 for shwflx=Qswdn
+c> Jan  2014 - added prsbas and mslprf for sea level pressure forcing
+c> Jan  2014 - /consts/ replaced by parameters
+c> Jan  2014 - kdm    is defined here when macro /* RELO */ is set
+c> Jan  2014 - natm   is defined here when macro /* RELO */ is set
+c> Jan  2014 - kkwall is defined here when macro /* RELO */ is set
+c> Jan  2014 - kknest is defined here when macro /* RELO */ is set
+c> Jan  2014 - lbflag 1 and 3 not supported with dynamic memory allocation
+c> Apr  2014 - added ishelf and flnmshlf
+c> May  2014 - removed lbflag=6
+c> Sep  2014 - langmr can now be 0 to 4
+c> Oct  2014 - added flxlfg=6, sea level pressure is input even if .not. mslprf

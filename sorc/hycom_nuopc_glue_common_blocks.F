@@ -9,17 +9,20 @@
         ! that would be nice for the actual hycom_nuopc_glue module.
       
         use mod_xc
+        use mod_cb_arrays       ! HYCOM saved arrays
 
         implicit none
-  
-        include "common_blocks.h"
-  
+    
         private
   
         ! grid
         public plon     ! lon at the p pts
         public plat     ! lat at the p pts
         public scp2     ! grid cell area at the p pts
+        public scux     ! grid cell area at the p pts
+        public scvy     ! grid cell area at the p pts
+
+        public cpl_implicit  ! time step scheme
         
         ! import from ATM
         public cpl_taux,    imp_taux, imp_taue ! xstress [Pa], eastward stress [Pa]
@@ -34,6 +37,8 @@
         public cpl_precip,  imp_precip    ! precipitation [m s-1]
         public cpl_surtmp,  imp_surtmp    ! air surface temperature [C]
         public cpl_seatmp,  imp_seatmp    ! sea surface temperature [C]
+        public cpl_latflx,  imp_latflx    ! latent heat flux   [W m-2]
+        public cpl_sensflx, imp_sensflx   ! sensible heat flux [W m-2]
         
         ! import from SEA-ICE
         public cpl_sic,     sic_import    ! Sea Ice Concentration
@@ -55,8 +60,6 @@
         public srfhgt         ! sea surface height, g*ssh(m)
         public dpbl           ! turbulent boundary layer depth
         public saln           ! salinity
-        public dhdx           ! eastward sea surface slope (m/m)
-        public dhdy           ! northward sea surface slope (m/m)
         public pang           ! ANGLET
         
         ! native imports
@@ -78,8 +81,8 @@
         public ocn_cpl_frq    ! in days
         
         ! scalars and flags
-        public g, onem, qonem, thkfrz, baclin, spcifh
+        public g, onem, qonem, thkfrz, baclin, spcifh, pcp_fact
         public tfrz_0, tfrz_s, frzh
-        public iceflg, icmflg, sstflg
+        public iceflg, icmflg, sstflg,itest,jtest
         
       end module

@@ -52,7 +52,7 @@ c --- Calendars and clocks
       type(ESMF_Clock) :: iceClock
 c
 c --- Return codes for error checks
-      integer :: rc
+      integer :: rc,rc2
 c
 c --- ICE coupling frequency
       integer :: ice_nts_cpl,ocn_cpl_day
@@ -67,7 +67,7 @@ c
 c --- Set default calendar and log type; get world VM
       rc = ESMF_Success
       call ESMF_Initialize(defaultCalendar=ESMF_CAL_GREGORIAN,
-     &                      defaultLogType=ESMF_LOG_SINGLE,
+     &                      defaultLogType=ESMF_LOG_MULTI,
      &                                  vm=worldVM,
      &                                  rc=rc)
       if (rc .ne. ESMF_SUCCESS) stop 99
@@ -76,7 +76,7 @@ c --- Get VM info
       call ESMF_VMGet(worldVM, petCount=petCount, localPET=localPet,
      &                rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "ESMF_VMGet failed", rc)) 
+     &    "ESMF_VMGet failed", rcToReturn=rc2))
      &   goto 10
 c
 c-------------------------------------------------------------------------------
@@ -84,12 +84,12 @@ c --- Create section
 c-------------------------------------------------------------------------------
 c
 c --- Create the OCEAN gridded component
-      ocnGridComp = ESMF_GridCompCreate(vm=worldVM,
+      ocnGridComp = ESMF_GridCompCreate(
      &                                name="OCEAN Gridded Component",
      &                        gridCompType=ESMF_OCEAN,
      &                                  rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OCEAN  GridCompCreate failed", rc))
+     &    "OCEAN  GridCompCreate failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Create empty OCEAN  import/export states
@@ -97,23 +97,23 @@ c --- Create empty OCEAN  import/export states
      &                               stateType=ESMF_STATE_IMPORT,
      &                                      rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OCEAN  ImpState Create failed", rc))
+     &    "OCEAN  ImpState Create failed", rcToReturn=rc2))
      &   goto 10
 
       ocnExpState = ESMF_StateCreate(stateName="OCEAN Export",
      &                               stateType=ESMF_STATE_EXPORT,
      &                                      rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OCEAN  ExpState Create failed", rc))
+     &    "OCEAN  ExpState Create failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Create the SEAICE gridded component
-      iceGridComp = ESMF_GridCompCreate(vm=worldVM,
+      iceGridComp = ESMF_GridCompCreate(
      &                                name='SEAICE Component',
      &                        gridcomptype=ESMF_SEAICE,
      &                                  rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "SEAICE GridCompCreate failed", rc))
+     &    "SEAICE GridCompCreate failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Create empty SEAICE import/export states
@@ -121,22 +121,22 @@ c --- Create empty SEAICE import/export states
      &                               stateType=ESMF_STATE_IMPORT,
      &                                      rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "SEAICE ImpState Create failed", rc))
+     &    "SEAICE ImpState Create failed", rcToReturn=rc2))
      &   goto 10
 
       iceExpState = ESMF_StateCreate(stateName="SEAICE Export",
      &                               stateType=ESMF_STATE_EXPORT,
      &                                      rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "SEAICE ExpState Create failed", rc))
+     &    "SEAICE ExpState Create failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Create the OICPL coupler component
-      o2iCplComp = ESMF_CplCompCreate(vm=worldVM,
+      o2iCplComp = ESMF_CplCompCreate(
      &             name="OICPL Coupler Component",
      &             rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPLE CplCompCreate failed", rc))
+     &    "OICPLE CplCompCreate failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Create empty OICPL import/export states
@@ -144,35 +144,35 @@ c --- Create empty OICPL import/export states
      &                               stateType=ESMF_STATE_IMPORT,
      &                                      rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL ImpState Create failed", rc))
+     &    "OICPL ImpState Create failed", rcToReturn=rc2))
      &   goto 10
 
       cplExpState = ESMF_StateCreate(stateName="OICPL Export",
      &                               stateType=ESMF_STATE_EXPORT,
      &                                      rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL ExpState Create failed", rc))
+     &    "OICPL ExpState Create failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Add OCEAN and SEAICE states to OICPL states
-      CALL ESMF_StateAddState(cplImpState, ocnImpState, rc=rc)
+      CALL ESMF_StateAdd(cplImpState, ocnImpState, rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL: Add OCEAN  impState failed", rc))
+     &    "OICPL: Add OCEAN  impState failed", rcToReturn=rc2))
      &   goto 10
 
-      CALL ESMF_StateAddState(cplImpState, iceImpState, rc=rc)
+      CALL ESMF_StateAdd(cplImpState, iceImpState, rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL: Add SEAICE impState failed", rc))
+     &    "OICPL: Add SEAICE impState failed", rcToReturn=rc2))
      &   goto 10
 
-      CALL ESMF_StateAddState(cplExpState, ocnExpState, rc=rc)
+      CALL ESMF_StateAdd(cplExpState, ocnExpState, rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL: Add OCEAN  expState failed", rc))
+     &    "OICPL: Add OCEAN  expState failed", rcToReturn=rc2))
      &   goto 10
 
-      CALL ESMF_StateAddState(cplExpState, iceExpState, rc=rc)
+      CALL ESMF_StateAdd(cplExpState, iceExpState, rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL: Add SEAICE impState failed", rc))
+     &    "OICPL: Add SEAICE impState failed", rcToReturn=rc2))
      &   goto 10
 c
 c-------------------------------------------------------------------------------
@@ -181,23 +181,23 @@ c-------------------------------------------------------------------------------
 c
 c --- Register the OCEAN  gridded component
       call ESMF_GridCompSetServices(ocnGridComp,
-     &                              OCN_SetServices, rc)
+     &                              OCN_SetServices, rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OCEAN  Registration failed", rc))
+     &    "OCEAN  Registration failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Register the SEAICE gridded component
       call ESMF_GridCompSetServices(iceGridComp,
-     &                              ICE_SetServices, rc)
+     &                              ICE_SetServices, rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "SEAICE Registration failed", rc))
+     &    "SEAICE Registration failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Register the OICPL coupler component
       call ESMF_CplCompSetServices(o2iCplComp,
-     &                             CPL_SetServices,rc)
+     &                             CPL_SetServices,rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL  Registration failed", rc))
+     &    "OICPL  Registration failed", rcToReturn=rc2))
      &   goto 10
 c
 c-------------------------------------------------------------------------------
@@ -208,30 +208,22 @@ c --- Initialize OCEAN  gridded component
       call ESMF_GridCompInitialize(    gridComp=ocnGridComp,
      &                              importState=ocnImpState,
      &                              exportState=ocnExpState,
-     &                                    clock=worldClock,
      &                                    phase=ESMF_SINGLEPHASE,
      &                             blockingflag=ESMF_NONBLOCKING,
      &                                       rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OCEAN Initialize failed", rc))
+     &    "OCEAN Initialize failed", rcToReturn=rc2))
      &   goto 10
-*-----c
-*-----c --- Get copy of OCEAN clock
-*-----      call ESMF_GridCompGet(ocnGridComp, clock=ocnClock, rc=rc)
-*-----c
-*-----c --- Initialize WORLD clock using OCEAN clock
-*-----      worldClock = ESMF_ClockCreate(clock=ocnClock, rc=rc)
 c
 c --- Initialize SEAICE gridded component
       call ESMF_GridCompInitialize(    gridComp=iceGridComp,
      &                              importState=iceImpState,
      &                              exportState=iceExpState,
-     &                                    clock=worldClock,
      &                                    phase=ESMF_SINGLEPHASE,
      &                             blockingflag=ESMF_NONBLOCKING,
      &                                       rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "SEAICE Initialize failed", rc))
+     &    "SEAICE Initialize failed", rcToReturn=rc2))
      &   goto 10
 c
       ocn_cpl_day = OCN_nts_day/OCN_nts_cpl
@@ -259,36 +251,33 @@ c --- Initialize OICPL coupler component
       call ESMF_CplCompInitialize(     cplComp=o2iCplComp,
      &                             importState=cplImpState,
      &                             exportState=cplExpState,
-     &                                   clock=worldClock,
      &                                   phase=ESMF_SINGLEPHASE,
      &                            blockingflag=ESMF_BLOCKING,
      &                                      rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL  Initialize failed", rc))
+     &    "OICPL  Initialize failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Couple SEAICE to OCEAN
       call ESMF_CplCompRun(     cplComp=o2iCplComp,
      &                      importState=cplImpState,
      &                      exportState=cplExpState,
-     &                            clock=worldClock,
      &                            phase=CPL_i2o,
      &                     blockingflag=ESMF_BLOCKING,
      &                               rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL I2O Run failed", rc))
+     &    "OICPL I2O Run failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Couple OCEAN to SEAICE
       call ESMF_CplCompRun(     cplComp=o2iCplComp,
      &                      importState=cplImpState,
      &                      exportState=cplExpState,
-     &                            clock=worldClock,
      &                            phase=CPL_o2i,
      &                     blockingflag=ESMF_BLOCKING,
      &                               rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL I2O Run failed", rc))
+     &    "OICPL I2O Run failed", rcToReturn=rc2))
      &   goto 10
 c
 c-------------------------------------------------------------------------------
@@ -309,12 +298,11 @@ c ---   OCEAN
           call ESMF_GridCompRun(    gridComp=ocnGridComp,
      &                           importState=ocnImpState,
      &                           exportState=ocnExpState,
-     &                                 clock=worldClock,
      &                                 phase=ESMF_SINGLEPHASE,
      &                          blockingflag=ESMF_NONBLOCKING,
      &                                    rc=rc)
           if (ESMF_LogMsgFoundError(rc,
-     &        "OCEAN Run failed", rc))
+     &        "OCEAN Run failed", rcToReturn=rc2))
      &        goto 10
         enddo !its; OCEAN
  
@@ -330,12 +318,11 @@ c ---   SEAICE
           call ESMF_GridCompRun(    gridComp=iceGridComp,
      &                           importState=iceImpState,
      &                           exportState=iceExpState,
-     &                                 clock=worldClock,
      &                                 phase=ESMF_SINGLEPHASE,
      &                          blockingflag=ESMF_NONBLOCKING,
      &                                    rc=rc)
           if (ESMF_LogMsgFoundError(rc,
-     &        "SEAICE Run failed (last half day)", rc))
+     &        "SEAICE Run failed (last half day)", rcToReturn=rc2))
      &         goto 10
         enddo !its; SEAICE
 
@@ -348,24 +335,22 @@ c ---   Couple SEAICE to OCEAN
         call ESMF_CplCompRun(     cplComp=o2iCplComp,
      &                        importState=cplImpState,
      &                        exportState=cplExpState,
-     &                              clock=worldClock,
      &                              phase=CPL_i2o,
      &                       blockingflag=ESMF_BLOCKING,
      &                                 rc=rc)
         if (ESMF_LogMsgFoundError(rc,
-     &      "OICPL I2O Run failed", rc))
+     &      "OICPL I2O Run failed", rcToReturn=rc2))
      &     goto 10
 
 c ---   Couple OCEAN to SEAICE
         call ESMF_CplCompRun(     cplComp=o2iCplComp,
      &                        importState=cplImpState,
      &                        exportState=cplExpState,
-     &                              clock=worldClock,
      &                              phase=CPL_o2i,
      &                       blockingflag=ESMF_BLOCKING,
      &                                 rc=rc)
         if (ESMF_LogMsgFoundError(rc,
-     &      "OICPL I2O Run failed", rc))
+     &      "OICPL I2O Run failed", rcToReturn=rc2))
      &     goto 10
 
       enddo !icpl
@@ -380,36 +365,33 @@ c --- Finalize OCEAN gridded component
       call ESMF_GridCompFinalize(    gridComp=ocnGridComp,
      &                            importState=ocnImpState,
      &                            exportState=ocnExpState,
-     &                                  clock=worldClock,
      &                                  phase=ESMF_SINGLEPHASE,
      &                           blockingflag=ESMF_NONBLOCKING,
      &                                     rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OCEAN  Finalize failed", rc)) 
+     &    "OCEAN  Finalize failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Finalize SEAICE gridded component
       call ESMF_GridCompFinalize(    gridComp=iceGridComp,
      &                            importState=iceImpState,
      &                            exportState=iceExpState,
-     &                                  clock=worldClock,
      &                                  phase=ESMF_SINGLEPHASE,
      &                           blockingflag=ESMF_NONBLOCKING,
      &                                     rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "SEAICE Finalize failed", rc)) 
+     &    "SEAICE Finalize failed", rcToReturn=rc2))
      &   goto 10
 c
 c --- Finalize OACPL coupler component
       call ESMF_CplCompFinalize(     cplComp=o2iCplComp,
      &                           importState=cplImpState,
      &                           exportState=cplExpState,
-     &                                 clock=worldClock,
      &                                 phase=ESMF_SINGLEPHASE,
      &                          blockingflag=ESMF_BLOCKING,
      &                                    rc=rc)
       if (ESMF_LogMsgFoundError(rc,
-     &    "OICPL  Finalize failed", rc)) 
+     &    "OICPL  Finalize failed", rcToReturn=rc2))
      &   goto 10
 
 c

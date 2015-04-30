@@ -69,35 +69,40 @@ c
 c
 c
       subroutine forfuna
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
 c --- initialize input of atmospheric forcing fields
 c
 c --- units of tau_x  are N/m^2  (positive eastwards  w.r.t. the grid)
 c --- units of tau_y  are N/m^2  (positive northwards w.r.t. the grid)
+c --- units of wnd_x  are m/s    (positive eastwards  w.r.t. the grid)
+c --- units of wnd_y  are m/s    (positive northwards w.r.t. the grid)
 c --- units of wndspd are m/s
 c --- units of ustar  are m/s
 c --- units of airtmp are degC
 c --- units of surtmp are degC
 c --- units of seatmp are degC
-c --- units of vapmix are kg/kg
+c --- units of vapmix are kg/k
+c --- units of mslprs are Pa     (anomaly, offset from total by prsbas)
 c --- units of precip are m/s    (positive into ocean)
 c --- units of radflx are w/m^2  (positive into ocean)
 c --- units of swflx  are w/m^2  (positive into ocean)
 c --- units of offlux are w/m^2  (positive into ocean)
+c --- units of oftaux are N/m^2  (positive eastwards  w.r.t. the grid)
+c --- units of oftauy are N/m^2  (positive northwards w.r.t. the grid)
 c
 c --- tau_x and tau_y are either on u&v grids or both on the p grid,
 c --- depending on the value of blkdat input parameter "wndflg".
 c --- in any case, they are always oriented along the local grid
 c --- which need not be east-west and north-south.
-c --- all other fields, including wndspd and ustar, are always on the p grid.
+c --- all other fields, including wnd* and ustar, are always on the p grid.
 c
-c --- I/O and array I/O units 900-910 are reserved for the entire run.
+c --- I/O and array I/O units 899-910 are reserved for the entire run.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       integer         mreca,mrecc,mreck,mrecr
       common/rdforfi/ mreca,mrecc,mreck,mrecr
@@ -116,31 +121,97 @@ c
 c
       lgth = len_trim(flnmfor)
 c
+      if     (mslprf .or. flxflg.eq.6) then
+      call zaiopf(flnmfor(1:lgth)//'forcing.mslprs.a', 'old', 899)
+      if     (mnproc.eq.1) then  ! .b file from 1st tile only
+      open (unit=uoff+899,file=flnmfor(1:lgth)//'forcing.mslprs.b',
+     &   status='old', action='read')
+      read (uoff+899,'(a79)') preambl
+      endif !1st tile
+      call preambl_print(preambl)
+      call rdmonth(util1, 899)
+cdiag call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,1.,
+cdiag.     'mslprs (Pa)')
+      endif !mslprf
+c
       if (windf) then
 c
-      call zaiopf(flnmfor(1:lgth)//'forcing.tauewd.a', 'old', 901)
-      if     (mnproc.eq.1) then  ! .b file from 1st tile only
-      open (unit=uoff+901,file=flnmfor(1:lgth)//'forcing.tauewd.b',
-     &      status='old', action='read')
-      read (uoff+901,'(a79)') preambl
-      endif !1st tile
-      call preambl_print(preambl)
-      call rdmonth(util1, 901)
-cdiag call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,1000.,
-cdiag.     'tau_x (x 1000 N/m^2 ) ')
+      if     (wndflg.lt.4) then
+        call zaiopf(flnmfor(1:lgth)//'forcing.tauewd.a', 'old', 901)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+901,file=flnmfor(1:lgth)//'forcing.tauewd.b',
+     &        status='old', action='read')
+        read (uoff+901,'(a79)') preambl
+        endif !1st tile
+        call preambl_print(preambl)
+        call rdmonth(util1, 901)
+cdiag   call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,1000.,
+cdiag.       'tau_x (x 1000 N/m^2 ) ')
 c
-      call zaiopf(flnmfor(1:lgth)//'forcing.taunwd.a', 'old', 902)
-      if     (mnproc.eq.1) then  ! .b file from 1st tile only
-      open (unit=uoff+902,file=flnmfor(1:lgth)//'forcing.taunwd.b',
-     &   status='old', action='read')
-      read (uoff+902,'(a79)') preambl
-      endif !1st tile
-      call preambl_print(preambl)
-      call rdmonth(util1, 902)
-cdiag call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,1000.,
-cdiag.     'tau_y (x 1000 N/m^2 ) ')
+        call zaiopf(flnmfor(1:lgth)//'forcing.taunwd.a', 'old', 902)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+902,file=flnmfor(1:lgth)//'forcing.taunwd.b',
+     &        status='old', action='read')
+        read (uoff+902,'(a79)') preambl
+        endif !1st tile
+        call preambl_print(preambl)
+        call rdmonth(util1, 902)
+cdiag   call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,1000.,
+cdiag.       'tau_y (x 1000 N/m^2 ) ')
+      else !read 10m wind components
+        call zaiopf(flnmfor(1:lgth)//'forcing.wndewd.a', 'old', 901)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+901,file=flnmfor(1:lgth)//'forcing.wndewd.b',
+     &        status='old', action='read')
+        read (uoff+901,'(a79)') preambl
+        endif !1st tile
+        call preambl_print(preambl)
+        call rdmonth(util1, 901)
+cdiag   call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,1.,
+cdiag.       'wnd_x (m/s ) ')
 c
-      end if				!  windf = .true.
+        call zaiopf(flnmfor(1:lgth)//'forcing.wndnwd.a', 'old', 902)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+902,file=flnmfor(1:lgth)//'forcing.wndnwd.b',
+     &        status='old', action='read')
+        read (uoff+902,'(a79)') preambl
+        endif !1st tile
+        call preambl_print(preambl)
+        call rdmonth(util1, 902)
+cdiag   call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,1.,
+cdiag.       'wnd_y (m/s) ')
+        endif !stress:wind
+c
+        if     (stroff) then
+          call zaiopf(flnmfor(1:lgth)//'forcing.ofstrs.a', 'old', 916)
+          if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          open (unit=uoff+916,file=flnmfor(1:lgth)//'forcing.ofstrs.b',
+     &       status='old', action='read')
+          read (uoff+916,'(a79)') preambl
+          endif !1st tile
+          call preambl_print(preambl)
+          call rdmonth(oftaux, 916)
+          call rdmonth(oftauy, 916)
+          if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          close( unit=uoff+916)
+          endif
+          call zaiocl(916)
+cdiag     call prtmsk(ip,oftaux,util2,idm,idm,jdm,  0.,1.0,
+cdiag.         'taux offset (N)  ')
+cdiag     call prtmsk(ip,oftauy,util2,idm,idm,jdm,  0.,1.0,
+cdiag.         'tauy offset (N)  ')
+          else
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+              oftaux(i,j) = 0.0
+              oftauy(i,j) = 0.0
+            enddo !i
+          enddo !j
+        endif !stroff:else
+c
+      endif				!  windf = .true.
 c
       if (thermo) then
 c
@@ -157,7 +228,7 @@ cdiag call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,1000.,
 cdiag.     'ustar (x 1000 ???)')
       endif !ustflg.eq.3
 c
-      if (wndflg.ne.3) then
+      if (wndflg.lt.3) then
       call zaiopf(flnmfor(1:lgth)//'forcing.wndspd.a', 'old', 903)
       if     (mnproc.eq.1) then  ! .b file from 1st tile only
       open (unit=uoff+903,file=flnmfor(1:lgth)//'forcing.wndspd.b',
@@ -168,7 +239,7 @@ c
       call rdmonth(util1, 903)
 cdiag call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,10.,
 cdiag.     'wind speed  (x 10 m/s)')
-      endif !wndflg.ne.3
+      endif !wndflg.lt.3
 c
       call zaiopf(flnmfor(1:lgth)//'forcing.airtmp.a', 'old', 904)
       if     (mnproc.eq.1) then  ! .b file from 1st tile only
@@ -245,7 +316,7 @@ c
 cdiag call prtmsk(ip,util1,util2,idm,idm,jdm,  0.,1.0,
 cdiag.     'sw radiation (w/m^2 )  ')
 c
-      end if                    !  thermo = .true.
+      endif                    !  thermo = .true.
 c
       if     (lwflag.eq.2 .or. sstflg.eq.2   .or.
      &        icmflg.eq.2 .or. ticegr.eq.0.0     ) then
@@ -275,34 +346,34 @@ cdiag.     'SST from obs. (degC)   ')
       endif !sstflg.eq.3
 c
       if     (flxoff) then
-      call zaiopf(flnmfor(1:lgth)//'forcing.offlux.a', 'old', 916)
-      if     (mnproc.eq.1) then  ! .b file from 1st tile only
-      open (unit=uoff+916,file=flnmfor(1:lgth)//'forcing.offlux.b',
-     &   status='old', action='read')
-      read (uoff+916,'(a79)') preambl
-      endif !1st tile
-      call preambl_print(preambl)
-      call rdmonth(offlux, 916)
-      if     (mnproc.eq.1) then  ! .b file from 1st tile only
-      close( unit=uoff+916)
-      endif
-      call zaiocl(916)
-cdiag call prtmsk(ip,offlux,util2,idm,idm,jdm,  0.,1.0,
-cdiag.     'heat flux offset (w/m^2 )  ')
-      else
-!$OMP PARALLEL DO PRIVATE(j,i)
-!$OMP&         SCHEDULE(STATIC,jblk)
-      do j=1-nbdy,jj+nbdy
-        do i=1-nbdy,ii+nbdy
-          offlux(i,j)=0.0
-        enddo !i
-      enddo !j
+        call zaiopf(flnmfor(1:lgth)//'forcing.offlux.a', 'old', 916)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+916,file=flnmfor(1:lgth)//'forcing.offlux.b',
+     &     status='old', action='read')
+        read (uoff+916,'(a79)') preambl
+        endif !1st tile
+        call preambl_print(preambl)
+        call rdmonth(offlux, 916)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        close( unit=uoff+916)
+        endif
+        call zaiocl(916)
+cdiag   call prtmsk(ip,offlux,util2,idm,idm,jdm,  0.,1.0,
+cdiag.       'heat flux offset (w/m^2 )  ')
+        else
+!$OMP   PARALLEL DO PRIVATE(j,i)
+!$OMP&           SCHEDULE(STATIC,jblk)
+        do j=1-nbdy,jj+nbdy
+          do i=1-nbdy,ii+nbdy
+            offlux(i,j) = 0.0
+          enddo !i
+        enddo !j
       endif !flxoff:else
 c
-      if     (jerlv0.ne.0) then
+c --- jerlov used in call to swfrac_ij
+      if     (jerlv0.gt.0) then
 c ---   calculate jerlov water type,
 c ---   which governs the penetration depth of shortwave radiation.
-c ---   set jerlv0=0 to use an input annual/monthly kpar field instead.
 !$OMP   PARALLEL DO PRIVATE(j,i)
 !$OMP&           SCHEDULE(STATIC,jblk)
         do j=1-nbdy,jj+nbdy
@@ -310,6 +381,16 @@ c ---   set jerlv0=0 to use an input annual/monthly kpar field instead.
 c ---       map shallow depths to high jerlov numbers
             jerlov(i,j)=6-max(1,min(5,int(depths(i,j)/15.0)))
             jerlov(i,j)=max(jerlv0,jerlov(i,j))
+          enddo
+        enddo
+      else
+c ---   jerlv0= 0 uses an input annual/monthly kpar field
+c ---   jerlv0=-1 uses an input annual/monthly chl  field
+!$OMP   PARALLEL DO PRIVATE(j,i)
+!$OMP&           SCHEDULE(STATIC,jblk)
+        do j=1-nbdy,jj+nbdy
+          do i=1-nbdy,ii+nbdy
+            jerlov(i,j)=jerlv0
           enddo
         enddo
       endif
@@ -323,49 +404,81 @@ c
       end
 c
 c
-      subroutine forfund
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      subroutine forfund(tiddrg)
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
-c --- initialize tidal drag roughness field
+      integer tiddrg
 c
-c --- units of dragrh are m/s on the p-grid.
+c --- initialize tidal drag tensor
+c
+c --- units of dragrh and drgten are m/s on the p-grid.
+c ---          dragrh and drgten should be positive.
 c
 c --- I/O and array I/O unit 925 used here, but not reserved.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       integer   i,j,k,l,lgth
 c
       if     (mnproc.eq.1) then
-      write (lp,*) ' now opening dragrh field  ...'
+      if     (tiddrg.eq.1) then
+        write (lp,*) ' now opening tidal drag rh field  ...'
+      else
+        write (lp,*) ' now opening tidal drag tensor fields  ...'
+      endif !tiddrg
       endif !1st tile
       call xcsync(flush_lp)
 c
       lgth = len_trim(flnmfor)
 c
-      call zaiopf(flnmfor(1:lgth)//'tidal.rh.a', 'old', 925)
-      if     (mnproc.eq.1) then  ! .b file from 1st tile only
-      open (unit=uoff+925,file=flnmfor(1:lgth)//'tidal.rh.b',
-     &   status='old', action='read')
-      endif !1st tile
-      call rdmonth(dragrh, 925)
+      if     (tiddrg.eq.1) then
+c ---   original filename, 1 field (rh)
+        call zaiopf(flnmfor(1:lgth)//'tidal.rh.a', 'old', 925)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+925,file=flnmfor(1:lgth)//'tidal.rh.b',
+     &     status='old', action='read')
+        endif !1st tile
+        call rdmonth(util1, 925)
+        call xctilr( util1,1,1, nbdy,nbdy, halo_ps)
+c ---   cast scalar to tensor drag.
+        drgten(1,1,:,:) = drgscl*util1(:,:) !uu
+        drgten(1,2,:,:) = 0.0  !uv
+        drgten(2,1,:,:) = 0.0  !vu
+        drgten(2,2,:,:) = drgscl*util1(:,:) !vv
+      else
+c ---   drag tensor filename, 4 fields uu, uv, vv, vu
+        call zaiopf(flnmfor(1:lgth)//'tidal.tensor.a', 'old', 925)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+925,file=flnmfor(1:lgth)//'tidal.tensor.b',
+     &     status='old', action='read')
+        endif !1st tile
+        call rdmonth(util1, 925)
+        call xctilr( util1,1,1, nbdy,nbdy, halo_ps)
+        drgten(1,1,:,:) = drgscl*util1(:,:) !uu
+        call rdmonth(util1, 925)
+        call xctilr( util1,1,1, nbdy,nbdy, halo_ps)
+        drgten(1,2,:,:) = drgscl*util1(:,:) !uv
+        call rdmonth(util1, 925)
+        call xctilr( util1,1,1, nbdy,nbdy, halo_ps)
+        drgten(2,1,:,:) = drgscl*util1(:,:) !vu
+        call rdmonth(util1, 925)
+        call xctilr( util1,1,1, nbdy,nbdy, halo_ps)
+        drgten(2,2,:,:) = drgscl*util1(:,:) !vv
+      endif !tiddrg
       if     (mnproc.eq.1) then  ! .b file from 1st tile only
       close (unit=uoff+925)
       endif
       call zaiocl(925)
 c
-      do j=1,jj
-        do i=1,ii
-          dragrh(i,j) = drgscl*dragrh(i,j)
-        enddo
-      enddo
-      call xctilr(dragrh,1,1, nbdy,nbdy, halo_ps)
-c
       if     (mnproc.eq.1) then
-      write (lp,*) ' ...finished opening dragrh field '
+      if     (tiddrg.eq.1) then
+        write (lp,*) ' ...finished opening tidal drag rh field'
+      else
+        write (lp,*) ' ...finished opening tidal drag tensor fields'
+      endif !tiddrg
       endif !1st tile
       call xcsync(flush_lp)
 c
@@ -374,10 +487,10 @@ c
 c
 c
       subroutine forfunh(dtime)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       real*8    dtime
 c
@@ -385,12 +498,15 @@ c --- high frequency atmospheric forcing field processing.
 c
 c --- units of tau_x  are N/m^2  (positive eastwards  w.r.t. the grid)
 c --- units of tau_y  are N/m^2  (positive northwards w.r.t. the grid)
+c --- units of wnd_x  are m/s    (positive eastwards  w.r.t. the grid)
+c --- units of wnd_y  are m/s    (positive northwards w.r.t. the grid)
 c --- units of wndspd are m/s
 c --- units of ustar  are m/s
 c --- units of airtmp are degC
 c --- units of surtmp are degC
 c --- units of seatmp are degC
 c --- units of vapmix are kg/kg
+c --- units of mslprs are Pa     (anomaly, offset from total by prsbas)
 c --- units of precip are m/s    (positive into ocean)
 c --- units of radflx are w/m^2  (positive into ocean)
 c --- units of swflx  are w/m^2  (positive into ocean)
@@ -400,11 +516,11 @@ c --- tau_x and tau_y are either on u&v grids or both on the p grid,
 c --- depending on the value of blkdat input parameter "wndflg".
 c --- in any case, they are always oriented along the local grid
 c --- which need not be east-west and north-south.
-c --- all other fields, including wndspd and ustar, are always on the p grid.
+c --- all other fields, including wnd* and ustar, are always on the p grid.
 c
-c --- I/O and array I/O units 900-910 are reserved for the entire run.
+c --- I/O and array I/O units 899-910 are reserved for the entire run.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       real*8    dtime0,dtime1
       save      dtime0,dtime1
@@ -436,33 +552,39 @@ c
                  stop '(forfunh)'
         endif
 c
-c ---   linear interpolation in time, so slots 3 and 4 are zero.
-!$OMP   PARALLEL DO PRIVATE(j,i)
-!$OMP&           SCHEDULE(STATIC,jblk)
-        do j=1-nbdy,jj+nbdy
-          do i=1-nbdy,ii+nbdy
-              taux(i,j,3) = 0.0
-              taux(i,j,4) = 0.0
-              tauy(i,j,3) = 0.0
-              tauy(i,j,4) = 0.0
-            wndspd(i,j,3) = 0.0
-            wndspd(i,j,4) = 0.0
-            airtmp(i,j,3) = 0.0
-            airtmp(i,j,4) = 0.0
-            vapmix(i,j,3) = 0.0
-            vapmix(i,j,4) = 0.0
-            precip(i,j,3) = 0.0
-            precip(i,j,4) = 0.0
-            radflx(i,j,3) = 0.0
-            radflx(i,j,4) = 0.0
-             swflx(i,j,3) = 0.0
-             swflx(i,j,4) = 0.0
-            surtmp(i,j,3) = 0.0
-            surtmp(i,j,4) = 0.0
-            seatmp(i,j,3) = 0.0
-            seatmp(i,j,4) = 0.0
+        if     (natm.eq.4) then
+c ---     linear interpolation in time, so slots 3 and 4 are zero.
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+                taux(i,j,natm-1) = 0.0
+                taux(i,j,natm)   = 0.0
+                tauy(i,j,natm-1) = 0.0
+                tauy(i,j,natm)   = 0.0
+              wndspd(i,j,natm-1) = 0.0
+              wndspd(i,j,natm)   = 0.0
+              ustara(i,j,natm-1) = 0.0
+              ustara(i,j,natm)   = 0.0
+              airtmp(i,j,natm-1) = 0.0
+              airtmp(i,j,natm)   = 0.0
+              vapmix(i,j,natm-1) = 0.0
+              vapmix(i,j,natm)   = 0.0
+              mslprs(i,j,natm-1) = 0.0
+              mslprs(i,j,natm)   = 0.0
+              precip(i,j,natm-1) = 0.0
+              precip(i,j,natm)   = 0.0
+              radflx(i,j,natm-1) = 0.0
+              radflx(i,j,natm)   = 0.0
+               swflx(i,j,natm-1) = 0.0
+               swflx(i,j,natm)   = 0.0
+              surtmp(i,j,natm-1) = 0.0
+              surtmp(i,j,natm)   = 0.0
+              seatmp(i,j,natm-1) = 0.0
+              seatmp(i,j,natm)   = 0.0
+            enddo
           enddo
-        enddo
+        endif !natm.eq.4
 c
 c ---   open all forcing files.
         if     (mnproc.eq.1) then
@@ -472,21 +594,78 @@ c ---   open all forcing files.
 c
         lgth = len_trim(flnmfor)
 c
-        call zaiopf(flnmfor(1:lgth)//'forcing.tauewd.a', 'old', 901)
+        if     (mslprf .or. flxflg.eq.6) then
+        call zaiopf(flnmfor(1:lgth)//'forcing.mslprs.a', 'old', 899)
         if     (mnproc.eq.1) then  ! .b file from 1st tile only
-        open (unit=uoff+901,file=flnmfor(1:lgth)//'forcing.tauewd.b',
-     &        status='old', action='read')
-        read (uoff+901,'(a79)') preambl
-        endif !1st tile
-        call preambl_print(preambl)
-c
-        call zaiopf(flnmfor(1:lgth)//'forcing.taunwd.a', 'old', 902)
-        if     (mnproc.eq.1) then  ! .b file from 1st tile only
-        open (unit=uoff+902,file=flnmfor(1:lgth)//'forcing.taunwd.b',
+        open (unit=uoff+899,file=flnmfor(1:lgth)//'forcing.mslprs.b',
      &     status='old', action='read')
-        read (uoff+902,'(a79)') preambl
+        read (uoff+899,'(a79)') preambl
         endif !1st tile
         call preambl_print(preambl)
+        endif !mslprf
+c
+        if     (wndflg.lt.4) then
+          call zaiopf(flnmfor(1:lgth)//'forcing.tauewd.a', 'old', 901)
+          if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          open (unit=uoff+901,file=flnmfor(1:lgth)//'forcing.tauewd.b',
+     &          status='old', action='read')
+          read (uoff+901,'(a79)') preambl
+          endif !1st tile
+          call preambl_print(preambl)
+c
+          call zaiopf(flnmfor(1:lgth)//'forcing.taunwd.a', 'old', 902)
+          if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          open (unit=uoff+902,file=flnmfor(1:lgth)//'forcing.taunwd.b',
+     &       status='old', action='read')
+          read (uoff+902,'(a79)') preambl
+          endif !1st tile
+          call preambl_print(preambl)
+        else !read 10m wind components
+          call zaiopf(flnmfor(1:lgth)//'forcing.wndewd.a', 'old', 901)
+          if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          open (unit=uoff+901,file=flnmfor(1:lgth)//'forcing.wndewd.b',
+     &          status='old', action='read')
+          read (uoff+901,'(a79)') preambl
+          endif !1st tile
+          call preambl_print(preambl)
+c             
+          call zaiopf(flnmfor(1:lgth)//'forcing.wndnwd.a', 'old', 902)
+          if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          open (unit=uoff+902,file=flnmfor(1:lgth)//'forcing.wndnwd.b',
+     &          status='old', action='read')
+          read (uoff+902,'(a79)') preambl
+          endif !1st tile
+          call preambl_print(preambl)
+        endif !stress:wind
+c
+        if     (stroff) then
+          call zaiopf(flnmfor(1:lgth)//'forcing.ofstrs.a', 'old', 916)
+          if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          open (unit=uoff+916,file=flnmfor(1:lgth)//'forcing.ofstrs.b',
+     &       status='old', action='read')
+          read (uoff+916,'(a79)') preambl
+          endif !1st tile
+          call preambl_print(preambl)
+          call rdmonth(oftaux, 916)
+          call rdmonth(oftauy, 916)
+          if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          close( unit=uoff+916)
+          endif
+          call zaiocl(916)
+cdiag     call prtmsk(ip,oftaux,util2,idm,idm,jdm,  0.,1.0,
+cdiag.         'taux offset (N)  ')
+cdiag     call prtmsk(ip,oftauy,util2,idm,idm,jdm,  0.,1.0,
+cdiag.         'tauy offset (N)  ')
+          else
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+              oftaux(i,j) = 0.0
+              oftauy(i,j) = 0.0
+            enddo !i
+          enddo !j
+        endif !stroff:else
 c
         if     (ustflg.eq.3) then
         call zaiopf(flnmfor(1:lgth)//'forcing.ustar.a', 'old', 900)
@@ -498,7 +677,7 @@ c
         call preambl_print(preambl)
         endif !ustflg.eq.3
 c
-        if (wndflg.ne.3) then
+        if (wndflg.lt.3) then
         call zaiopf(flnmfor(1:lgth)//'forcing.wndspd.a', 'old', 903)
         if     (mnproc.eq.1) then  ! .b file from 1st tile only
         open (unit=uoff+903,file=flnmfor(1:lgth)//'forcing.wndspd.b',
@@ -506,7 +685,7 @@ c
         read (uoff+903,'(a79)') preambl
         endif !1st tile
         call preambl_print(preambl)
-        endif !wndflg.ne.3
+        endif !wndflg.lt.3
 c
         call zaiopf(flnmfor(1:lgth)//'forcing.airtmp.a', 'old', 904)
         if     (mnproc.eq.1) then  ! .b file from 1st tile only
@@ -587,7 +766,7 @@ c
 !$OMP&             SCHEDULE(STATIC,jblk)
           do j=1-nbdy,jj+nbdy
             do i=1-nbdy,ii+nbdy
-              offlux(i,j)=0.0
+              offlux(i,j) = 0.0
             enddo !i
           enddo !j
         endif !flxoff:else
@@ -613,7 +792,7 @@ c ---   skip ahead to the start time.
           i = index(cline,'=')
           read (cline(i+1:),*) dtime1
 !!Alex add calendar 
-          if     (yrflag.eq.2 .or. yrflag.eq.4) then
+          if     (yrflag.eq.2  .or. yrflag.eq.4) then
             if     (nrec.eq.1 .and. abs(dtime1-1096.0d0).gt.0.01) then
 c
 c ---         climatology must start on wind day 1096.0, 01/01/1904.
@@ -655,6 +834,9 @@ c ---       otherwise, must start after wind day 1462.0, 01/01/1905.
         endif
 c
         do iunit= 901,908
+          if     (iunit.eq.903 .and. wndflg.ge.3) then
+            cycle  !no wndspd
+          endif
           do i= 1,nrec-2
             call skmonth(iunit)
           enddo
@@ -706,10 +888,10 @@ c ---   zero precip field implies no surface salinity flux
           endif  !pcipf actually .false.
         endif  !pcipf initially .true.
 c
-        if     (jerlv0.ne.0) then
+c ---   jerlov used in call to swfrac_ij
+        if     (jerlv0.gt.0) then
 c ---     calculate jerlov water type,
 c ---     which governs the penetration depth of shortwave radiation.
-c ---     set jerlv0=0 to use an input annual/monthly kpar field instead.
 !$OMP     PARALLEL DO PRIVATE(j,i)
 !$OMP&             SCHEDULE(STATIC,jblk)
           do j=1-nbdy,jj+nbdy
@@ -717,6 +899,16 @@ c ---     set jerlv0=0 to use an input annual/monthly kpar field instead.
 c ---         map shallow depths to high jerlov numbers
               jerlov(i,j)=6-max(1,min(5,int(depths(i,j)/15.0)))
               jerlov(i,j)=max(jerlv0,jerlov(i,j))
+            enddo
+          enddo
+        else
+c ---     jerlv0= 0 uses an input annual/monthly kpar field
+c ---     jerlv0=-1 uses an input annual/monthly chl  field
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+              jerlov(i,j)=jerlv0
             enddo
           enddo
         endif
@@ -762,20 +954,340 @@ c --- linear interpolation in time.
       end
 c
 c
-      subroutine forfunk
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      subroutine forfunhp(dtime)
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
+c
+      real*8    dtime
+c
+c --- high frequency atmospheric pressure forcing field processing.
+c --- call either forfunh or forfunhp, not both.
+c
+c --- units of mslprs are Pa (anomaly, offset from total by prsbas)
+c
+c --- mslprs is always on the p grid.
+c --- mslprs must be defined at all grid points
+c
+c --- I/O and array I/O unit 899 is reserved for the entire run.
+c
+c
+      real*8    dtime0,dtime1
+      save      dtime0,dtime1
+c
+      character preambl(5)*79,cline*80
+      integer   i,ios,iunit,j,lgth,nrec
+c
+c --- w0 negative on first call only.
+      if     (w0.lt.-1.0) then
+c
+c ---   initialize forcing fields
+c
+        if      (.not.mslprf) then
+          if     (mnproc.eq.1) then
+          write(lp,*)
+          write(lp,*) 'error in forfunhp - mslprf must be .true.'
+          write(lp,*)
+          endif !1st tile
+          call xcstop('(forfunhp)')
+                 stop '(forfunhp)'
+        elseif  (windf) then
+          if     (mnproc.eq.1) then
+          write(lp,*)
+          write(lp,*) 'error in forfunhp - windf must be .false.'
+          write(lp,*)
+          endif !1st tile
+          call xcstop('(forfunhp)')
+                 stop '(forfunhp)'
+        elseif (thermo) then
+          if     (mnproc.eq.1) then
+          write(lp,*)
+          write(lp,*) 'error in forfunhp - thermo must be .false.'
+          write(lp,*)
+          endif !1st tile
+          call xcstop('(forfunhp)')
+                 stop '(forfunhp)'
+        endif
+c
+        if     (natm.eq.4) then
+c ---     linear interpolation in time, so slots 3 and 4 are zero.
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+              mslprs(i,j,natm-1) = 0.0
+              mslprs(i,j,natm)   = 0.0
+            enddo
+          enddo
+        endif !natm.eq.4
+c
+c ---   open pressure forcing file.
+        if     (mnproc.eq.1) then
+        write (lp,*) ' now initializing forcing fields ...'
+        endif !1st tile
+        call xcsync(flush_lp)
+c
+        lgth = len_trim(flnmfor)
+c
+        call zaiopf(flnmfor(1:lgth)//'forcing.mslprs.a', 'old', 899)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+899,file=flnmfor(1:lgth)//'forcing.mslprs.b',
+     &     status='old', action='read')
+        read (uoff+899,'(a79)') preambl
+        endif !1st tile
+        call preambl_print(preambl)
+c
+c ---   skip ahead to the start time.
+        nrec   = 0
+        dtime1 = huge(dtime1)
+        do  ! infinate loop, with exit at end
+          dtime0 = dtime1
+          nrec   = nrec + 1
+          call zagetc(cline,ios, uoff+899)
+          if     (ios.ne.0) then
+            if     (mnproc.eq.1) then
+              write(lp,*)
+              write(lp,*) 'error in forfunhp - hit end of input'
+              write(lp,*) 'dtime0,dtime1 = ',dtime0,dtime1
+              write(lp,*) 'dtime = ',dtime
+              write(lp,*)
+            endif !1st tile
+            call xcstop('(forfunhp)')
+                   stop '(forfunhp)'
+          endif
+          i = index(cline,'=')
+          read (cline(i+1:),*) dtime1
+          if     (yrflag.eq.2) then
+            if     (nrec.eq.1 .and. abs(dtime1-1096.0d0).gt.0.01) then
+c
+c ---         climatology must start on wind day 1096.0, 01/01/1904.
+              if     (mnproc.eq.1) then
+              write(lp,'(a)')  cline
+              write(lp,'(/ a,a / a,g15.6 /)')
+     &          'error in forfunhp - forcing climatology',
+     &          ' must start on wind day 1096',
+     &          'dtime1 = ',dtime1
+              endif !1st tile
+              call xcstop('(forfunhp)')
+                     stop '(forfunhp)'
+            endif
+            dtime1 = (dtime1 - 1096.0d0) + 
+     &               wndrep*int((dtime+0.00001d0)/wndrep)  !wndrep=366 or 732
+            if     (nrec.ne.1 .and. dtime1.lt.dtime0) then
+              dtime1 = dtime1 + wndrep
+            endif
+          elseif (nrec.eq.1 .and. dtime1.lt.1462.0d0) then
+c
+c ---       otherwise, must start after wind day 1462.0, 01/01/1905.
+            if     (mnproc.eq.1) then
+            write(lp,'(a)')  cline
+            write(lp,'(/ a,a / a,g15.6 /)')
+     &        'error in forfunhp - actual forcing',
+     &        ' must start after wind day 1462',
+     &        'dtime1 = ',dtime1
+            endif !1st tile
+            call xcstop('(forfunhp)')
+                   stop '(forfunhp)'
+          endif
+          if     (dtime0.le.dtime .and. dtime1.gt.dtime) then
+            exit
+          endif
+        enddo   ! infinate loop, with exit above
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          rewind(unit=uoff+899)
+          read (uoff+899,'(a79)') preambl
+        endif
+c
+        do i= 1,nrec-2
+          call skmonth(899)
+        enddo
+        dtime0 = huge(dtime1)
+        call rdpall1(mslprs,dtime1,899,.true.)
+        if     (yrflag.eq.2) then
+          dtime1 = (dtime1 - 1096.0d0) + 
+     &             wndrep*int((dtime+0.00001d0)/wndrep)
+        endif
+        dtime0 = dtime1
+        call rdpall1(mslprs,dtime1,899,.true.)
+        if     (yrflag.eq.2) then
+          dtime1 = (dtime1 - 1096.0d0) + 
+     &             wndrep*int((dtime+0.00001d0)/wndrep)  !wndrep=366 or 732
+          if     (dtime1.lt.dtime0) then
+            dtime1 = dtime1 + wndrep
+          endif
+        endif
+        if     (mnproc.eq.1) then
+        write (lp,*) 
+        write (lp,*) ' dtime,dtime0,dtime1 = ',dtime,dtime0,dtime1
+        write (lp,*) 
+        write (lp,*) ' ...finished initializing forcing fields'
+        endif !1st tile
+        call xcsync(flush_lp)
+      endif  ! initialization
+c
+      if     (dtime.gt.dtime1) then
+c
+c ---   get the next set of fields.
+*           if     (mnproc.eq.1) then
+*           write(lp,*) 'enter rdpall - ',dtime,dtime0,dtime1
+*           endif !1st tile
+*           call xcsync(flush_lp)
+        dtime0 = dtime1
+        call rdpall1(mslprs,dtime1,899,.true.)
+        if     (yrflag.eq.2) then
+          dtime1 = (dtime1 - 1096.0d0) + 
+     &             wndrep*int((dtime+0.00001d0)/wndrep)  !wndrep=366 or 732
+          if     (dtime1.lt.dtime0) then
+            dtime1 = dtime1 + wndrep
+          endif
+        endif
+*           if     (mnproc.eq.1) then
+*           write(lp,*) ' exit rdpall - ',dtime,dtime0,dtime1
+*           endif !1st tile
+*           call xcsync(flush_lp)
+      endif
+c
+c --- linear interpolation in time.
+      w0 = (dtime1-dtime)/(dtime1-dtime0)
+      w1 = 1.0 - w0
+*           if     (mnproc.eq.1) then
+*           write(lp,*) 'rdpall - dtime,w0,w1 = ',dtime,w0,w1
+*           endif !1st tile
+*           call xcsync(flush_lp)
+      return
+      end
+c
+c
+      subroutine forfunhz
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      implicit none
+c
+c --- high frequency atmospheric forcing field processing.
+c --- set all fields to zero.
+c
+      integer   i,j,l
+c
+      if     (mnproc.eq.1) then
+      write (lp,*) ' now zeroing forcing fields ...'
+      endif !1st tile
+      call xcsync(flush_lp)
+c
+!$OMP   PARALLEL DO PRIVATE(l,j,i)
+!$OMP&           SCHEDULE(STATIC,jblk)
+      do l=1,natm
+        do j=1-nbdy,jj+nbdy
+          do i=1-nbdy,ii+nbdy
+              taux(i,j,l) = 0.0
+              tauy(i,j,l) = 0.0
+            wndspd(i,j,l) = 0.0
+            ustara(i,j,l) = 0.0
+            airtmp(i,j,l) = 0.0
+            vapmix(i,j,l) = 0.0
+            mslprs(i,j,l) = 0.0
+            precip(i,j,l) = 0.0
+            radflx(i,j,l) = 0.0
+             swflx(i,j,l) = 0.0
+            surtmp(i,j,l) = 0.0
+            seatmp(i,j,l) = 0.0
+          enddo !i
+        enddo !j
+      enddo !l
+c
+      if     (mnproc.eq.1) then
+      write (lp,*) ' ...finished zeroing forcing fields'
+      endif !1st tile
+      call xcsync(flush_lp)
+      return
+      end
+c
+c
+      subroutine forfunc
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      implicit none
+c
+c --- initialize input of chl forcing field (into akpar array)
+c --- call either forfunc or forfunk, not both
+c
+c --- units of chl are mg/m^3
+c --- chl    is always on the p grid.
+c
+c --- I/O and array I/O unit 919 is reserved for the entire run.
+c
+c --- all input fields must be defined at all grid points
+c
+      integer         mreca,mrecc,mreck,mrecr
+      common/rdforfi/ mreca,mrecc,mreck,mrecr
+      save  /rdforfi/
+c
+      integer   l,lgth
+      character preambl(5)*79
+c
+      mreck=1
+      if     (mnproc.eq.1) then
+      write (lp,*) ' now opening chl field  ...'
+      endif !1st tile
+      call xcsync(flush_lp)
+c
+      lgth = len_trim(flnmfor)
+c
+      if (thermo) then
+        call zaiopf(flnmfor(1:lgth)//'forcing.chl.a', 'old', 919)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+919,file=flnmfor(1:lgth)//'forcing.chl.b',
+     &     status='old', action='read')
+        read (uoff+919,'(a79)') preambl
+        endif !1st tile
+        call preambl_print(preambl)
+        call rdmonth(util1, 919)
+        if     (kparan) then
+          if     (mnproc.eq.1) then
+          write (lp,*)
+          write (lp,*) '***** annual chl *****'
+          write (lp,*)
+          endif !1st tile
+          call xcsync(flush_lp)
+          do l= 1,4
+            akpar(:,:,l) = util1(:,:)
+          enddo
+          if     (mnproc.eq.1) then  ! .b file from 1st tile only
+          close (unit=uoff+919)
+          endif
+          call zaiocl(919)
+        endif !kparan
+c
+      else  ! .not.thermo
+        kparan = .true.  
+      endif                    !  thermo
+c
+      if     (mnproc.eq.1) then
+      write (lp,*) ' ...finished opening chl field '
+      endif !1st tile
+      call xcsync(flush_lp)
+c
+      return
+      end
+c
+c
+      subroutine forfunk
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      implicit none
 c
 c --- initialize input of kpar forcing field
+c --- call either forfunc or forfunk, not both
 c
-c --- units of akpar are 1/m
+c --- units of akpar are 1/m 
 c --- akpar  is always on the p grid.
 c
 c --- I/O and array I/O unit 919 is reserved for the entire run.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       integer         mreca,mrecc,mreck,mrecr
       common/rdforfi/ mreca,mrecc,mreck,mrecr
@@ -821,7 +1333,7 @@ cdiag.         'river precip. (cm/year) ')
 c
       else  ! .not.thermo
         kparan = .true.  
-      end if                    !  thermo
+      endif                    !  thermo
 c
       if     (mnproc.eq.1) then
       write (lp,*) ' ...finished opening kpar field '
@@ -833,10 +1345,10 @@ c
 c
 c
       subroutine forfunp
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
 c --- initialize input of river (precip bogas) forcing field
 c
@@ -845,7 +1357,7 @@ c --- rivers is always on the p grid.
 c
 c --- I/O and array I/O unit 918 is reserved for the entire run.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       integer         mreca,mrecc,mreck,mrecr
       common/rdforfi/ mreca,mrecc,mreck,mrecr
@@ -905,7 +1417,7 @@ c
       else  ! .not.thermo
         priver = .false.
         rivera = .true.  
-      end if                    !  thermo
+      endif                    !  thermo
 c
       if     (mnproc.eq.1) then
       write (lp,*) ' ...finished opening river   field '
@@ -917,10 +1429,10 @@ c
 c
 c
       subroutine forfunr
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
 c --- initialize input of thermal/tracer relaxation forcing fields
 c
@@ -932,7 +1444,7 @@ c --- rmu    is a single field specifying 1 / e-folding time (1/s)
 c ---         set to zero where there is no thermal boundary relaxation
 c --- twall  is temperature climatology for all layers
 c --- swall  is salinity    climatology for all layers
-c --- pwall  is interface   climatology for all layers (pressure units)
+c --- pwall  is interface   climatology for all layers (pressure units, Pa)
 c
 c --- rmutr  is a single field specifying 1 / e-folding time (1/s)
 c ---         set to zero where there is no tracer boundary relaxation
@@ -941,7 +1453,7 @@ c
 c --- I/O and array I/O units 911-914 are reserved for the entire run.
 c --- I/O and array I/O unit  915 is used but not reserved.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       integer         mreca,mrecc,mreck,mrecr
       common/rdforfi/ mreca,mrecc,mreck,mrecr
@@ -1154,12 +1666,196 @@ c
       return
       end
 c
+!!Alex forfunrs added fro spatially varying surface relaxation
+      subroutine forfunrs
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      implicit none
+c
+c --- initialize input of salinity/tracer relaxation forcing fields
+c
+c --- rmus    is a single field specifying 1 / e-folding time (1/s)
+c ---         set to zero where there is no sss  relaxation
+c --- I/O and array I/O unit  915 is used but not reserved.
+c
+c --- all input fields much be defined at all grid points
+c
+c
+      character preambl(5)*79
+      integer   lgth
+      integer   i,j,k,ktr,ios
+      character cline*80
+      real tot
+c
+      lgth = len_trim(flnmforw)
+c
+c
+c --- read fields needed for boundary and surface relaxation
+c
+      if (sssrmu.lt.0.) then 
+c
+c --- initialize all rmu fields to zero
+c
+          rmus(:,:) = 0.0  !needed for thermf
+          if     (mnproc.eq.1) then
+              write (lp,*) ' now opening SSS relaxation fields ...'
+          endif                 !1st tile
+          call xcsync(flush_lp)
+c
+          call zaiopf(flnmforw(1:lgth)//'relax.sssrlx.a', 'old', 915)
+          if     (mnproc.eq.1) then ! .b file from 1st tile only
+           open (unit=uoff+915,file=flnmforw(1:lgth)//'relax.sssrlx.b',
+     &             status='old', action='read')
+          endif
+          call zagetc(cline,ios, uoff+915) !1st line of the header on all tiles
+          if     (mnproc.eq.1) then ! .b file from 1st tile only
+              rewind uoff+915
+              read (uoff+915,'(a79)') preambl
+          endif                 !1st tile
+          call preambl_print(preambl)
+          call rdmonth(rmus, 915)
+
+          if     (mnproc.eq.1) then ! .b file from 1st tile only
+              close (unit=uoff+915)
+          endif
+          call zaiocl(915)
+!$OMP PARALLEL DO PRIVATE(j,i)
+!$OMP&         SCHEDULE(STATIC,jblk)
+          do j= 1,jj
+            do i= 1,ii
+              if (rmus(i,j).ne.0.) then
+                rmus(i,j)=1/(rmus(i,j)*86400.) !! put the relaxation time in 1/s
+              endif
+            enddo !i
+          enddo !j
+!$OMP END PARALLEL DO
+      call xctilr(rmus,1,1, nbdy,nbdy, halo_ps)
+      endif 
+
+      if (sstrmu.lt.0.) then 
+c
+c --- initialize all rmu fields to zero
+c
+          rmut(:,:) = 0.0  !needed for thermf
+          if     (mnproc.eq.1) then
+              write (lp,*) ' now opening SST relaxation fields ...'
+          endif                 !1st tile
+          call xcsync(flush_lp)
+c
+          call zaiopf(flnmforw(1:lgth)//'relax.sstrlx.a', 'old', 915)
+          if     (mnproc.eq.1) then ! .b file from 1st tile only
+            open (unit=uoff+915,file=flnmforw(1:lgth)//'relax.sstrlx.b',
+     &          status='old', action='read')
+          endif
+          call zagetc(cline,ios, uoff+915) !1st line of the header on all tiles
+          if     (mnproc.eq.1) then ! .b file from 1st tile only
+              rewind uoff+915
+              read (uoff+915,'(a79)') preambl
+          endif                 !1st tile
+          call preambl_print(preambl)
+          call rdmonth(rmut, 915)
+
+          if     (mnproc.eq.1) then ! .b file from 1st tile only
+              close (unit=uoff+915)
+          endif
+          call zaiocl(915)
+!$OMP PARALLEL DO PRIVATE(j,i)
+!$OMP&         SCHEDULE(STATIC,jblk)
+          do j= 1,jj
+            do i= 1,ii
+              if (rmut(i,j).ne.0.) then
+                rmut(i,j)=1/(rmut(i,j)*86400.) !! put the relaxation time in 1/s
+              endif
+            enddo !i
+          enddo !j
+!$OMP END PARALLEL DO
+
+!! --- build a  ocean mask  without marginal seas
+!$OMP PARALLEL DO PRIVATE(j,i)
+!$OMP&         SCHEDULE(STATIC,jblk)
+          do j= 1,jj
+            do i= 1,ii
+              if (ip(i,j).eq.1 ) then
+                  maskms(i,j) = 1.
+              endif
+              if (rmut(i,j).gt.0. ) then
+                  maskms(i,j) = 0.
+              endif
+              
+            enddo               !i
+          enddo                 !j
+!$OMP END PARALLEL DO
+
+          call xctilr(rmut  ,1,1, nbdy,nbdy, halo_ps)
+      endif
+          call xcsum(tot,maskms,ipa)
+          if (mnproc.eq.1) then
+            print*,'TOTAL MASK: ', tot
+          endif
+          call xctilr(maskms,1,1, nbdy,nbdy, halo_ps)
+
+c
+c
+      if     (mnproc.eq.1) then
+      write (lp,*) ' ...finished opening SSS/SST relaxation field'
+      endif !1st tile
+      call xcsync(flush_lp)
+c
+      return
+      end
+c
+!!Alex      
+      subroutine forfuns
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
+      implicit none
+c
+c --- initialize SAL factor field
+c
+c --- salfac is unitless and on the p-grid.
+c
+c --- I/O and array I/O unit 925 used here, but not reserved.
+c
+c --- all input fields must be defined at all grid points
+c
+      integer   i,j,k,l,lgth
+c
+      if     (mnproc.eq.1) then
+      write (lp,*) ' now opening salfac field  ...'
+      endif !1st tile
+      call xcsync(flush_lp)
+c
+      lgth = len_trim(flnmfor)
+c
+      call zaiopf(flnmfor(1:lgth)//'tidal.sal.a', 'old', 925)
+      if     (mnproc.eq.1) then  ! .b file from 1st tile only
+      open (unit=uoff+925,file=flnmfor(1:lgth)//'tidal.sal.b',
+     &   status='old', action='read')
+      endif !1st tile
+      call rdmonth(salfac, 925)
+      if     (mnproc.eq.1) then  ! .b file from 1st tile only
+      close (unit=uoff+925)
+      endif
+      call zaiocl(925)
+c
+      call xctilr(salfac,1,1, nbdy,nbdy, halo_ps)
+c
+      if     (mnproc.eq.1) then
+      write (lp,*) ' ...finished opening salfac field '
+      endif !1st tile
+      call xcsync(flush_lp)
+c
+      return
+      end
+c
 c
       subroutine forfunt
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
 c --- initialize spacially varying minimum depth for isopycnal layers
 c
@@ -1167,7 +1863,7 @@ c --- units of isotop are m on the p-grid.
 c
 c --- I/O and array I/O unit 924 used here, but not reserved.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       integer   k,l,lgth
 c
@@ -1187,7 +1883,7 @@ c
       vland = -isotop  !should be the typical shallowest depth (m)
       call xctilr( topiso,1,1, nbdy,nbdy, halo_ps)
       vland = 0.0
-c --- convert to pressure units.
+c --- convert to pressure units (Pa).
       topiso(:,:) = onem*topiso(:,:)
       if     (mnproc.eq.1) then  ! .b file from 1st tile only
       close (unit=uoff+924)
@@ -1204,10 +1900,10 @@ c
 c
 c
       subroutine forfunv
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
 c --- initialize spacially varying isopycnal target densities
 c
@@ -1216,7 +1912,7 @@ c --- sigma  is always on the p grid.
 c
 c --- I/O and array I/O unit 922 used here, but not reserved.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       integer   k,l,lgth
 c
@@ -1255,15 +1951,16 @@ c
 c
 c
       subroutine forfundf
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
 c --- initialize spacially varying veldf2, veldf4, thkdf4, and cbar,
 c ---  if necessary,
 c ---  and calculate laplacian and biharmonic diffusion coefficients.
-c --- also initialize spacially varying diwbot and diwqh0, if necessary.
+c --- also initialize spacially varying diws, diwm, diwbot and diwqh0,
+c ---   if necessary.
 c
 c --- veldf2 is diffusion velocity for laplacian  background diffusion
 c --- veldf4 is diffusion velocity for biharmonic background diffusion
@@ -1271,13 +1968,15 @@ c --- thkdf4 is diffusion velocity for biharmonic thickness  diffusion
 c --- cbar   is rms flow speed     for linear bottom friction
 c --- all units are (m/s), and all are always on the p grid.
 c
+c --- diws   is background/internal wave diffusivity (m**2/s) on the p grid.
+c --- diwm   is background/internal wave viscosity   (m**2/s) on the p grid.
 c --- diwbot is background diffusivity at the bottom (m**2/s) on the p grid.
 c --- diwqh0 is vertical scale for background diffusivity (m) on the p grid.
 c --- diwqh0 is input as m, but pre-processed here to 1/pressure-units
 c
 c --- I/O and array I/O unit 923 used here, but not reserved.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       integer   i,j,l,lgth
 c
@@ -1365,6 +2064,36 @@ c
         call xcsync(flush_lp)
       endif !thkdf4
 c
+!!Alex add read thkdf2
+      if     (thkdf2.ge.0.0) then
+        util4(:,:) = thkdf2
+      else
+        if     (mnproc.eq.1) then
+        write (lp,*) ' now opening thkdf2 field  ...'
+        endif !1st tile
+        call xcsync(flush_lp)
+c
+        lgth = len_trim(flnmfor)
+c
+        call zaiopf(flnmfor(1:lgth)//'thkdf2.a', 'old', 923)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+923,file=flnmfor(1:lgth)//'thkdf2.b',
+     &     status='old', action='read')
+        endif !1st tile
+        call rdmonth(util4, 923)
+        call xctilr( util4, 1,1,    1,   1, halo_ps)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        close (unit=uoff+923)
+        endif !1st tile
+        call zaiocl(923)
+c
+        if     (mnproc.eq.1) then
+        write (lp,*) ' ...finished opening thkdf2 field '
+        endif !1st tile
+        call xcsync(flush_lp)
+      endif !thkdf2
+!!Alex add read thkdf2
+
       if     (cbar.ge.0.0) then
         cbarp(:,:) = cbar
       else
@@ -1380,7 +2109,7 @@ c
         open (unit=uoff+923,file=flnmfor(1:lgth)//'cbar.b',
      &     status='old', action='read')
         endif !1st tile
-        call rdmonth(cbar, 923)
+        call rdmonth(cbarp, 923)
         if     (mnproc.eq.1) then  ! .b file from 1st tile only
         close (unit=uoff+923)
         endif !1st tile
@@ -1393,6 +2122,66 @@ c
         endif !1st tile
         call xcsync(flush_lp)
       endif !cbar
+c
+      if     (cb.ge.0.0) then
+        cbp(:,:) = cb
+      else
+        if     (mnproc.eq.1) then
+        write (lp,*) ' now opening cb field  ...'
+        endif !1st tile
+        call xcsync(flush_lp)
+c
+        lgth = len_trim(flnmfor)
+c
+        call zaiopf(flnmfor(1:lgth)//'cb.a', 'old', 923)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+923,file=flnmfor(1:lgth)//'cb.b',
+     &     status='old', action='read')
+        endif !1st tile
+        call rdmonth(cbp, 923)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        close (unit=uoff+923)
+        endif !1st tile
+        call zaiocl(923)
+c
+        call xctilr( cbp, 1,1, nbdy,nbdy, halo_ps)
+c
+        if     (mnproc.eq.1) then
+        write (lp,*) ' ...finished opening cb field '
+        endif !1st tile
+        call xcsync(flush_lp)
+      endif !cbar
+c
+      if     (difsiw.ge.0.0) then !difmiw also +ve
+        diws(:,:) = difsiw
+        diwm(:,:) = difmiw
+      else
+        if     (mnproc.eq.1) then
+        write (lp,*) ' now opening diws and diwm fields  ...'
+        endif !1st tile
+        call xcsync(flush_lp)
+c
+        lgth = len_trim(flnmfor)
+c
+        call zaiopf(flnmfor(1:lgth)//'diwsm.a', 'old', 923)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        open (unit=uoff+923,file=flnmfor(1:lgth)//'diwsm.b',
+     &     status='old', action='read')
+        endif !1st tile
+        call rdmonth(diws, 923)
+        call xctilr( diws, 1,1,    1,   1, halo_ps)
+        call rdmonth(diwm, 923)
+        call xctilr( diwm, 1,1,    1,   1, halo_ps)
+        if     (mnproc.eq.1) then  ! .b file from 1st tile only
+        close (unit=uoff+923)
+        endif !1st tile
+        call zaiocl(923)
+c
+        if     (mnproc.eq.1) then
+        write (lp,*) ' ...finished opening diws and diwm fields '
+        endif !1st tile
+        call xcsync(flush_lp)
+      endif !difsiw
 c
       if     (botdiw) then
         if     (mnproc.eq.1) then
@@ -1437,10 +2226,14 @@ c
      &                          aspux(i,j)
             thkdf4u(i,j) = 0.5*(util1(i,j)+util1(i-1,j))*
      &                         (aspux(i,j)**3)*scuy(i,j)
+!!Alex add thkdf2u
+            thkdf2u(i,j) = 0.5*(util4(i,j)+util4(i-1,j))*
+     &                         (aspux(i,j))
           else
             veldf2u(i,j) = 0.0
             veldf4u(i,j) = 0.0
             thkdf4u(i,j) = 0.0
+            thkdf2u(i,j) = 0.0
           endif
           if     (iv(i,j).eq.1) then
             veldf2v(i,j) = 0.5*(util2(i,j)+util2(i,j-1))*
@@ -1449,29 +2242,37 @@ c
      &                          aspvy(i,j)
             thkdf4v(i,j) = 0.5*(util1(i,j)+util1(i,j-1))*
      &                         (aspvy(i,j)**3)*scvx(i,j)
+!!Alex add thkdf2v
+            thkdf2v(i,j) = 0.5*(util4(i,j)+util4(i,j-1))*
+     &                         (aspvy(i,j))
+!!Alex add thkdf2v
           else
             veldf2v(i,j) = 0.0
             veldf4v(i,j) = 0.0
             thkdf4v(i,j) = 0.0
+            thkdf2v(i,j) = 0.0
           endif
         enddo !i
       enddo !j
       call xctilr(veldf2u, 1,1, nbdy,nbdy, halo_us)
       call xctilr(veldf4u, 1,1, nbdy,nbdy, halo_us)
       call xctilr(thkdf4u, 1,1, nbdy,nbdy, halo_us)
+      call xctilr(thkdf2u, 1,1, nbdy,nbdy, halo_us)
       call xctilr(veldf2v, 1,1, nbdy,nbdy, halo_vs)
       call xctilr(veldf4v, 1,1, nbdy,nbdy, halo_vs)
       call xctilr(thkdf4v, 1,1, nbdy,nbdy, halo_vs)
+      call xctilr(thkdf2v, 1,1, nbdy,nbdy, halo_vs)
+!!Alex add thkdf2v & thkdf2u for xctilr
 c
       return
       end
 c
 c
       subroutine preambl_print(preambl)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       character preambl(5)*79
 c
@@ -1493,10 +2294,10 @@ c
 c
 c
       subroutine rdmonth(field, iunit)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       integer   iunit
       real, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
@@ -1509,11 +2310,11 @@ c --- iunit=900-910; atmospheric forcing field
 c --- iunit=911-914; relaxation  forcing field
 c --- iunit=915;     relaxation  time scale field
 c --- iunit=918;     river       forcing field
-c --- iunit=919;     kpar        forcing field
+c --- iunit=919;     kpar or chl forcing field
 c --- iunit=922;     isopycnal target density field
 c --- iunit=923;     laplacian or biharmonic diffusion velocity field
 c --- iunit=924;     minimum depth for isopycnal layers
-c --- iunit=925;     tidal drag roughness field (dragrh)
+c --- iunit=925;     tidal drag (dragrh or drgten) or SAL (salfac)
 c
 c --- most of work now done by rdmonthck
 c
@@ -1523,10 +2324,10 @@ c
 c
 c
       subroutine rdmonthck(field, iunit, mnthck)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       integer   iunit,mnthck
       real, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
@@ -1538,12 +2339,13 @@ c
 c --- iunit=900-910; atmospheric forcing field
 c --- iunit=911-914; relaxation  forcing field
 c --- iunit=915;     relaxation  time scale field
+c --- iunit=916;     offset      forcing field
 c --- iunit=918;     river       forcing field
-c --- iunit=919;     kpar        forcing field
+c --- iunit=919;     kpar or chl forcing field
 c --- iunit=922;     isopycnal target density field
 c --- iunit=923;     laplacian or biharmonic diffusion velocity field
 c --- iunit=924;     minimum depth for isopycnal layers
-c --- iunit=925;     tidal drag roughness field (dragrh)
+c --- iunit=925;     tidal drag (dragrh or drgten) or SAL (salfac)
 c
       integer   i,ios,layer,mnth
       real      denlay,hmina,hminb,hmaxa,hmaxb
@@ -1617,7 +2419,7 @@ c ---   relaxation forcing
                  stop '(rdmonth)'
         endif
       elseif (iunit.eq.919) then
-c ---   kpar forcing
+c ---   kpar or chl forcing
         kparan = cline(i-8:i) .eq. ': range ='
         if     (kparan) then
 c ---     annual
@@ -1628,7 +2430,7 @@ c ---     monthly
           if     (mnth.lt.1 .or. mnth.gt.12) then
             if     (mnproc.eq.1) then
             write(lp,'(/ a,i4,a /)') 
-     &        'error on unit',iunit,' - not monthly kpar data'
+     &        'error on unit',iunit,' - not monthly kpar or chl data'
             endif !1st tile
             call xcstop('(rdmonth)')
                    stop '(rdmonth)'
@@ -1692,12 +2494,13 @@ c ---   laplacian or biharmonic diffusion velocity field
 c ---   minimum depth for isopycnal layers
         read (cline(i+1:),*) hminb,hmaxb
       elseif (iunit.eq.925) then
-c ---   tidal drag roughness
+c ---   tidal drag roughness or SAL
         read (cline(i+1:),*) hminb,hmaxb
       else
         if     (mnproc.eq.1) then
-        write(lp,'(a / a,i5)')
-     &    'error - iunit must be 900-910 or 911-916 or 918-919',
+        write(lp,'(a,a / a,i5)')
+     &    'error - iunit must be 900-910 or 911-916',
+     &                       'or 918-919 or 922-925',
      &    'iunit =',iunit
         endif !1st tile
         call xcstop('(rdmonth)')
@@ -1731,10 +2534,10 @@ c
 c
 c
       subroutine skmonth(iunit)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       integer   iunit
 c
@@ -1744,7 +2547,7 @@ c --- iunit=900-910; atmospheric forcing field
 c --- iunit=911-914; relaxation  forcing field
 c --- iunit=915;     relaxation strength field
 c --- iunit=918;     river       forcing field
-c --- iunit=919;     kpar        forcing field
+c --- iunit=919;     kpar or chl forcing field
 c
       character cline*80
 c
@@ -1760,9 +2563,9 @@ c
 c
 c
       subroutine rdpall(dtime0,dtime1)
-      use mod_xc  ! HYCOM communication interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
       implicit none
-      include 'common_blocks.h'
 c
       real*8  dtime0,dtime1
 c
@@ -1771,7 +2574,8 @@ c --- read a set of high frequency forcing fields into slot 2.
 c --- on exit, dtime0 and dtime1 are the associated times (wind days).
 c
       integer i,j,k
-      real*8  dtime(900:910)
+      real    albw,degtorad
+      real*8  dtime(899:910)
 c
       integer, save :: icall = -1
 c
@@ -1787,8 +2591,19 @@ c
       else
         dtime(900) = dtime(901)
       endif
-      if     (wndflg.ne.3) then
+      if     (wndflg.lt.3) then
         call rdpall1(wndspd,dtime(903),903,mod(icall,3).eq.0)
+      elseif (wndflg.ge.4) then
+c ---   taux,tauy contains wndx,wndy
+        dtime(903) = dtime(902)
+!$OMP   PARALLEL DO PRIVATE(j,i)
+!$OMP&           SCHEDULE(STATIC,jblk)
+        do j= 1-nbdy,jj+nbdy
+          do i= 1-nbdy,ii+nbdy
+            wndspd(i,j,1) = wndspd(i,j,2)
+            wndspd(i,j,2) = sqrt( taux(i,j,2)**2 + tauy(i,j,2)**2 )
+          enddo
+        enddo
       else
         dtime(903) = dtime(902)
 !$OMP   PARALLEL DO PRIVATE(j,i)
@@ -1804,6 +2619,11 @@ c
       endif !wndspd
       call rdpall1(airtmp,dtime(904),904,mod(icall,3).eq.1)
       call rdpall1(vapmix,dtime(905),905,mod(icall,3).eq.1)
+      if     (mslprf .or. flxflg.eq.6) then
+        call rdpall1(mslprs,dtime(899),899,mod(icall,3).eq.2)
+      else
+        dtime(899) = dtime(905)
+      endif
       if     (pcipf) then
         call rdpall1(precip,dtime(906),906,mod(icall,3).eq.1)
       else
@@ -1811,6 +2631,27 @@ c
       endif
       call rdpall1(radflx,dtime(907),907,mod(icall,3).eq.2)
       call rdpall1( swflx,dtime(908),908,mod(icall,3).eq.2)
+      if     (albflg.ne.0) then  !swflx is Qswdn
+c ---   convert swflx to net shortwave into the ocean
+c ---   shortwave through sea ice is handled separately
+        if     (albflg.eq.1) then
+          do j= 1-nbdy,jj+nbdy
+            do i= 1-nbdy,ii+nbdy
+              swflx(i,j,2) = swflx(i,j,2)*(1.0-0.09)  !NAVGEM albedo
+            enddo
+          enddo
+        else   !albflg.eq.2
+          degtorad = 4.d0*atan(1.d0)/180.d0
+          do j= 1-nbdy,jj+nbdy
+            do i= 1-nbdy,ii+nbdy
+c ---         latitudinally-varying ocean albedo (Large and Yeager, 2009)
+c ---         5.8% at the equator and 8% at the poles
+              albw = ( 0.069 - 0.011*cos(2.0*degtorad*plat(i,j) ) )
+              swflx(i,j,2) = swflx(i,j,2)*(1.0-albw)
+            enddo
+          enddo
+        endif !albflg
+      endif !Qswdn
       if     (lwflag.eq.2 .or. sstflg.eq.2   .or.
      &        icmflg.eq.2 .or. ticegr.eq.0.0     ) then
         call rdpall1(surtmp,dtime(909),909,mod(icall,3).eq.2)
@@ -1853,10 +2694,10 @@ c --- check the input times.
 c
 c
       subroutine rdpall1(field,dtime,iunit,lprint)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       real, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) ::
      &        field
@@ -1913,6 +2754,10 @@ c
 c
       i = index(cline,'=')
       read (cline(i+1:),*) dtime,span,hminb,hmaxb
+      if     (span.gt.0.008d0) then
+c ---   correct wind day to nearest 15 minutes
+        dtime = nint(dtime*96.d0)/96.d0
+      endif
 c
       if     (hminb.eq.hmaxb) then  !constant field
 !$OMP   PARALLEL DO PRIVATE(j,i)
@@ -1950,6 +2795,12 @@ c
         endif
       endif
 c
+c --- msl pressure uses the the halo.
+c
+      if     (iunit.eq.899) then
+        call xctilr(field(1-nbdy,1-nbdy,2),1,1, nbdy,nbdy, halo_ps)
+      endif
+c
 c --- wind stress uses the the halo.
 c
       if     (iunit.eq.901 .and. wndflg.eq.1) then  ! taux on u-grid
@@ -1966,10 +2817,10 @@ c
 c
 c
       subroutine rdforf(mnth,lslot)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       integer lslot,mnth
 c
@@ -1980,6 +2831,7 @@ c
       save  /rdforfi/
 c
       integer i,irec,iunit,j
+      real    albw,degtorad
 c
       real, parameter :: sstmin = -1.8
       real, parameter :: sstmax = 35.0
@@ -1988,6 +2840,18 @@ c
 c
 c ---   rewind all units
 c
+        if     (mslprf .or. flxflg.eq.6) then
+          iunit = 899
+            if     (mnproc.eq.1) then  ! .b file from 1st tile only
+              rewind uoff+iunit
+              read  (uoff+iunit,*)
+              read  (uoff+iunit,*)
+              read  (uoff+iunit,*)
+              read  (uoff+iunit,*)
+              read  (uoff+iunit,*)
+            endif
+            call zaiorw(iunit)
+        endif
         if     (ustflg.eq.3) then
           iunit = 900
             if     (mnproc.eq.1) then  ! .b file from 1st tile only
@@ -2014,7 +2878,7 @@ c
           enddo
         endif
         if     (thermo) then
-          do iunit= max(903,901+wndflg),908  !904,908 when wndflg==3
+          do iunit= max(903,901+min(wndflg,3)),908  !904,908 when wndflg>=3
             if     (mnproc.eq.1) then  ! .b file from 1st tile only
               rewind uoff+iunit
               read  (uoff+iunit,*)
@@ -2066,6 +2930,9 @@ c
 *    &              '  (skipping ',irec,')'
 *       endif !1st tile
 *       call xcsync(flush_lp)
+        if     (mslprf .or. flxflg.eq.6) then
+          call skmonth(899)
+        endif
         if     (ustflg.eq.3) then
           call skmonth(900)
         endif
@@ -2075,7 +2942,7 @@ c
           enddo
         endif
         if     (thermo) then
-          do iunit= max(903,901+wndflg),908  !904,908 when wndflg==3
+          do iunit= max(903,901+min(wndflg,3)),908  !904,908 when wndflg>=3
             call skmonth(iunit)
           enddo
         endif
@@ -2090,6 +2957,10 @@ c
 c
 c --- read desired month
 c
+      if     (mslprf .or. flxflg.eq.6) then
+        call rdmonthck(mslprs(1-nbdy,1-nbdy,lslot),899,mnth)
+        call xctilr(mslprs(1-nbdy,1-nbdy,lslot),1,1, nbdy,nbdy, halo_ps)
+      endif
       if     (windf) then
         call rdmonthck(taux(1-nbdy,1-nbdy,lslot),901,mnth)
         call rdmonthck(tauy(1-nbdy,1-nbdy,lslot),902,mnth)
@@ -2114,8 +2985,18 @@ c
         if     (ustflg.eq.3) then
           call rdmonthck(ustara(1-nbdy,1-nbdy,lslot),900,mnth)
         endif
-        if (wndflg.ne.3) then
+        if (wndflg.lt.3) then
           call rdmonthck(wndspd(1-nbdy,1-nbdy,lslot),903,mnth)
+        elseif (wndflg.ge.4) then
+c ---     taux,tauy contains wndx,wndy
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j= 1-nbdy,jj+nbdy
+            do i= 1-nbdy,ii+nbdy
+              wndspd(i,j,lslot) = sqrt( taux(i,j,lslot)**2 +
+     &                                  tauy(i,j,lslot)**2  )
+            enddo
+          enddo
         else
           call str2spd(wndspd(1-nbdy,1-nbdy,lslot),
      &                   taux(1-nbdy,1-nbdy,lslot),
@@ -2128,6 +3009,27 @@ c
         endif
         call rdmonthck(radflx(1-nbdy,1-nbdy,lslot),907,mnth)
         call rdmonthck( swflx(1-nbdy,1-nbdy,lslot),908,mnth)
+        if     (albflg.ne.0) then  !swflx is Qswdn
+c ---     convert swflx to net shortwave into the ocean
+c ---     shortwave through sea ice is handled separately
+          if     (albflg.eq.1) then
+            do j= 1-nbdy,jj+nbdy
+              do i= 1-nbdy,ii+nbdy
+                swflx(i,j,lslot) = swflx(i,j,lslot)*(1.0-0.09)  !NAVGEM albedo
+              enddo
+            enddo
+          else   !albflg.eq.2
+            degtorad = 4.d0*atan(1.d0)/180.d0
+            do j= 1-nbdy,jj+nbdy
+              do i= 1-nbdy,ii+nbdy
+c ---           latitudinally-varying ocean albedo (Large and Yeager, 2009)
+c ---           5.8% at the equator and 8% at the poles
+                albw = ( 0.069 - 0.011*cos(2.0*degtorad*plat(i,j) ) )
+                swflx(i,j,lslot) = swflx(i,j,lslot)*(1.0-albw)
+              enddo
+            enddo
+          endif !albflg
+        endif !Qswdn
       else
 !$OMP   PARALLEL DO PRIVATE(j,i)
 !$OMP&           SCHEDULE(STATIC,jblk)
@@ -2172,14 +3074,14 @@ c
 c
 c
       subroutine rdkpar(mnth,lslot)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       integer lslot,mnth
 c
-c --- read kpar forcing for one month.
+c --- read kpar or chl forcing for one month.
 c
       integer         mreca,mrecc,mreck,mrecr
       common/rdforfi/ mreca,mrecc,mreck,mrecr
@@ -2239,10 +3141,10 @@ c
 c
 c
       subroutine rdrivr(mnth,lslot)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       integer lslot,mnth
 c
@@ -2306,10 +3208,10 @@ c
 c
 c
       subroutine rdrlax(month,lslot)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       integer lslot,month
 c
@@ -2442,8 +3344,10 @@ c
           do j= 1,jj
             do i= 1,ii
               if     (depths(i,j).gt.shallow) then
-                p23min(1) = min( p23min(1), pwall(i,j,min(2,kk),lslot) )
-                p23min(2) = min( p23min(2), pwall(i,j,min(3,kk),lslot) )
+                p23min(1) = min( p23min(1), 
+     &                           pwall(i,j,min(2,kkwall),lslot) )
+                p23min(2) = min( p23min(2), 
+     &                           pwall(i,j,min(3,kkwall),lslot) )
               endif
             enddo
           enddo
@@ -2478,7 +3382,7 @@ c
      &          'rdrlax: pwall.3 ok; expected,input min depth =',
      &          shallow*qonem,p23min(2)*qonem
               endif !1st tile
-            elseif (.not.isopyc) then  ! ignore pwall.3 when MICOM-like
+            elseif (.not.isopyc .and. kk.gt.2) then
               lfatal = .true.
               if     (mnproc.eq.1) then
               write (lp,'(a,2f7.2,a)')
@@ -2525,10 +3429,10 @@ c
 c
 c
       subroutine rdbaro(dtime)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       real*8    dtime
 c
@@ -2538,7 +3442,7 @@ c --- filenames  nest/arch[vm].????_???_??.[ab]
 c
 c --- I/O and array I/O unit 921 is reserved for the entire run.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       logical   larchm
       save      larchm
@@ -2625,10 +3529,10 @@ c --- linear interpolation in time.
 c
 c
       subroutine rdbaro_in(dtime,larchm,lslot)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       real*8    dtime
       integer   lslot
@@ -2852,10 +3756,10 @@ c
 c
 c
       subroutine rdnest(dtime)
-      use mod_xc    ! HYCOM communication interface
-      use mod_za    ! HYCOM I/O interface
+      use mod_xc           ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za           ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       real*8    dtime
 c
@@ -2867,7 +3771,7 @@ c
 c --- I/O and array I/O unit 915 is used for rmun[pv] only (not reserved).
 c --- I/O and array I/O unit 920 is reserved for the entire run.
 c
-c --- all input fields much be defined at all grid points
+c --- all input fields must be defined at all grid points
 c
       logical   larchm
       save      larchm
@@ -2983,10 +3887,10 @@ c --- linear interpolation in time.
 c
 c
       subroutine rdnest_in(dtime,larchm,lslot)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       real*8    dtime
       integer   lslot
@@ -3317,10 +4221,10 @@ c
 c
 c
       subroutine rd_archive(field, cfield,layer, iunit)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'  ! for ip.
 c
       character cfield*8
       integer   layer,iunit
@@ -3377,10 +4281,10 @@ cnostop          stop '(rd_archive)'
 c
 c
       subroutine str2spd(wspd, tx,ty)
-      use mod_xc  ! HYCOM communication interface
-      use mod_za  ! HYCOM I/O interface
+      use mod_xc         ! HYCOM communication interface
+      use mod_cb_arrays  ! HYCOM saved arrays
+      use mod_za         ! HYCOM I/O interface
       implicit none
-      include 'common_blocks.h'
 c
       real, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
      &        wspd, tx,ty
@@ -3440,3 +4344,18 @@ c> Apr. 2010 - added sssrmx
 c> Apr  2010 - added diwqh0 and removed diwlat
 c> Nov  2010 - added wndrep (yrflag==2) for one or two year forcing repeat
 c> Apr  2011 - added cbarp
+c> Jul  2011 - fixed a cbarp input bug when cbar<0
+c> Jul  2011 - added forfuns for salfac
+c> Sep  2011 - added cbp
+c> Nov. 2012 - added wndflg=4 for reading 10m wind components
+c> Nov. 2012 - added iftaux,oftauy, primarily for wndflg=4
+c> Jan. 2013 - replaced dragrh with drgten
+c> July 2013 - added diws and diwm
+c> Oct. 2013 - added jerlv0=-1 and forfunc
+c> Nov. 2013 - added wndflg=5 (also) for reading 10m wind components
+c> Nov. 2013 - added lwflag.eq.-1 for radflx=Qlwdn, swflx=Qswdn
+c> Jan. 2014 - added mslprf and mslprs and forfunhp
+c> Jan. 2014 - added natm logic
+c> Jan. 2014 - modified natm and pwall logic to avoid gfortran warnings
+c> May  2014 - added forfunhz
+c> Oct  2014 - flxflg==6 requires mslprs input

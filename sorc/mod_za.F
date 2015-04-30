@@ -17,16 +17,29 @@ c
       private ztiowrd
 c
       integer, private, parameter :: uaoff = 1000 + uoff  !array I/O unit offset
+#if defined(RELO)
+c
+c --- initialized in zaiost.
+      integer, private, save :: n2drec
+      real*4,  private, save, allocatable, dimension(:) ::
+     &           w,wminy,wmaxy,htmp
+#else
+c
+      integer, parameter :: n2drec=((itdm*jtdm+4095)/4096)*4096
+      real*4,  private, save, dimension(n2drec)  :: w
+      real*4,  private, save, dimension(jtdm)    :: wminy,wmaxy
+      real*4,  private, save, dimension(idm*jdm) :: htmp
+#endif
 c
       contains
 #if ! defined(MPI) && ! defined(SHMEM)
-# include "mod_za_sm.h"
+#       include "mod_za_sm.h"
 #elif defined(SERIAL_IO)
-# include "mod_za_mp1.h"
+#       include "mod_za_mp1.h"
 #else
-# include "mod_za_mp.h"
+#       include "mod_za_mp.h"
 #endif
-# include "mod_za_zt.h"
+#      include "mod_za_zt.h"
       end module mod_za
 
 #if defined(ENDIAN_IO_F90)  /* see mach_i.c for new C version */
