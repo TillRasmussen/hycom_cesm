@@ -1,0 +1,368 @@
+ModuleCmd_Switch.c(172):ERROR:152: Module 'PrgEnv-cray' is currently not loaded
+setenv C ~/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+foreach f ( Makefile Make.csh )
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -bw Makefile /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -bw Make.csh /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+foreach f ( *.h *.c )
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw dimensions.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw dimensions_relo.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_xc_mp.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_xc_sm.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_za_mp1.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_za_mp.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_za_sm.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_za_zt.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw stmt_fns.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw unit_offset.h /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw machi_c.c /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi
+end
+foreach f ( *.f *.F )
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw bigrid.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/bigrid.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw forfun.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/forfun.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw inigiss.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/inigiss.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw inikpp.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/inikpp.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw inimy.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/inimy.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw matinv.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/matinv.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw poflat.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/poflat.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw prtmsk.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/prtmsk.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw psmoo.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/psmoo.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw restart.f /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/restart.f
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw barotp.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/barotp.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw blkdat.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/blkdat.F
+30,37d29
+< #elif defined(OCEANS2)
+<       if     (nocean.eq.2) then
+< c ---   slave HYCOM works from ./OCEAN2
+<         flnminp = './OCEAN2/'
+<       else
+< c ---   master HYCOM
+<         flnminp = './'
+<       endif
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw cnuity.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/cnuity.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw convec.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/convec.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw diapfl.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/diapfl.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw dpthuv.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/dpthuv.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw dpudpv.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/dpudpv.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw geopar.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/geopar.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw hybgen.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/hybgen.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw hycom_cice.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/hycom_cice.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw hycom.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/hycom.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw icloan.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/icloan.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw inicon.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/inicon.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw isnan.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/isnan.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw latbdy.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/latbdy.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw machine.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/machine.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_archiv.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_archiv.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_cb_arrays.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_cb_arrays.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_dimensions.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_dimensions.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_floats.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_floats.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_hycom.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_hycom.F
+1451c1451
+<       dtime=(nstep1/nts_day)+mod(nstep1,nts_day)*(baclin/86400.0d0)
+---
+>       dtime=nstep1/(86400.0d0/baclin)
+1456c1456
+<       dtime=(nstep2/nts_day)+mod(nstep2,nts_day)*(baclin/86400.0d0)
+---
+>       dtime=nstep2/(86400.0d0/baclin)
+1565c1565
+<         dtime0=(nstep0/nts_day)+mod(nstep0,nts_day)*(baclin/86400.0d0)
+---
+>         dtime0=nstep0/(86400.0d0/baclin)
+1639,1640d1638
+<         surflx(:,:) = 0.0
+<         salflx(:,:) = 0.0
+1642c1640
+<         dtime0=(nstep0/nts_day)+mod(nstep0,nts_day)*(baclin/86400.0d0)
+---
+>         dtime0=nstep0/(86400.0d0/baclin)
+1720d1717
+<       nstep = nstep0+1  !for pipe_compare
+1730d1726
+<                 dpbbl(i,j)=thkbot*onem
+1781d1776
+<       nstep = nstep-1  !restore
+1828c1823
+<       open (unit=nod,file=trim(flnminp)//'summary_out',status='unknown')
+---
+>       open (unit=nod,file='summary_out',status='unknown')
+2246c2241
+<       dtime=(nstep/nts_day)+mod(nstep,nts_day)*(baclin/86400.0d0)
+---
+>       dtime=dtime0+(nstep-nstep0)/(86400.0d0/baclin)
+2450,2451c2445
+<          call pipe_comparall(n,m, 'ENTERm, step')
+<          call pipe_comparall(m,n, 'ENTERn, step')
+---
+>          call pipe_comparall(m,n, 'ENTER , step')
+3629,3630d3622
+<         call dpthuv
+< c
+3636d3627
+<         nstep = nstep+1  !for pipe_compare
+3664,3679d3654
+<         nstep = nstep-1  !restore
+< c
+< c ---   update montg to preserve bit for bit reproducability on restart
+<         m=mod(nstep  ,2)+1
+<         n=mod(nstep+1,2)+1
+<         if     (meanfq.ne.0.0) then
+< c ---     assume meanfq not changed to zero when rerun from restart
+<           call momtum_hs(n,m)
+<           surflx(:,:) = 0.0
+<           salflx(:,:) = 0.0
+<           if     (histmn) then
+<             call mean_zero(dtime)
+<             call mean_add(n, 0.5)
+<           endif  ! histmn
+<         endif !meanfq
+<         call momtum_hs(n,m)
+3814,3815d3788
+< c> Feb. 2015 - removed dtime0 from calculation of dtime
+< c> Feb. 2015 - fixed issues with bit for bit reproducability on restart
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_incupd.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_incupd.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_mean.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_mean.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_momtum.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_momtum.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_OICPL.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_OICPL.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_pipe.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_pipe.F
+8,9c8
+<       integer, save, private :: ipunit,lpunit,ishift,jshift,nsym,
+<      &                          nstep_start
+---
+>       integer, save, private :: ipunit,lpunit,ishift,jshift,nsym
+118d116
+<       logical       ltstep
+181,191d178
+<       if     (lpipeio) then
+<         inquire(file=trim(flnminp)//'PIPE_START',   exist=ltstep)
+<         if     (ltstep) then
+<           open(unit=uoff+99,file=trim(flnminp)//'PIPE_START')  !on all nodes
+<           read(uoff+99,*) nstep_start
+<           close(unit=uoff+99) !file='PIPE_START'
+<         else
+<           nstep_start = 0
+<         endif
+<       endif
+< c
+330d316
+<       use mod_cb_arrays  ! HYCOM saved arrays, for nstep
+349c335
+<       if (lpipeio .and. nstep.ge.nstep_start) then
+---
+>       if (lpipeio) then
+431c417
+<       if (lpipeio .and. nstep.ge.nstep_start) then
+---
+>       if (lpipeio) then
+1418,1419c1404,1405
+<           txt1(1:9) = '...u(kn) '
+<           txt2(1:9) = '...v(kn) '
+---
+>           txt1(1:9) = 'u(kn)  k='
+>           txt2(1:9) = 'v(kn)  k='
+1422,1426c1408
+<           txt1(1:9) = '.dpu(kn) '
+<           txt2(1:9) = '.dpv(kn) '
+<           call pipe_compare_sym2( dpu(1-nbdy,1-nbdy,k,n),iu,txt1,
+<      &                            dpv(1-nbdy,1-nbdy,k,n),iv,txt2)
+<           txt1(1:9) = '..dp(kn) '
+---
+>           txt1(1:9) = 'dp(kn) k='
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_stokes.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_stokes.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_tides.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_tides.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_tsadvc.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_tsadvc.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_xc.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_xc.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mod_za.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mod_za.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mxkprf.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mxkprf.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mxkrt.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mxkrt.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mxkrtm.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mxkrtm.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw mxpwp.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/mxpwp.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw overtn.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/overtn.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw thermf.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/thermf.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw trcupd.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/trcupd.F
+end
+echo *****     *****     *****     *****     *****     *****     *****
+*****     *****     *****     *****     *****     *****     *****
+diff -ibw wtime.F /p/home/wallcraf/hycom/RELO_GLB/src_2.2.97WI-09Tsig2-i_relo_mpi/wtime.F
+end

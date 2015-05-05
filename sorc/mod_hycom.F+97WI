@@ -12,6 +12,9 @@
 #define SEA_V iv(i,j).ne.0
 #endif
       module mod_hycom
+#if defined(USE_ESMF)
+      use ESMF_Mod       ! ESMF  Framework
+#endif
       use mod_xc         ! HYCOM communication interface
       use mod_cb_arrays  ! HYCOM saved arrays
       use mod_za         ! HYCOM I/O interface
@@ -26,6 +29,15 @@
 #if defined(STOKES)
       use mod_stokes     ! HYCOM Stokes drift
 #endif
+#if defined(USE_CCSM3)
+      use ccsm3, only : ccsm3_setup_coupling_env ! ccsm3 ocean
+      use ccsm3_exit                             ! ccsm3 ocean exit
+      use ccsm3_io                               ! ccsm3 ocean io
+      use ccsm3_forcing                          ! ccsm3 ocean/cpl6 comms
+      use ccsm3_time_management                  ! ccsm3 ocean time
+      use ccsm3_global_reductions                ! ccsm3 ocean mpi comms
+      use shr_timer_mod                          ! ccsm3 shared timing routine
+#endif
 c
 c --- -----------------------------------------
 c --- MICOM-based HYbrid Coordinate Ocean Model
@@ -35,17 +47,31 @@ c --- -----------------------------------------
 c
       implicit none
 c
+#if defined(USE_ESMF)
+      public HYCOM_SetServices
+#else
       public HYCOM_Init, HYCOM_Run, HYCOM_Final
+#endif
 c
-      logical, save, public  :: put_export       !set in main program
-      logical, save, public  :: get_import       !set in main program
-      logical, save, public  :: end_of_run       !set in HYCOM_Run
-      integer, save, public  :: nts_day          !set in HYCOM_init, timesteps/day
-      integer, save, public  :: nts_ice          !set in HYCOM_init, timesteps/ice
-      logical, save, public  :: end_of_run_cpl   !set in HYCOM_Run for coupling
+      logical, save, public  :: put_export   !set in main program
+      logical, save, public  :: get_import   !set in main program
+      logical, save, public  :: end_of_run   !set in HYCOM_Run
+      integer, save, public  :: nts_day      !set in HYCOM_init, timesteps/day
+      integer, save, public  :: nts_ice      !set in HYCOM_init, timesteps/ice
 c
       integer, save, private ::
      &         m,n
+#if defined(USE_CCSM3)
+      logical, save, private ::
+     &         end_month
+      integer, save, private ::
+     &         k1m,         !k1n in ccsm3_forcing
+     &         mm,nn,
+     &         termination, !if 1, stop now!
+     &         ix0,ix1,ix2
+      character, save, private ::
+     &         ccsm3_string*80
+#endif
       real*8,  save, private ::
      &        d1,d2,d3,d4,d2a,d3a,d4a,
      &        ddsurf,ddiagf,dproff,dtilef,drstrf,dmeanf,
@@ -66,10 +92,19 @@ c
      &        jja,
      &        lt,ma0,ma1,ma2,ma3,mc0,mc1,mc2,mc3,
      &           mk0,mk1,mk2,mk3,mr0,mr1,mr2,mr3,mnth,iofl,
+#if defined(USE_CCSM3)
+     &        jday
+*     logical, save ::
+*    &         linit
+      logical, save, private ::
+     &               diagsv,hisurf,histry,hiprof,hitile,histmn,
+     &         restrt,diag_tide
+#else
      &        jday,ihour,iyear
       logical, save, private ::
      &         linit,diagsv,hisurf,histry,hiprof,hitile,histmn,
      &         restrt,diag_tide
+#endif
       character, save, private ::
      &         intvl*3,c_ydh*14
 c
@@ -81,44 +116,1051 @@ c --- tfrz_n = nominal ice melting point (degC) for ice mask
       real       tfrz_n
       private    tfrz_n
       parameter (tfrz_n=-1.79)  !slightly above -1.8
-!!Alex for pcpadj and new calendar
-      real*8,  save, private ::
-     &       vol, sai
-      integer iyear_new,iday
-      real    dtime_new
 c
+#if defined(USE_ESMF)
+c
+c --- Data types for Import/Export array pointers
+      type ArrayPtrReal2D
+        real(ESMF_KIND_R4), dimension(:,:), pointer :: p
+      end type ArrayPtrReal2D
+c
+c --- Attribute names for fields
+      character(ESMF_MAXSTR), save ::
+     &    attNameLongName = "long_name",
+     &    attNameStdName  = "standard_name",
+     &    attNameUnits    = "units",
+     &    attNameSclFac   = "scale_factor",
+     &    attNameAddOff   = "add_offset"
+c
+c --- Import Fields
+      integer, parameter :: numImpFields=11
+      character(ESMF_MAXSTR), save :: impFieldName(    numImpFields),
+     &                                impFieldLongName(numImpFields),
+     &                                impFieldStdName( numImpFields),
+     &                                impFieldUnits(   numImpFields)
+      real(ESMF_KIND_R4),     save :: impFieldSclFac(  numImpFields),
+     &                                impFieldAddOff(  numImpFields)
+      integer,                save :: impFieldHalo(    numImpFields)
+c
+c --- Export Fields
+      integer, parameter :: numExpFields=7
+      character(ESMF_MAXSTR), save :: expFieldName(    numExpFields),
+     &                                expFieldLongName(numExpFields),
+     &                                expFieldStdName( numExpFields),
+     &                                expFieldUnits(   numExpFields)
+      real(ESMF_KIND_R4),     save :: expFieldSclFac(  numExpFields),
+     &                                expFieldAddOff(  numExpFields)
+      integer,                save :: expFieldHalo(    numExpFields)
+c
+c --- ESMF related variables
+      type(ESMF_FieldBundle), save :: expBundle,
+     &                                impBundle
+      type(ESMF_Field),       save :: expField(numExpFields),
+     &                                impField(numImpFields)
+      type(ArrayPtrReal2D),   save :: expData( numExpFields),
+     &                                impData( numImpFields)
+c
+      type(ESMF_Clock),       save :: intClock
+      type(ESMF_VM),          save :: vm
+      type(ESMF_DELayout),    save :: deLayout
+      integer,                save :: petCount, localPet,
+     &                                mpiCommunicator
+      type(ESMF_Grid),        save :: grid2D
+      type(ESMF_DistGrid),    save :: distgrid2D
+      type(ESMF_ArraySpec),   save :: arraySpec2Dr
+c
+      real, save, allocatable, dimension (:,:) ::
+     &       sic_import !Sea Ice Concentration
+     &,     sitx_import !Sea Ice X-Stress
+     &,     sity_import !Sea Ice Y-Stress
+     &,     siqs_import !Solar Heat Flux thru Ice to Ocean
+     &,     sifh_import !Ice Freezing/Melting Heat Flux
+     &,     sifs_import !Ice Freezing/Melting Salt Flux
+     &,     sifw_import !Ice Net Water Flux
+     &,      sit_import !Sea Ice Temperature
+     &,      sih_import !Sea Ice Thickness
+     &,      siu_import !Sea Ice X-Velocity
+     &,      siv_import !Sea Ice Y-Velocity
+     &,      ocn_mask   !Ocean Currents Mask
+      logical, save ::
+     &       ocn_mask_init
+#endif
+
       contains
 
+#if defined(USE_ESMF)
+      subroutine HYCOM_SetServices(gridComp, rc)
+c
+      type(ESMF_GridComp)  :: gridComp
+      integer, intent(out) :: rc
+c
+      call ESMF_GridCompSetEntryPoint(
+     &     gridComp,
+     &     ESMF_SETINIT,
+     &     HYCOM_Init,
+     &     ESMF_SINGLEPHASE,
+     &     rc=rc)
+      call ESMF_GridCompSetEntryPoint(
+     &     gridComp,
+     &     ESMF_SETRUN,
+     &     HYCOM_Run,
+     &     ESMF_SINGLEPHASE,
+     &     rc=rc)
+      call ESMF_GridCompSetEntryPoint(
+     &     gridComp,
+     &     ESMF_SETFINAL,
+     &     HYCOM_Final,
+     &     ESMF_SINGLEPHASE,
+     &     rc=rc)
+c
+      end subroutine HYCOM_SetServices
 
-      subroutine HYCOM_Init(mpiCommunicator,
-     &                      hycom_start_dtg,hycom_end_dtg,
-     &                      pointer_filename,restart_write)
+      subroutine Setup_ESMF(gridComp, impState, expState, extClock, rc)
+c
+c --- Calling parameters
+      type(ESMF_GridComp)  :: gridComp
+      type(ESMF_State)     :: impState
+      type(ESMF_State)     :: expState
+      type(ESMF_Clock)     :: extClock
+      integer, intent(out) :: rc
+c
+c --- set up ESMF data structures for HYCOM.
+c
+      real(ESMF_KIND_R4),pointer :: Xcoord(:,:),Ycoord(:,:)
+      integer,           pointer :: mask_ptr(:,:)
+      integer                    :: i,j,rc2
+      integer                    :: lbnd(2),ubnd(2)
+      character(10)              :: dimNames(2),dimUnits(2)
+      type(ESMF_Logical)         :: periodic(2)
+      integer(ESMF_KIND_I4)      :: year,month,day,hour,minute
+      integer(ESMF_KIND_I4)      :: sec,msec,usec,nsec
+      real(8)                    :: dsec,dmsec,dusec,dnsec
+      type(ESMF_TimeInterval)    :: timeStep, runDuration
+      type(ESMF_Time)            :: startTime
+      character(ESMF_MAXSTR)     :: msg, gridName
+c
+c --- Report
+      call ESMF_LogWrite("HYCOM Setup routine called",
+     &     ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+c
+c  Attributes for import fields, identical to CICE export fields
+      impFieldAddOff(:) = 0.0     !default is no offset
+      impFieldSclFac(:) = 1.0     !default is no scale factor
+      impFieldHalo(  :) = halo_ps !default is scalar p-grid
+c
+      impFieldName(     1) = "sic"
+      impFieldLongName( 1) = "Sea Ice Concentration"
+      impFieldStdName(  1) = "sea_ice_area_fraction"
+      impFieldUnits(    1) = "1"
+      impFieldName(     2) = "sitx"
+      impFieldLongName( 2) = "Sea Ice X-Stress"
+      impFieldStdName(  2) = "downward_x_stress_at_sea_ice_base"
+      impFieldSclFac(   2) = -1.0  !field is upward
+      impFieldUnits(    2) = "Pa"
+      impFieldHalo(     2) = halo_pv !vector p-grid
+      impFieldName(     3) = "sity"
+      impFieldLongName( 3) = "Sea Ice Y-Stress"
+      impFieldStdName(  3) = "downward_y_stress_at_sea_ice_base"
+      impFieldSclFac(   3) = -1.0  !field is upward
+      impFieldUnits(    3) = "Pa"
+      impFieldHalo(     3) = halo_pv !vector p-grid
+      impFieldName(     4) = "siqs"
+      impFieldLongName( 4) = "Solar Heat Flux thru Ice to Ocean"
+      impFieldStdName(  4) = "downward_sea_ice_basal_solar_heat_flux"
+      impFieldUnits(    4) = "W m-2"
+      impFieldName(     5) = "sifh"
+      impFieldLongName( 5) = "Ice Freezing/Melting Heat Flux"
+      impFieldStdName(  5) = "upward_sea_ice_basal_heat_flux"
+      impFieldSclFac(   5) = -1.0  !field is downward
+      impFieldUnits(    5) = "W m-2"
+      impFieldName(     6) = "sifs"
+      impFieldLongName( 6) = "Ice Freezing/Melting Salt Flux"
+      impFieldStdName(  6) = "downward_sea_ice_basal_salt_flux"
+      impFieldUnits(    6) = "kg m-2 s-1"
+      impFieldName(     7) = "sifw"
+      impFieldLongName( 7) = "Ice Net Water Flux"
+      impFieldStdName(  7) = "downward_sea_ice_basal_water_flux"
+      impFieldUnits(    7) = "kg m-2 s-1"
+      impFieldName(     8) = "sit" !diagnostic
+      impFieldLongName( 8) = "Sea Ice Temperature"
+      impFieldStdName(  8) = "sea_ice_temperature"
+      impFieldAddOff(   8) = +273.15 !field is in degC
+      impFieldUnits(    8) = "K"
+      impFieldName(     9) = "sih" !diagnostic
+      impFieldLongName( 9) = "Sea Ice Thickness"
+      impFieldStdName(  9) = "sea_ice_thickness"
+      impFieldUnits(    9) = "m"
+      impFieldName(    10) = "siu" !diagnostic
+      impFieldLongName(10) = "Sea Ice X-Velocity"
+      impFieldStdName( 10) = "sea_ice_x_velocity"
+      impFieldUnits(   10) = "m s-1"
+      impFieldHalo(    10) = halo_pv !vector p-grid
+      impFieldName(    11) = "siv" !diagnostic
+      impFieldLongName(11) = "Sea Ice Y-Velocity"
+      impFieldStdName( 11) = "sea_ice_y_velocity"
+      impFieldUnits(   11) = "m s-1"
+      impFieldHalo(    11) = halo_pv !vector p-grid
+*
+*     impFieldName(    12) = "patm"
+*     impFieldLongName(12) = "Surface Air Pressure"
+*     impFieldStdName( 12) = "surface_air_pressure"
+*     impFieldUnits(   12) = "Pa"
+*     impFieldName(    13) = "xwnd"
+*     impFieldLongName(13) = "X-Wind"
+*     impFieldStdName( 13) = "x_wind"
+*     impFieldUnits(   13) = "m s-1"
+*     impFieldHalo(    13) = halo_pv !vector p-grid
+*     impFieldName(    14) = "ywnd"
+*     impFieldLongName(14) = "Y-Wind"
+*     impFieldStdName( 14) = "y_wind"
+*     impFieldUnits(   14) = "m s-1"
+*     impFieldHalo(    14) = halo_pv !vector p-grid
+c
+c  Attributes for export fields, identical to CICE import fields
+      expFieldAddOff(:) = 0.0 !default is no offset
+      expFieldSclFac(:) = 1.0 !default is no scale factor
+      expFieldHalo(  :) = halo_ps !default is scalar p-grid
+c
+      expFieldName(     1) = "sst"
+      expFieldLongName( 1) = "Sea Surface Temperature"
+      expFieldStdName(  1) = "sea_surface_temperature"
+      expFieldAddOff(   1) = +273.15 !field is in degC
+      expFieldUnits(    1) = "K"
+      expFieldName(     2) = "sss"
+      expFieldLongName( 2) = "Sea Surface Salinity"
+      expFieldStdName(  2) = "sea_surface_salinity"
+      expFieldUnits(    2) = "1e-3"
+      expFieldName(     3) = "ssu"
+      expFieldLongName( 3) = "Sea Surface X-Current"
+      expFieldStdName(  3) = "sea_water_x_velocity"
+      expFieldUnits(    3) = "m s-1"
+      expFieldHalo(     3) = halo_pv !vector p-grid
+      expFieldName(     4) = "ssv"
+      expFieldLongName( 4) = "Sea Surface Y-Current"
+      expFieldStdName(  4) = "sea_water_y_velocity"
+      expFieldUnits(    4) = "m s-1"
+      expFieldHalo(     4) = halo_pv !vector p-grid
+      expFieldName(     5) = "ssh"
+      expFieldLongName( 5) = "Sea Surface Height"
+      expFieldStdName(  5) = "sea_surface_height_above_sea_level"
+      expFieldUnits(    5) = "m"
+      expFieldName(     6) = "ssfi"
+      expFieldLongName( 6) = "Oceanic Heat Flux Available to Sea Ice"
+      expFieldStdName(  6) = "upward_sea_ice_basal_available_heat_flux"
+      expFieldSclFac(   6) = -1.0  !field is downward
+      expFieldUnits(    6) = "W m-2"
+      expFieldName(     7) = "mlt"  !diagnostic
+      expFieldLongName( 7) = "Ocean Mixed Layer Thickness"
+      expFieldStdName(  7) = "ocean_mixed_layer_thickness"
+      expFieldUnits(    7) = "m"
+c
+c  Create a DE layout to match HYCOM layout
+      deLayout = ESMF_DELayoutCreate(vm, rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "Setup_ESMF: DELayoutCreate failed", rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+c
+c  Create array specifications
+      call ESMF_ArraySpecSet(arraySpec2Dr,
+     &     rank=2,
+     &     typekind=ESMF_TYPEKIND_R4,
+     &     rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "Setup_ESMF: ArraySpecSet failed", rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+c
+c  Create an ESMF grid that matches the HYCOM 2D grid
+      dimNames(1)="longitude";    dimNames(2)="latitude";
+      dimUnits(1)="degrees_east"; dimUnits(2)="degrees_north";
+      periodic(1)=ESMF_TRUE
+      periodic(2)=ESMF_FALSE
+c
+c make a dist grid object using the deBlockList defined in mod_xc_mp.h
+#if defined(ARCTIC)
+c --- Arctic (tripole) domain, top row is replicated (ignore it)
+      distgrid2D=ESMF_DistGridCreate(minIndex=(/   1,     1/),
+     &                               maxIndex=(/itdm,jtdm-1/),
+     &                             indexflag=ESMF_INDEX_GLOBAL,
+     &                           deBlockList=deBlockList(:,:,1:ijpr),
+     &                                    rc=rc)
+#else
+      distgrid2D=ESMF_DistGridCreate(minIndex=(/   1,   1/),
+     &                               maxIndex=(/itdm,jtdm/),
+     &                             indexflag=ESMF_INDEX_GLOBAL,
+     &                           deBlockList=deBlockList(:,:,1:ijpr),
+     &                                    rc=rc)
+#endif
+      if (ESMF_LogMsgFoundError(rc,
+     &   "Setup_ESMF: ESMF_DistGridCreate", rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+c
+c Now create a 2D grid
+      grid2D=ESMF_GridCreate(distGrid=distGrid2D,
+     &                       coordTypeKind=ESMF_TYPEKIND_R4,
+     &                       coordDimCount=(/2,2/),
+     &                       indexflag=ESMF_INDEX_GLOBAL,
+     &                       rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "GridCreate failed",rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+c
+c Add Grid Coordinates
+      call ESMF_GridAddCoord(grid=grid2D,
+     &                       staggerloc=ESMF_STAGGERLOC_CENTER,
+     &                       rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "GridAddCoord failed",rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+       call ESMF_GridGetCoord(grid=grid2D,
+     &                        CoordDim=1,
+     &                        localDe=0,
+     &                        staggerloc=ESMF_STAGGERLOC_CENTER,
+     &                        computationalLbound=lbnd,
+     &                        computationalUbound=ubnd,
+     &                        fptr=Xcoord,
+     &                        rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "GridGetCoord-1 failed",rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+#if defined(ARCTIC)
+c --- Arctic (tripole) domain, top row is replicated (ignore it)
+      jja = min( jj, jtdm-1-j0 )
+#else
+      jja = jj
+#endif
+      do j= 1,jja
+        do i= 1,ii
+          Xcoord(i+i0,j+j0) = plon(i,j)
+        enddo
+      enddo
+      call ESMF_GridGetCoord(grid=grid2D,
+     &                       CoordDim=2,
+     &                       localDe=0,
+     &                       staggerloc=ESMF_STAGGERLOC_CENTER,
+     &                       computationalLbound=lbnd,
+     &                       computationalUbound=ubnd,
+     &                       fptr=Ycoord,
+     &                       rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "GridGetCoord-2 failed",rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+      do j= 1,jja
+        do i= 1,ii
+          Ycoord(i+i0,j+j0) = plat(i,j)
+        enddo
+      enddo
+      CALL ESMF_GridAddItem(grid=grid2D,
+     &                      staggerloc=ESMF_STAGGERLOC_CENTER,
+     &                      item=ESMF_GRIDITEM_MASK,
+     &                      rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "GridAddItem failed",rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+      CALL ESMF_GridGetItem(grid=grid2D,
+     &                      localDE=0,
+     &                      staggerloc=ESMF_STAGGERLOC_CENTER,
+     &                      item=ESMF_GRIDITEM_MASK,
+     &                      fptr=mask_ptr,
+     &                      rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "GridGetItem failed",rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+      mask_ptr(:,:) = 0  !all land, outside active tile
+      do j= 1,jja
+        do i= 1,ii
+          mask_ptr(i+i0,j+j0) = ishlf(i,j)
+        enddo
+      enddo
+c
+c  Associate grid with ESMF gridded component
+      call ESMF_GridCompSet(gridComp, grid=grid2D, rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "Setup_ESMF: GridCompSet", rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+c
+c  Setup export fields, bundles & state
+      do i=1,numExpFields
+        expField(i)=ESMF_FieldCreate(grid=grid2D,
+     &                               arrayspec=arraySpec2Dr,
+     &                               indexflag=ESMF_INDEX_GLOBAL,
+     &                               staggerLoc=ESMF_STAGGERLOC_CENTER,
+     &                               name=trim(expFieldName(i)),
+     &                               rc=rc)
+        call ESMF_FieldGet(expField(i),0,expData(i)%p,rc=rc)
+        expData(i)%p(:,:) = 0.0
+      enddo
+c
+c  Create bundle from list of fields
+       expBundle=ESMF_FieldBundleCreate(numExpFields,
+     &                  expField(:), name='HYCOM Export',
+     &                  rc=rc)
+c
+c  Add bundle to the export state
+       call ESMF_StateAdd(expState,expBundle,rc=rc)
+c
+c  Setup import fields, bundles & state
+      do i = 1,numImpFields
+        impField(i)=ESMF_FieldCreate(grid2D,arraySpec2Dr,
+     &                               StaggerLoc=ESMF_STAGGERLOC_CENTER,
+     &                               name=trim(impFieldName(i)),
+     &                               rc=rc)
+        call ESMF_FieldGet(impField(i),0,impData(i)%p,rc=rc)
+        impData(i)%p(:,:)=0.0 ! Initialize fields
+      enddo
+c
+      allocate(  sic_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &          sitx_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &          sity_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &          siqs_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &          sifh_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &          sifs_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &          sifw_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &           sit_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &           sih_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &           siu_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &           siv_import(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+      call mem_stat_add( 11*(idm+2*nbdy)*(jdm+2*nbdy) )
+c
+       sic_import(:,:) = 0.0 !Sea Ice Concentration
+      sitx_import(:,:) = 0.0 !Sea Ice X-Stress
+      sity_import(:,:) = 0.0 !Sea Ice Y-Stress
+      siqs_import(:,:) = 0.0 !Solar Heat Flux thru Ice to Ocean
+      sifh_import(:,:) = 0.0 !Ice Freezing/Melting Heat Flux
+      sifs_import(:,:) = 0.0 !Ice Freezing/Melting Salt Flux
+      sifw_import(:,:) = 0.0 !Ice Net Water Flux
+       sit_import(:,:) = 0.0 !Sea Ice Temperature
+       sih_import(:,:) = 0.0 !Sea Ice Thickness
+       siu_import(:,:) = 0.0 !Sea Ice X-Velocity
+       siv_import(:,:) = 0.0 !Sea Ice Y-Velocity
+c
+c  Create bundle from list of fields
+      impBundle=ESMF_FieldBundleCreate(numImpFields,
+     &                                 impField(:),
+     &                                 name='HYCOM Import',
+     &                                 rc=rc)
+c
+c  Add bundle to the import state
+      call ESMF_StateAdd(impState,impBundle,rc=rc)
+c
+      ocn_mask_init = .true.  !still need to initialize ocn_mask
+c
+      end subroutine Setup_ESMF
+
+      subroutine Export_ESMF()
+c
+c --- Fill export state.
+c --- Calculate ssfi "in place"
+c
+      integer i,j,k,rc
+      real    ssh2m
+      real    tmxl,smxl,umxl,vmxl,hfrz,tfrz,t2f,ssfi
+      real    dp1,usur1,vsur1,psur1,dp2,usur2,vsur2,psur2,thksur
+c
+c --- Report
+      call ESMF_LogWrite("HYCOM Export routine called",
+     &     ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+c
+      if     (ocn_mask_init) then  !very 1st call to this routine
+        ocn_mask_init = .false.
+c
+        allocate( ocn_mask(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
+        call mem_stat_add( (idm+2*nbdy)*(jdm+2*nbdy) )
+c
+        if     (iceflg.eq.4) then
+          ocn_mask(:,:) = 0.0  !export ocean currents nowhere
+        elseif (nestfq.ne.0.0) then
+c         export ocean currents away from open boundaries
+          do j= 1,jj
+            do i= 1,ii
+              if     (rmunv(i,j).ne.0.0) then
+                ocn_mask(i,j) = 0.0
+              else
+                ocn_mask(i,j) = 1.0
+              endif
+            enddo !i
+          enddo !j
+          do i= 1,10
+            call psmooth(ocn_mask,0,0, ip, util1)  !not efficient, but only done once
+          enddo !i
+        else
+          ocn_mask(:,:) = 1.0  !export ocean currents everywhere
+        endif
+      endif !ocn_mask_init
+c
+c --- Assume Export State is as defined in Setup_ESMF
+c --- Average two time levels since (the coupling frequency) icpfrq >> 2
+c
+      call xctilr(u(      1-nbdy,1-nbdy,1,1),1,2*kk, 1,1, halo_uv)
+      call xctilr(v(      1-nbdy,1-nbdy,1,1),1,2*kk, 1,1, halo_vv)
+      call xctilr(ubavg(  1-nbdy,1-nbdy,  1),1,   2, 1,1, halo_uv)
+      call xctilr(vbavg(  1-nbdy,1-nbdy,  1),1,   2, 1,1, halo_vv)
+c
+      ssh2m = 1.0/g
+      do j= 1,jja
+        do i= 1,ii
+          if     (ishlf(i,j).eq.1) then
+c ---       quantities for available freeze/melt heat flux
+c ---       relax to tfrz with e-folding time of icefrq time steps
+c ---       assuming the effective surface layer thickness is hfrz
+c ---       multiply by dpbl(i,j)/hfrz to get the actual e-folding time
+            hfrz = min( thkfrz*onem, dpbl(i,j) )
+            t2f  = (spcifh*hfrz)/(baclin*icefrq*g)
+c ---       average both available time steps, to avoid time splitting.
+            smxl = 0.5*(saln(i,j,1,n)+saln(i,j,1,m))
+            tmxl = 0.5*(temp(i,j,1,n)+temp(i,j,1,m))
+            tfrz = tfrz_0 + smxl*tfrz_s  !salinity dependent freezing point
+            ssfi = (tfrz-tmxl)*t2f       !W/m^2 into ocean
+c ---       average currents over top thkcdw meters
+            thksur = onem*min( thkcdw, depths(i,j) ) 
+            usur1  = 0.0
+            vsur1  = 0.0
+            psur1  = 0.0
+            usur2  = 0.0
+            vsur2  = 0.0
+            psur2  = 0.0
+            do k= 1,kk
+              dp1   = min( dp(i,j,k,1), max( 0.0, thksur-psur1 ) )
+#if defined(STOKES)
+      usur1=usur1+dp1*(u(i,j,k,1)+u(i+1,j,k,1)+usd(i,j,k)+usd(i+1,j,k))
+      vsur1=vsur1+dp1*(v(i,j,k,1)+v(i,j+1,k,1)+vsd(i,j,k)+vsd(i,j+1,k))
+#else
+              usur1 = usur1 + dp1*(u(i,j,k,1)+u(i+1,j,k,1))
+              vsur1 = vsur1 + dp1*(v(i,j,k,1)+v(i,j+1,k,1))
+#endif
+              psur1 = psur1 + dp1
+              dp2   = min( dp(i,j,k,2), max( 0.0, thksur-psur2 ) )
+#if defined(STOKES)
+      usur2=usur2+dp2*(u(i,j,k,1)+u(i+1,j,k,2)+usd(i,j,k)+usd(i+1,j,k))
+      vsur2=vsur2+dp2*(v(i,j,k,1)+v(i,j+1,k,2)+vsd(i,j,k)+vsd(i,j+1,k))
+#else
+              usur2 = usur2 + dp2*(u(i,j,k,2)+u(i+1,j,k,2))
+              vsur2 = vsur2 + dp2*(v(i,j,k,2)+v(i,j+1,k,2))
+#endif
+              psur2 = psur2 + dp2
+              if     (min(psur1,psur2).ge.thksur) then
+                exit
+              endif
+            enddo
+#if defined(STOKES)
+       umxl  = 0.25*( usur1/psur1+ubavg(i,j,1) + usdbavg(i,j) +
+     &                         ubavg(i+1,j,1)  + usdbavg(i+1,j) +
+     &       usur2/psur2 + ubavg(i,  j,2) + usdbavg(i,j) +
+     &                     ubavg(i+1,j,2) + usdbavg(i+1,j) )
+       vmxl  = 0.25*( vsur1/psur1+vbavg(i,j,1) + vsdbavg(i,j) +
+     &                         vbavg(i,j+1,1) +  vsdbavg(i,j+1) +
+     &       vsur2/psur2 + vbavg(i,j,  2) + vsdbavg(i,j) +
+     &                     vbavg(i,j+1,2) + vadbavg(i,j+1) )
+#else
+            umxl  = 0.25*( usur1/psur1 + ubavg(i,  j,1) +
+     &                                   ubavg(i+1,j,1) +
+     &                     usur2/psur2 + ubavg(i,  j,2) +
+     &                                   ubavg(i+1,j,2)  )
+            vmxl  = 0.25*( vsur1/psur1 + vbavg(i,j,  1) +
+     &                                   vbavg(i,j+1,1) +
+     &                     vsur2/psur2 + vbavg(i,j,  2) +
+     &                                   vbavg(i,j+1,2)  )
+#endif
+            util2(i,j)              = umxl
+            util3(i,j)              = vmxl
+            expData(1)%p(i+i0,j+j0) = tmxl
+            expData(2)%p(i+i0,j+j0) = smxl
+            expData(5)%p(i+i0,j+j0) = ssh2m*srfhgt(i,j)  !ssh in m
+            expData(6)%p(i+i0,j+j0) = max(-1000.0,min(1000.0,ssfi))  !as in CICE
+            expData(7)%p(i+i0,j+j0) = dpbl(i,j)*qonem
+          else
+            util2(i,j)              = 0.0
+            util3(i,j)              = 0.0
+          endif !ishlf:else
+        enddo !i
+      enddo !j
+c
+c --- Smooth surface ocean velocity fields
+#if defined(ARCTIC)
+      call xctila( util2,1,1,halo_pv)
+      call xctila( util3,1,1,halo_pv)
+#endif
+      call psmooth(util2,0,0, ishlf, util1)
+      call psmooth(util3,0,0, ishlf, util1)
+      do j= 1,jja
+        do i= 1,ii
+          if     (ishlf(i,j).eq.1) then
+            expData(3)%p(i+i0,j+j0) = util2(i,j)*ocn_mask(i,j)
+            expData(4)%p(i+i0,j+j0) = util3(i,j)*ocn_mask(i,j)
+          endif !ishlf
+        enddo !i
+      enddo !j
+c
+c --- Report
+      call ESMF_LogWrite("HYCOM Export routine returned",
+     &     ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+c
+      end subroutine Export_ESMF
+
+      subroutine Import_ESMF()
+c
+c --- Extract import state.
+c
+      integer i,j,rc
+c
+c --- Report
+      call ESMF_LogWrite("HYCOM Import routine called",
+     &     ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+c
+c --- Assume Import State is as defined in Setup_ESMF
+c
+#if defined(ARCTIC)
+c --- Arctic (tripole) domain, top row is replicated (ignore it)
+      jja = min( jj, jtdm-1-j0 )
+#else
+      jja = jj
+#endif
+      do j= 1,jja
+        do i= 1,ii
+          if     (ishlf(i,j).eq.1) then
+             sic_import(i,j) = impData( 1)%p(i+i0,j+j0) !Sea Ice Concentration
+            sitx_import(i,j) = impData( 2)%p(i+i0,j+j0) !Sea Ice X-Stress
+            sity_import(i,j) = impData( 3)%p(i+i0,j+j0) !Sea Ice Y-Stress
+            siqs_import(i,j) = impData( 4)%p(i+i0,j+j0) !Solar Heat Flux thru Ice to Ocean
+            sifh_import(i,j) = impData( 5)%p(i+i0,j+j0) !Ice Freezing/Melting Heat Flux
+            sifs_import(i,j) = impData( 6)%p(i+i0,j+j0) !Ice Freezing/Melting Salt Flux
+            sifw_import(i,j) = impData( 7)%p(i+i0,j+j0) !Ice Net Water Flux
+             sit_import(i,j) = impData( 8)%p(i+i0,j+j0) !Sea Ice Temperature
+             sih_import(i,j) = impData( 9)%p(i+i0,j+j0) !Sea Ice Thickness
+             siu_import(i,j) = impData(10)%p(i+i0,j+j0) !Sea Ice X-Velocity
+             siv_import(i,j) = impData(11)%p(i+i0,j+j0) !Sea Ice Y-Velocity
+            if     (iceflg.ge.2 .and. icmflg.ne.3) then
+              covice(i,j) = impData(1)%p(i+i0,j+j0) !Sea Ice Concentration
+                si_c(i,j) = impData(1)%p(i+i0,j+j0) !Sea Ice Concentration
+              if     (covice(i,j).gt.0.0) then
+                 si_tx(i,j) = -impData( 2)%p(i+i0,j+j0) !Sea Ice X-Stress into ocean
+                 si_ty(i,j) = -impData( 3)%p(i+i0,j+j0) !Sea Ice Y-Stress into ocean
+                fswice(i,j) =  impData( 4)%p(i+i0,j+j0) !Solar Heat Flux thru Ice to Ocean
+                flxice(i,j) =  fswice(i,j) +
+     &                         impData( 5)%p(i+i0,j+j0) !Ice Freezing/Melting Heat Flux
+                sflice(i,j) =  impData( 6)%p(i+i0,j+j0)*1.e3 -
+     &                         impData( 7)%p(i+i0,j+j0)*saln(i,j,1,n)
+                                                  !Ice Virtual Salt Flux
+                temice(i,j) =  impData( 8)%p(i+i0,j+j0) !Sea Ice Temperature
+                  si_t(i,j) =  impData( 8)%p(i+i0,j+j0) !Sea Ice Temperature
+                thkice(i,j) =  impData( 9)%p(i+i0,j+j0) !Sea Ice Thickness
+                  si_h(i,j) =  impData( 9)%p(i+i0,j+j0) !Sea Ice Thickness
+                  si_u(i,j) =  impData(10)%p(i+i0,j+j0) !Sea Ice X-Velocity
+                  si_v(i,j) =  impData(11)%p(i+i0,j+j0) !Sea Ice Y-Velocity
+              else
+                 si_tx(i,j) = 0.0
+                 si_ty(i,j) = 0.0
+                fswice(i,j) = 0.0
+                flxice(i,j) = 0.0
+                sflice(i,j) = 0.0
+                temice(i,j) = 0.0
+                  si_t(i,j) = 0.0
+                thkice(i,j) = 0.0
+                  si_h(i,j) = 0.0
+                  si_u(i,j) = 0.0
+                  si_v(i,j) = 0.0
+              endif !covice
+            elseif (iceflg.ge.2 .and. icmflg.eq.3) then
+                  si_c(i,j) =  impData( 1)%p(i+i0,j+j0) !Sea Ice Concentration
+              if     (si_c(i,j).gt.0.0) then
+                 si_tx(i,j) = -impData( 2)%p(i+i0,j+j0) !Sea Ice X-Stress into ocean
+                 si_ty(i,j) = -impData( 3)%p(i+i0,j+j0) !Sea Ice Y-Stress into ocean
+                  si_h(i,j) =  impData( 9)%p(i+i0,j+j0) !Sea Ice Thickness
+                  si_t(i,j) =  impData( 8)%p(i+i0,j+j0) !Sea Ice Temperature
+                  si_u(i,j) =  impData(10)%p(i+i0,j+j0) !Sea Ice X-Velocity
+                  si_v(i,j) =  impData(11)%p(i+i0,j+j0) !Sea Ice Y-Velocity
+              else
+                 si_tx(i,j) = 0.0
+                 si_ty(i,j) = 0.0
+                  si_h(i,j) = 0.0
+                  si_t(i,j) = 0.0
+                  si_u(i,j) = 0.0
+                  si_v(i,j) = 0.0
+              endif !covice
+            endif !iceflg>=2 (icmflg)
+          endif !ishlf
+        enddo !i
+      enddo !j
+#if defined(ARCTIC)
+c
+c --- update last active row of array
+      call xctila( sic_import,1,1,halo_ps)  !Sea Ice Concentration
+      call xctila(sitx_import,1,1,halo_pv)  !Sea Ice X-Stress
+      call xctila(sity_import,1,1,halo_pv)  !Sea Ice Y-Stress
+      call xctila(siqs_import,1,1,halo_ps)  !Solar Heat Flux thru Ice to Ocean
+      call xctila(sifh_import,1,1,halo_ps)  !Ice Freezing/Melting Heat Flux
+      call xctila(sifs_import,1,1,halo_ps)  !Ice Freezing/Melting Salt Flux
+      call xctila(sifw_import,1,1,halo_ps)  !Ice Net Water Flux
+      call xctila( sit_import,1,1,halo_ps)  !Sea Ice Temperature
+      call xctila( sih_import,1,1,halo_ps)  !Sea Ice Thickness
+      call xctila( siu_import,1,1,halo_pv)  !Sea Ice X-Velocity
+      call xctila( siv_import,1,1,halo_pv)  !Sea Ice Y-Velocity
+      if     (iceflg.ge.2 .and. icmflg.ne.3) then
+        call xctila(covice,1,1,halo_ps)  !Sea Ice Concentration
+        call xctila(  si_c,1,1,halo_ps)  !Sea Ice Concentration
+        call xctila( si_tx,1,1,halo_pv)  !Sea Ice X-Stress into ocean
+        call xctila( si_ty,1,1,halo_pv)  !Sea Ice Y-Stress into ocean
+        call xctila(fswice,1,1,halo_ps)  !Solar Heat Flux thru Ice to Ocean
+        call xctila(flxice,1,1,halo_ps)  !Ice Freezing/Melting Heat Flux
+        call xctila(sflice,1,1,halo_ps)  !Ice Virtual Salt Flux
+        call xctila(temice,1,1,halo_ps)  !Sea Ice Temperature
+        call xctila(  si_t,1,1,halo_ps)  !Sea Ice Temperature
+        call xctila(thkice,1,1,halo_ps)  !Sea Ice Thickness
+        call xctila(  si_h,1,1,halo_ps)  !Sea Ice Thickness
+        call xctila(  si_u,1,1,halo_pv)  !Sea Ice X-Velocity
+        call xctila(  si_v,1,1,halo_pv)  !Sea Ice Y-Velocity
+      elseif (iceflg.ge.2 .and. icmflg.eq.3) then
+        call xctila(  si_c,1,1,halo_ps)  !Sea Ice Concentration
+        call xctila( si_tx,1,1,halo_pv)  !Sea Ice X-Stress into ocean
+        call xctila( si_ty,1,1,halo_pv)  !Sea Ice Y-Stress into ocean
+        call xctila(  si_h,1,1,halo_ps)  !Sea Ice Thickness
+        call xctila(  si_t,1,1,halo_ps)  !Sea Ice Temperature
+        call xctila(  si_u,1,1,halo_pv)  !Sea Ice X-Velocity
+        call xctila(  si_v,1,1,halo_pv)  !Sea Ice Y-Velocity
+      endif
+#endif
+c
+c --- Smooth Sea Ice velocity fields
+      call psmooth(si_u,0,0, ishlf, util1)
+      call psmooth(si_v,0,0, ishlf, util1)
+#if defined(ARCTIC)
+      call xctila(si_u,1,1,halo_pv)
+      call xctila(si_v,1,1,halo_pv)
+#endif
+c --- copy back from si_ to impData for Archive_ESMF
+      do j= 1,jja
+        do i= 1,ii
+          if     (si_c(i,j).gt.0.0) then
+            impData(10)%p(i+i0,j+j0) = si_u(i,j) !Sea Ice X-Velocity
+            impData(11)%p(i+i0,j+j0) = si_v(i,j) !Sea Ice X-Velocity
+          endif !si_c
+        enddo !i
+      enddo !j
+c
+c --- Report
+      call ESMF_LogWrite("HYCOM Import routine returned",
+     &     ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+c
+      end subroutine Import_ESMF
+
+      subroutine Archive_ESMF(iyear,jday,ihour)
+      integer   iyear,jday,ihour
+c
+c --- Create a HYCOM "archive-like" file from Import/Export state.
+c --- Import state may not be at the same time as Export.
+c --- Ice Drift has been smoothed since import.
+c
+      logical      hycom_isnaninf  !function to detect NaN and Inf
+c
+      character*8  cname
+      character*80 cfile
+      logical      lexist
+      integer      i,j,k,nop,nopa,rc
+      real         coord,xmin,xmax,sumssu,sumssv,sumsiu,sumsiv
+c
+c --- Report
+      call ESMF_LogWrite("HYCOM Archive routine called",
+     &     ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+c
+      write(cfile,'(a,i4.4,a1,i3.3,a1,i2.2)')
+     &   'arche.',iyear,'_',jday,'_',ihour
+      nopa=13
+      nop =13+uoff
+c
+c --- Only write out one archive per hour
+c
+      inquire(file=trim(cfile)//'.a',exist=lexist)
+      if     (lexist) then
+c
+c ---   Report
+        call ESMF_LogWrite("HYCOM Archive routine returned early",
+     &       ESMF_LOG_INFO, rc=rc)
+        call ESMF_LogFlush(rc=rc)
+c
+        if (mnproc.eq.1) then
+        write(lp,*) 'skip: ',trim(cfile)
+        call flush(lp)
+        endif !1st tile
+        return
+      else
+        if (mnproc.eq.1) then
+        write(lp,*) 'open: ',trim(cfile)
+        call flush(lp)
+        endif !1st tile
+      endif
+      call xcsync(flush_lp)
+c
+      call zaiopf(trim(cfile)//'.a', 'new', nopa)
+      if     (mnproc.eq.1) then
+      open (unit=nop,file=trim(cfile)//'.b',status='new') !uoff+13
+      write(nop,116) ctitle,iversn,iexpt,yrflag,itdm,jtdm
+      call flush(nop)
+      endif !1st tile
+ 116  format (a80/a80/a80/a80/
+     & i5,4x,'''iversn'' = hycom version number x10'/
+     & i5,4x,'''iexpt '' = experiment number x10'/
+     & i5,4x,'''yrflag'' = days in year flag'/
+     & i5,4x,'''idm   '' = longitudinal array size'/
+     & i5,4x,'''jdm   '' = latitudinal  array size'/
+     & 'field       time step  model day',
+     & '  k  dens        min              max')
+c
+c --- surface fields
+c
+      coord=0.0
+      do k= 1,numExpFields
+        do j= 1,jja
+          do i= 1,ii
+            if     (ishlf(i,j).eq.1) then
+              util1(i,j) = expData(k)%p(i+i0,j+j0)
+            endif !ishlf
+          enddo !i
+        enddo !j
+#if defined(ARCTIC)
+        call xctila(util1,1,1,expFieldHalo(k))
+#endif
+        cname = expFieldName(k)(1:8)
+        call zaiowr(util1,ishlf,.true.,
+     &              xmin,xmax, nopa, .false.)
+        if     (mnproc.eq.1) then
+        write (nop,117) cname,nstep,time,0,coord,xmin,xmax
+        call flush(nop)
+        endif !1st tile
+      enddo !k
+      do j= 1,jja
+        do i= 1,ii
+          if     (ishlf(i,j).eq.1) then
+            util2(i,j) = impData(1)%p(i+i0,j+j0)  !ice concentration
+          else
+            util2(i,j) = 0.0
+          endif !ishlf
+        enddo !i
+      enddo !j
+#if defined(ARCTIC)
+      call xctila(util2,1,1,halo_ps)
+#endif
+      cname = impFieldName(1)(1:8)
+      call zaiowr(util2,ishlf,.true.,
+     &            xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) cname,nstep,time,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      do k= 2,3 !si_tx,si_ty
+        do j= 1,jja
+          do i= 1,ii
+            if     (util2(i,j).ne.0.0) then
+              util1(i,j) = -impData(k)%p(i+i0,j+j0)  !into ocean
+            else
+              util1(i,j) = 0.0
+            endif !ice:no-ice
+          enddo !i
+        enddo !j
+#if defined(ARCTIC)
+        call xctila(util1,1,1,impFieldHalo(k))
+#endif
+        cname = impFieldName(k)(1:8)
+        call zaiowr(util1,ishlf,.true.,
+     &              xmin,xmax, nopa, .false.)
+        if     (mnproc.eq.1) then
+        write (nop,117) cname(1:4)//'down',
+     &                  nstep,time,0,coord,xmin,xmax
+        call flush(nop)
+        endif !1st tile
+      enddo !k
+      do k= 4,7 !fluxes
+        do j= 1,jja
+          do i= 1,ii
+            if     (util2(i,j).ne.0.0) then
+              util1(i,j) = util2(i,j)*impData(k)%p(i+i0,j+j0)
+            else
+              util1(i,j) = hugel !mask where there is no ice
+            endif !ice:no-ice
+          enddo !i
+        enddo !j
+#if defined(ARCTIC)
+        vland = hugel
+        call xctila(util1,1,1,impFieldHalo(k))
+        vland = 0.0
+#endif
+        cname = impFieldName(k)(1:8)
+        call zaiowr(util1,ishlf,.false.,  !mask on ice
+     &              xmin,xmax, nopa, .false.)
+        if     (mnproc.eq.1) then
+        write (nop,117) cname,nstep,time,0,coord,xmin,xmax
+        call flush(nop)
+        endif !1st tile
+      enddo !k
+      do k= 8,numImpFields
+        do j= 1,jja
+          do i= 1,ii
+            if     (util2(i,j).ne.0.0) then
+              util1(i,j) = impData(k)%p(i+i0,j+j0)
+            else
+              util1(i,j) = hugel !mask where there is no ice
+            endif !ice:no-ice
+          enddo !i
+        enddo !j
+#if defined(ARCTIC)
+        vland = hugel
+        call xctila(util1,1,1,impFieldHalo(k))
+        vland = 0.0
+#endif
+        cname = impFieldName(k)(1:8)
+        call zaiowr(util1,ishlf,.false.,  !mask on ice
+     &              xmin,xmax, nopa, .false.)
+        if     (mnproc.eq.1) then
+        write (nop,117) cname,nstep,time,0,coord,xmin,xmax
+        call flush(nop)
+        endif !1st tile
+      enddo !k
+      do j= 1,jja
+        do i= 1,ii
+          if     (util2(i,j).ne.0.0) then
+            util1(i,j) = impData( 6)%p(i+i0,j+j0)*1.e3 -
+     &                   impData( 7)%p(i+i0,j+j0)*saln(i,j,1,n)  !virtual salt flux
+          else
+            util1(i,j) = hugel !mask where there is no ice
+          endif !ice:no-ice
+        enddo !i
+      enddo !j
+#if defined(ARCTIC)
+      call xctila(util1,1,1,halo_ps)
+#endif
+      cname = 'surtx   '
+      call zaiowr(surtx,ishlf,.true.,
+     &            xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) cname,nstep,time,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      cname = 'surty   '
+      call zaiowr(surty,ishlf,.true.,
+     &            xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) cname,nstep,time,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+      cname = 'sflice  '
+      call zaiowr(util1,ishlf,.false.,  !mask on ice
+     &            xmin,xmax, nopa, .false.)
+      if     (mnproc.eq.1) then
+      write (nop,117) cname,nstep,time,0,coord,xmin,xmax
+      call flush(nop)
+      endif !1st tile
+ 117  format (a8,' =',i11,f11.3,i3,f7.3,1p2e16.7)
+c
+      close (unit=nop)
+      call zaiocl(nopa)
+c
+c --- local-tile test of velocity fields for NaNs
+c --- sum should be ok unless NaNs or Infs are present
+c
+      sumssu = 0.0
+      sumssv = 0.0
+      sumsiu = 0.0
+      sumsiv = 0.0
+      do j= 1,jja
+        do i= 1,ii
+          if     (ishlf(i,j).eq.1) then
+            sumssu = sumssu + expData( 3)%p(i+i0,j+j0)
+            sumssv = sumssv + expData( 4)%p(i+i0,j+j0)
+          endif !ishlf
+          if     (util2(i,j).ne.0.0) then
+            sumsiu = sumsiu + impData(10)%p(i+i0,j+j0)
+            sumsiv = sumsiv + impData(11)%p(i+i0,j+j0)
+          endif !ice
+        enddo !i
+      enddo !j
+      if     (hycom_isnaninf(sumssu) .or.
+     &        hycom_isnaninf(sumssv) .or.
+     &        hycom_isnaninf(sumsiu) .or.
+     &        hycom_isnaninf(sumsiv)     ) then
+        call xchalt('Archive_ESMF: NaN or Inf detected')
+               stop 'Archive_ESMF: NaN or Inf detected'
+      endif !NaN
+c
+c ---   Report
+        call ESMF_LogWrite("HYCOM Archive routine returned",
+     &       ESMF_LOG_INFO, rc=rc)
+        call ESMF_LogFlush(rc=rc)
+c
+      end subroutine Archive_ESMF
+#endif /* USE_ESMF */
+
+      subroutine HYCOM_Init
+#if defined(USE_ESMF)
+     &           (gridComp, impState, expState, extClock, rc)
+c
+c --- Calling parameters
+      type(ESMF_GridComp)  :: gridComp
+      type(ESMF_State)     :: impState
+      type(ESMF_State)     :: expState
+      type(ESMF_Clock)     :: extClock
+      integer, intent(out) :: rc
+#endif
 c
 c --- Initialize (before the 1st time step).
 c
-      integer      i,j,k,l,nm,margin
+      integer      i,j,k,nm,margin
       character*80 flnm,flnmra,flnmrb
-      integer      mpi_comm_ocean,istat
-      real          utot,vtot,usur1,usur2,vsur1,vsur2,uu,vv
 c
-!!Alex add variable for CESM
-      integer,      intent(in), optional :: mpiCommunicator
-      real,         intent(in), optional :: hycom_start_dtg
-      real,         intent(in), optional :: hycom_end_dtg
-      character*80, intent(in), optional :: pointer_filename
-      logical,      intent(in), optional :: restart_write
-
       include 'stmt_fns.h'
 c
+#if defined(USE_ESMF)
+      integer                :: rc2
+      character(ESMF_MAXSTR) :: msg
 c
-c --- initialize SPMD processsing !!Alex
-      if (present(mpiCommunicator)) then
-          call MPI_Comm_Dup(mpiCommunicator,mpi_comm_ocean,istat)
-          call xcspmd(mpi_comm_ocean)
-      else
-          call xcspmd
-      endif
-
+c --- Report
+      call ESMF_LogWrite("HYCOM initialize routine called",
+     &     ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+c
+c --- Get VM from gridComp
+      call ESMF_GridCompGet(gridComp, vm=vm, rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "HYCOM_Init: GridCompGet failed", rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+c
+c --- Get VM info
+      call ESMF_VMGet(vm,
+     &     petCount=petCount, localPET=localPet,
+     &     mpiCommunicator=mpiCommunicator, rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "HYCOM_Init: VMGet failed", rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+      write(msg,'(a,i4)') "HYCOM_Init: petCount = ",petCount
+      call ESMF_LogWrite(msg, ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+c
+c --- initialize hycom message passing.
+      call xcspmd(mpiCommunicator)
+#elif defined(USE_CCSM3)
+!--------------------------------------------------------
+!     intialize memory-statistics code
+!--------------------------------------------------------
+!     call start()
+!--------------------------------------------------------
+!     intialize message-passing with ccsm3 coupler cpl6
+!--------------------------------------------------------
+      call ccsm3_setup_coupling_env()
+!--------------------------------------------------------
+!     intialize i/o for ccsm3 coupled system
+!--------------------------------------------------------
+      call ccsm3_io_init
+c
+c --- initialize SPMD processsing
+      call xcspmd
+#else
+c
+c --- initialize SPMD processsing
+      call xcspmd
+#endif /* USE_ESMF:USE_CCSM3:else */
 c
 c --- initialize timer names.
 c
@@ -137,12 +1179,17 @@ c
       call xctmrn(52,'overtn')
       call xctmrn(53,'archiv')
       call xctmrn(54,'incupd')
+#if defined(USE_ESMF)
+      call xctmrn(78,'HY_Ini')
+      call xctmrn(79,'HY_Out')
+      call xctmrn(80,'HY_Run')
+#endif
 c
 c --- machine-specific initialization
       call machine
 c
 c --- initialize scalars
-      call blkdat(hycom_start_dtg)  !must call before zaiost
+      call blkdat  !must call before zaiost
 c
 c --- initialize array i/o.
       call zaiost
@@ -195,6 +1242,11 @@ c
       else !no tiled 3-d archives
         dtilef = (baclin/86400.0d0)*0.99d0*huge(i)
       endif
+#if defined(USE_CCSM3)
+      if     (meanfq.eq.0.0) then
+        meanfq = 1.0  !always write out mean archives (value is ignored)
+      endif
+#endif
       if     (meanfq.ge.1.0) then
         dmeanf = meanfq
       elseif (meanfq.ne.0.0) then
@@ -264,14 +1316,6 @@ c ---   also implies high frequency atmospheric forcing
         dmonth = dyear/12.d0
         dbimon = dyear/ 6.d0
         dyear0 = -15.0d0+dyear
-!!Alex add calendar for CESM
-      elseif (yrflag.eq.4) then
-c ---   365 days, starting Jan 1 - CESM: NO-LEAP calendar
-c ---   also implies high frequency atmospheric forcing
-        dyear  = 365.0d0
-        dmonth = dyear/12.d0
-        dbimon = dyear/ 6.d0
-        dyear0 = -15.0d0+dyear
       else
         if (mnproc.eq.1) then
         write(lp,*)
@@ -300,9 +1344,30 @@ c
 c --- set up parameters defining the geographic environment
 c
       call geopar
+#if defined(USE_ESMF)
+c
+c --- set up ESMF data structures
+c
+      call Setup_ESMF(gridComp, impState, expState, extClock, rc=rc)
+      if (ESMF_LogMsgFoundError(rc,
+     &   "HYCOM_Init: Setup_ESMF failed", rcToReturn=rc2))
+     &   call ESMF_Finalize(rc=rc)
+#endif
 c
 c --- set up forcing functions
 c
+#if defined(USE_CCSM3)
+!----------------------------------------------------------------------
+!     calls to forfuna and forfunp have been removed, because
+!     in the coupled version, forcing fields are received from the coupler
+!     at the beginning of each coupled interval
+!----------------------------------------------------------------------
+      if     (jerlv0.eq. 0) then
+        call forfunk  !  annual/monthly kpar
+      elseif (jerlv0.eq.-1) then
+        call forfunc  !  annual/monthly chl
+      endif
+#else
       if (yrflag.lt.2) then
         call forfuna  ! monthly atmospheric forcing
       endif
@@ -312,6 +1377,7 @@ c
         call forfunc  !  annual/monthly chl
       endif
       call forfunp  !    annual/monthly rivers
+#endif
       call forfunr  ! bimonthly/monthly climatology
       watcum=0.
       empcum=0.
@@ -351,31 +1417,6 @@ c
         drgten(:,:,:,:)=0.0
       endif
 c
-c --- spatially varying sss relaxation !!Alex
-c
-      maskms(:,:)=1. !define the marginal sea mask
-      if (sssflg.ne.0) then
-          if     (sssrmu.lt.0.) then
-              call forfunrs     ! spatially varying rmus
-          elseif (sssrmu.gt.0.) then
-              rmus(:,:)=1./(sssrmu*86400.)
-          else 
-              rmus(:,:)=0.
-          endif
-      endif 
-c
-c --- spatially varying sst relaxation !!Alex
-c
-      if (sstflg.ne.0) then
-          if     (sstrmu.lt.0.) then
-              call forfunrs     ! spatially varying rmut
-          elseif (sstrmu.gt.0.) then
-              rmut(:,:)=1./(sstrmu*86400.)
-          else 
-              rmut(:,:)=0.
-          endif
-      endif 
-c
 c --- "scalar" tidal SAL factor
 c
       if     (tidflg.eq.0) then
@@ -389,32 +1430,32 @@ c
 c --- veldf2, veldf4 and thkdf4 may be spacially varying
 c
       call forfundf
+#if defined(USE_CCSM3)
+!--------------------------------------------------------------
+!     initialize time-related variables
+!--------------------------------------------------------------
+      call ccsm3_time_init (time0, time, dtime0, dtime)
+#else
 c
 c --- model is to be integrated from time step 'nstep1' to 'nstep2'
-!!Alex no limits file for CESM
-      if (.not.present(hycom_start_dtg)  .or. 
-     &    .not.present(hycom_end_dtg  )) then
-          open( unit=uoff+99,file=trim(flnminp)//'limits')
-          read(      uoff+99,*) day1,day2
-          close(unit=uoff+99)
-      endif
+      open( unit=uoff+99,file=trim(flnminp)//'limits')
+      read(      uoff+99,*) day1,day2
+      close(unit=uoff+99)
 c --- non-positive day1 indicates a new initialization, or
 c --- the start of a yrflag==3 case.
-!!Alex  set limits  for CESM
-      if (present(hycom_start_dtg)) day1 = hycom_start_dtg
-      if (present(hycom_end_dtg  )) day2 = hycom_end_dtg
       linit =day1.le.0.0 
       day1  =abs(day1)
 c
       dtime=day1
       nstep1=nint(dtime*(86400.0d0/baclin))
-      dtime=(nstep1/nts_day)+mod(nstep1,nts_day)*(baclin/86400.0d0)
+      dtime=nstep1/(86400.0d0/baclin)
       day1 =dtime
 c
       dtime=day2
       nstep2=nint(dtime*(86400.0d0/baclin))
-      dtime=(nstep2/nts_day)+mod(nstep2,nts_day)*(baclin/86400.0d0)
+      dtime=nstep2/(86400.0d0/baclin)
       day2 =dtime
+#endif /* USE_CCSM3:else */
 c
       if     (mxlkpp) then
 c ---   initialize kpp mixing
@@ -427,12 +1468,101 @@ c ---   initialize nasa giss mixing
         call inigiss
       endif
 c
+#if defined(USE_CCSM3)
+      if (linit) then
+        delt1 = baclin
+        dhdx  = c0p
+        dhdy  = c0p
+        QICE  = c0p
+        AQICE = c0p
+        QFLUX = c0p
+c
+c ---   set up initial conditions
+c
+        mnth = imonth
+        call inicon(mnth)
+        trcrin = .false.
+        call initrc(mnth)
+c
+c ---   setup parameters defining tidal body forces
+c
+        if     (tidflg.gt.0) then
+          time_8=dtime0      !'baroclinic' time for body force tides
+          call tides_set(0)
+        endif
+      else
+c
+c ---   start from restart file
+c
+        delt1=baclin+baclin
+        if (mnproc == 1) then
+        open(1,file=trim(pointer_filename),form='formatted',status='old')
+        read(1,'(a)') flnmra
+        read(1,'(a)') flnmrb
+        read(1,*)time                        ! real,  in days
+        read(1,*)dtime                       ! real8, in days
+        read(1,*)nstep,iyear,imonth,iday     ! integer
+     &,          elapsed_days
+        read(1,*)eom, eoy                    ! logical
+        close(1)
+        write(lp,*) ' flnm  = ', flnmra
+        write(lp,*) ' flnmh = ', flnmrb
+        write(lp,*) ' pointer_filename = ', pointer_filename
+        call flush (lp)
+        write(lp,'(2a)')'(hycom) the restart info from: ',trim(pointer_filename)
+        write(lp,'(2a)')'     restart file= ',trim(flnmra)
+        write(lp,*)     '            time= ',time
+        write(lp,*)     '           nstep= ',nstep
+        write(lp,*)     '           iyear= ',iyear
+        write(lp,*)     '          imonth= ',imonth
+        write(lp,*)     '            iday= ',iday
+        write(lp,*)     '    elapsed_days= ',elapsed_days
+        write(lp,*)     '             eom= ', eom
+        write(lp,*)     '             eoy= ', eoy
+        call flush(lp)
+        endif !mnproc==1
+        !broadcast the above info to all processors:
+        call broadcast_scalar(flnmra,       master_task)
+        call broadcast_scalar(flnmrb,       master_task)
+        call broadcast_scalar(time,         master_task)
+        call broadcast_scalar(dtime,        master_task)
+        call broadcast_scalar(nstep,        master_task)
+        call broadcast_scalar(iyear,        master_task)
+        call broadcast_scalar(imonth,       master_task)
+        call broadcast_scalar(iday,         master_task)
+        call broadcast_scalar(elapsed_days, master_task)
+        call broadcast_scalar(eom,          master_task)
+        call broadcast_scalar(eoy,          master_task)
+!-----------------------------------------------------------------------
+!     make any other needed adjustments after header file has been read
+!     and report restart time in format recognized by ccsm3
+!-----------------------------------------------------------------------
+        call ccsm3_time_init1
+        call restart_in(nstep,dtime, flnmra, flnmrb)
+        if (mnproc == 1 ) then
+            write(lp,*)'(hycom) restartfile reading successful!'
+        endif
+        !
+         time0 = (iyear0-1)*days_in_year+days_in_prior_months(imonth0)
+     &                                  +iday0+0.0001
+        !the above makes time0 be the end of last integration (in days)!
+        mnth = imonth
+        call initrc(mnth)
+c
+c ---   setup parameters defining tidal body forces
+c
+        if     (tidflg.gt.0) then
+          time_8=dtime0      !'baroclinic' time for body force tides
+          call tides_set(0)
+        endif
+      endif !initial conditions
+#else
       if (linit) then
 c
 c ---   set up initial conditions
 c
         nstep0=nstep1
-        dtime0=(nstep0/nts_day)+mod(nstep0,nts_day)*(baclin/86400.0d0)
+        dtime0=nstep0/(86400.0d0/baclin)
         time0=dtime0
         delt1=baclin
         if     (clmflg.eq.12) then
@@ -503,21 +1633,11 @@ c
 c
 c ---   start from restart file
 c
-!!Alex add restart through pointer_filename (CESM)
-        if (present(pointer_filename)) then
-          open(1,file=trim(pointer_filename),form='formatted',
-     &           status='old')
-          read(1,'(a)') flnmrsi
-          close(1)
-        endif 
-
         flnmra = trim(flnmrsi)//'.a'
         flnmrb = trim(flnmrsi)//'.b'
         call restart_in(nstep0,dtime0, flnmra,flnmrb)
-        surflx(:,:) = 0.0
-        salflx(:,:) = 0.0
         nstep0=nint(dtime0*(86400.0d0/baclin))
-        dtime0=(nstep0/nts_day)+mod(nstep0,nts_day)*(baclin/86400.0d0)
+        dtime0=nstep0/(86400.0d0/baclin)
         time0=dtime0
         delt1=baclin+baclin
         if (mnproc.eq.1) then
@@ -581,6 +1701,7 @@ c
           call archiv(n, kk, iyear,jday,ihour, intvl)
         endif !archive output
       endif !initial conditions
+#endif /* USE_CCSM3:else */
 c
 c --- set barotp.pot.vort. and layer thickness (incl.bottom pressure) at
 c --- u,v points
@@ -594,7 +1715,6 @@ c
 c
       margin = nbdy
 c
-      nstep = nstep0+1  !for pipe_compare
       do nm=1,2
 c
 !$OMP   PARALLEL DO PRIVATE(j,k,i)
@@ -603,8 +1723,7 @@ c
           if     (nm.eq.mod(nstep+1,2)+1) then
             do i=1-margin,ii+margin
               if (SEA_P) then
-                dpbl( i,j)=dpmixl(i,j,nm)
-                dpbbl(i,j)=thkbot*onem
+                dpbl(i,j)=dpmixl(i,j,nm)
               endif !ip
             enddo !i
           endif !nm
@@ -655,72 +1774,6 @@ c
         endif  !isopyc to hybrid restart only
 c
       enddo  !nm=1,2
-      nstep = nstep-1  !restore
-
-!!Alex add precipitation adjustment 
-      if (pcpadj .and. linit ) then
-          if (mnproc.eq.1) print*,'Alex pcpadj and linit'
-! --- initialize sum_precip, ssh_initial and pcp_fact
-          sum_precip  = 0.d0
-          ssh_initial = 0.d0
-          pcp_fact    = 1.d0
-          pcp_facth   = pcp_fact
-
-! --- initialize sal_initial 
-          do k=1,kdm
-!$OMP PARALLEL DO PRIVATE(j,i,k)
-!$OMP&         SCHEDULE(STATIC,jblk)
-            do j=1,jj
-              do i=1,ii
-                if (SEA_P) then
-                    util1(i,j)=saln(i,j,k,1)
-     &                        *scp2(i,j)*dp(i,j,k,1)*qonem*maskms(i,j)
-                    util2(i,j)=scp2(i,j)*dp(i,j,k,1)*qonem*maskms(i,j)
-                endif 
-              enddo             !i
-            enddo               !j
-!$OMP END PARALLEL DO
-            call xcsum(vol,util2,ipa)
-            call xcsum(sal_initial(k),util1,ipa)
-            sal_initial(k)=sal_initial(k)/vol
-          enddo
-          
-! --- write initial factor
-          if  (mnproc.eq.1) then
-            write(lp,'(a15,1pe22.15)') 'pcp_fact    = ', pcp_fact
-            write(lp,'(a15,1pe22.15)') 'sum_precip  = ', sum_precip
-            write(lp,'(a15,1pe22.15)') 'ssh_initial = ', ssh_initial
-            do k=1,kdm
-             write(lp,'(a15,1x,i2.2, 2x,1pe22.15)') 'sal_initial  = ',
-     &                                              k, sal_initial(k)    
-            enddo
-          endif
-      elseif (pcpadj .and. .not.linit) then
-!!Alex add precipitation adjustement
-          if (mnproc.eq.1) print*,'Alex pcpadj and not linit'
-! --- write initial factor
-          if  (mnproc.eq.1) then
-            write(lp,'(a15,1pe22.15)') 'pcp_fact    = ', pcp_fact
-            write(lp,'(a15,1pe22.15)') 'sum_precip  = ', sum_precip
-            write(lp,'(a15,1pe22.15)') 'ssh_initial = ', ssh_initial
-            do k=1,kdm
-             write(lp,'(a15,1x,i2.2, 2x,1pe22.15)') 'sal_initial  = ',
-     &                                              k, sal_initial(k)    
-            enddo
-          endif
-! --- get the value of pcp_facth for thermf
-          pcp_facth=pcp_fact
-          if (present(hycom_start_dtg)) then
-! --- in a coupled setting, precip are adjusted in the coupler
-              pcp_facth=1.d0
-          endif 
-          if (mnproc.eq.1) print*,'Alex pcp_facth = ',pcp_facth
-      else    
-          pcp_fact =1.d0
-          pcp_facth=1.d0        
-      endif
-!!Alex add precipitation adjustment 
-      
 c
 c --- surface archive output flags initiialization
 c
@@ -739,6 +1792,9 @@ c
         if (mnproc.eq.1) then
           call mem_stat_print('mean_allocate:')
         endif !1st tile
+#if defined(USE_CCSM3)
+        nstep0=nstep
+#endif
         m=mod(nstep0  ,2)+1
         n=mod(nstep0+1,2)+1
         nstep=nstep0
@@ -757,17 +1813,19 @@ c        call mean_zero(DBLE(time))
         call mean_add(n, 0.5)
       endif
 c
+#if ! defined(USE_CCSM3)
       nod=14 
       nstep=nstep1
       if (mnproc.eq.1) then
       write (lp,'(/2(a,f8.1),2(a,i9),a/)') 'model starts at day',
      &   time0,', goes to day',time0+day2-day1,'   (steps',nstep1,
      &   ' --',nstep2,')'
-      open (unit=nod,file=trim(flnminp)//'summary_out',status='unknown')
+      open (unit=nod,file='summary_out',status='unknown')
       write(nod,'(/2(a,f8.1),2(a,i9),a/)') 'model starts at day',
      &   time0,', goes to day',time0+day2-day1,'   (steps',nstep1,
      &   ' --',nstep2,')'
       endif !1st tile
+#endif
 c
       timav=time0
       m=mod(nstep  ,2)+1
@@ -781,6 +1839,106 @@ c ---   initialize synthetic floats/moorings
         call floats_init(m,n,time0)
         margin = nbdy
       endif
+#if defined(USE_CCSM3)
+!----------------------------------------------------------
+!     in the coupled model, forcing is received from the
+!     coupler; therefore code for reading stand-alone version
+!     forcing fields has been removed
+!----------------------------------------------------------
+      nstep0=nstep
+      m=mod(nstep  ,2)+1
+      n=mod(nstep+1,2)+1
+c
+      k1m=m                !NOT k1m=1+mm
+      k1n=n                !NOT k1n=1+nn
+      !-------------------------------------------------------------
+      ! initialize namelists, grid information, and initial message-
+      ! passing for cpl6
+      !-------------------------------------------------------------
+      call ccsm3_init_coupled(flnmgrdd)
+      if (mnproc == 1) then
+        write(lp,*)'(hycom) ccsm3_init_coupled completed'
+        call flush(lp)
+      endif
+      if (mnproc == 1) then
+        write (*,*) '(hycom) model starts from day, nstep=', iday,nstep
+      endif
+      l0=1
+      l1=2
+      l2=3
+      l3=4
+      w0=0.0
+      w1=1.0
+      w2=0.0
+      w3=0.0
+c
+      if (jerlv0.le.0) then
+c ---   read in kpar or chl field for 4 consecutive months
+        mk1=imonth
+        mk0=mod(mk1+10,12)+1
+        mk2=mod(mk1,   12)+1
+        mk3=mod(mk2,   12)+1
+        lk0=1
+        lk1=2
+        lk2=3
+        lk3=4
+        call rdkpar(mk0,lk0)
+        call rdkpar(mk1,lk1)
+        call rdkpar(mk2,lk2)
+        call rdkpar(mk3,lk3)
+      endif
+c
+      if     (clmflg.eq.12) then
+c ---   read in relaxation climatology fields for 4 consecutive months
+        mc1=imonth
+        mc0=mod(mc1+10,12)+1
+        mc2=mod(mc1,   12)+1
+        mc3=mod(mc2,   12)+1
+        lc0=1
+        lc1=2
+        lc2=3
+        lc3=4
+        call rdrlax(mc0,lc0)
+        call rdrlax(mc1,lc1)
+        call rdrlax(mc2,lc2)
+        call rdrlax(mc3,lc3)
+      elseif (clmflg.eq.6) then
+c ---   read in relaxation fields for 4 consecutive bi-months
+        mc1=imonth
+        mc0=mod(mc1+4,6)+1
+        mc2=mod(mc1,  6)+1
+        mc3=mod(mc2,  6)+1
+        lc0=1
+        lc1=2
+        lc2=3
+        lc3=4
+        call rdrlax(2*mc0-1,lc0)
+        call rdrlax(2*mc1-1,lc1)
+        call rdrlax(2*mc2-1,lc2)
+        call rdrlax(2*mc3-1,lc3)
+      else
+        if (mnproc.eq.1) then
+        write(lp,'(/ a /)') 'error in hycom - unsupported clmflg value'
+        call flush(lp)
+        endif !1st tile
+        call xcstop('(hycom)')
+               stop '(hycom)'   !won't get here
+      endif
+      nod = 14
+      write(cyear,'(i4.4)') iyear
+Cpg - Write out summary files for each month
+      write(flnm,'(a,a,i4.4,a,i2.2)')
+     &  trim(flnmsumd),'summary_out.',iyear,'-',imonth
+      if (mnproc==1) then
+        open(unit=nod,file=flnm,status='unknown')
+        write(nod,'(3a,i2.2)')
+     &    'Summary of diagnostic outputs for year ',cyear
+     &  , '  month ', imonth
+Cpg
+        write(nod,*)
+        call flush(nod)
+      endif
+#else
 c
       if (yrflag.lt.2) then
 c
@@ -810,19 +1968,7 @@ c ---   only two fields are used (linear interpolation in time).
           w1=-99.0
           w2=0.0
           w3=0.0
-!!Alex no file flux on restart
-#ifdef NUOPC
-          if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
-     &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip))
-     &         then
-              if (linit) then
-                  call forfunh(dtime0)
-              endif 
-          endif
-#else
           call forfunh(dtime0)
-
-#endif 
         elseif (mslprf) then
           w0=-99.9
           w1=-99.0
@@ -848,43 +1994,6 @@ c
       call stokes_set(dtime0)
 #endif
 c
-#ifdef NUOPC    
-c ---   jerlov used in call to swfrac_ij !!Alex mv here from forfun
-       if     (jerlv0.gt.0) then
-c ---     calculate jerlov water type,
-c ---     which governs the penetration depth of shortwave radiation.
-!$OMP     PARALLEL DO PRIVATE(j,i)
-!$OMP&             SCHEDULE(STATIC,jblk)
-          do j=1-nbdy,jj+nbdy
-            do i=1-nbdy,ii+nbdy
-c ---         map shallow depths to high jerlov numbers
-              jerlov(i,j)=6-max(1,min(5,int(depths(i,j)/15.0)))
-              jerlov(i,j)=max(jerlv0,jerlov(i,j))
-            enddo
-          enddo
-        else
-c ---     jerlv0= 0 uses an input annual/monthly kpar field
-c ---     jerlv0=-1 uses an input annual/monthly chl  field
-!$OMP     PARALLEL DO PRIVATE(j,i)
-!$OMP&             SCHEDULE(STATIC,jblk)
-          do j=1-nbdy,jj+nbdy
-            do i=1-nbdy,ii+nbdy
-              jerlov(i,j)=jerlv0
-            enddo
-          enddo
-        endif
-
-!$OMP     PARALLEL DO PRIVATE(j,i)
-!$OMP&             SCHEDULE(STATIC,jblk)
-          do j=1-nbdy,jj+nbdy
-            do i=1-nbdy,ii+nbdy
-              oftaux(i,j) = 0.0
-              oftauy(i,j) = 0.0
-              offlux(i,j) = 0.0
-            enddo !i
-          enddo !j
-#endif
-      
       if (jerlv0.le.0) then
 c ---   read in kpar or chk field for 4 consecutive months
         mk1=1.+mod(dtime0+dyear0,dyear)/dmonth
@@ -965,6 +2074,7 @@ c
         wn1=-99.0
         call rdnest(dtime0)
       endif
+#endif /* USE_CCSM3:else */
 c
 c --- initialize incremental update.
 c
@@ -978,22 +2088,27 @@ c
               call xctmr1(54)
         endif ! full insertion of update
       endif
+#if defined(USE_ESMF)
+c
+c --- Fill the Export State with the initial fields.
+c
+      m=mod(nstep0  ,2)+1
+      n=mod(nstep0+1,2)+1
+      call momtum_hs(n,m)
+      call Export_ESMF
+c
+c --- Report
+      call ESMF_LogWrite("HYCOM initialize routine returned",
+     &     ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+#else
 c
 c --- Only here for compatibility with coupled runs.
 c
       m=mod(nstep0  ,2)+1
       n=mod(nstep0+1,2)+1
       call momtum_hs(n,m)
-
-      if (present(hycom_start_dtg)) then
-!!Alex update halo for calculation of  of seas surface slope for CICE (NUOPC)
-          call xctilr(srfhgt( 1-nbdy,1-nbdy), 1, 1, 6, 6, halo_ps)
-          call xctilr(u(    1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_uv) !! for export
-          call xctilr(v(    1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_vv) !! for export
-          call xctilr(ubavg(1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_uv) !! for export
-          call xctilr(vbavg(1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_vv) !! for export
-      endif 
-      
+#endif
 c
 c --- report initialization time.
 c 
@@ -1002,20 +2117,22 @@ c
 c
       end subroutine HYCOM_Init
 
-      subroutine HYCOM_Run(endtime,pointer_filename,restart_write)
+      subroutine HYCOM_Run
+#if defined(USE_ESMF)
+     &           (gridComp, impState, expState, extClock, rc)
+c
+c --- Calling parameters
+      type(ESMF_GridComp)  :: gridComp
+      type(ESMF_State)     :: impState
+      type(ESMF_State)     :: expState
+      type(ESMF_Clock)     :: extClock
+      integer, intent(out) :: rc
+#endif
 c
 c --- -------------------------
 c --- execute a single timestep
 c --- -------------------------
 c
-!!Alex add variable for CESM    
-      real,         intent(in), optional :: endtime
-      character*80, intent(in), optional :: pointer_filename
-      logical,      intent(in), optional :: restart_write
-      real          utot,vtot,usur1,usur2,vsur1,vsur2,uu,vv
-      real          nstep2_cpl
-      logical       restrt_cpl
-
       logical      lfatal
       integer      i,j,k,ktr,nm,margin
       character*80 flnmra,flnmrb
@@ -1026,18 +2143,102 @@ c
 c
       include 'stmt_fns.h'
 c
-      
+#if defined(USE_ESMF)
+      if     (nstep.eq.nstep0) then
+        call xctmr1(78)   !time since HYCOM_Init
+      else
+        call xctmr1(79)   !time outside HYCOM_Run
+      endif
+      call xctmr0(80)
+c
+#endif
 c --- letter 'm' refers to mid-time level (example: dp(i,j,k,m) )
 c --- letter 'n' refers to old and new time level
-c
-      end_of_run      = .false.   ! initialize on every entry
-      end_of_run_cpl  = .false.   ! initialize on every entry
 c
       m=mod(nstep  ,2)+1
       n=mod(nstep+1,2)+1
 c
+#if defined(USE_CCSM3)
+      k1m=m              !NOT k1m=1+mm (DBI)
+      k1n=n              !NOT k1n=1+nn (DBI)
+!-------------------------------------------------------------------------
+!     exchange fields and fluxes with the ccsm3 flux coupler
+!-------------------------------------------------------------------------
+      call ccsm3_set_coupled_forcing
+!--------------------------------------------------------
+!     stop if cpl has sent the stop signal
+!--------------------------------------------------------
+      end_of_run = stop_now == 1
+      if (end_of_run) then
+c ---   output float restart file 
+        if     (synflt) then
+          call floats_restart
+        endif !synflt
+        return
+      endif
+!-------------------------------------------------------------------------
+!     ccsm3-related time-keeping
+!-------------------------------------------------------------------------
+      call ccsm3_time_advance (time, dtime)
+c
+      hisurf=.false.
+      histry=.false.
+      hiprof=.false.
+      hitile=.false.
+      histmn=dohist
+*     restrt=dorestart .or. (cpl_write_restart .and. eod)
+      restrt=dorestart .and. mod(imonth-1, 3).eq.0  ! every 3 months
+      diagno=mod(dtime+dsmall,ddiagf).lt.dsmall2 .or.  restrt
+c
+c --- set weights for quasi-hermite time interpolation for kpar.
+      if     (jerlv0.le.0) then
+c ---   monthly fields.
+        if (imonth.ne.mk1) then
+          mk1=imonth
+          mk0=mod(mk1+10,12)+1
+          mk2=mod(mk1,   12)+1
+          mk3=mod(mk2,   12)+1
+          lt =lk0
+          lk0=lk1
+          lk1=lk2
+          lk2=lk3
+          lk3=lt
+          call rdkpar(mk3,lk3)
+        endif
+        wk1=1.0  !constant for the month
+        wk2=0.0
+        wk0=0.0
+        wk3=0.0
+      endif
+c
+c --- set weights for quasi-hermite time interpolation for temperature,
+c --- salinity and pressure relaxation fields.
+      if     (clmflg.eq.12) then
+c ---   monthly fields.
+        if (imonth.ne.mc1) then
+          mc1=imonth
+          mc0=mod(mc1+10,12)+1
+          mc2=mod(mc1,   12)+1
+          mc3=mod(mc2,   12)+1
+          lt =lc0
+          lc0=lc1
+          lc1=lc2
+          lc2=lc3
+          lc3=lt
+          call rdrlax(mc3,lc3)
+        endif
+        wc1=1.0  !constant for the month
+        wc2=0.0
+        wc0=0.0
+        wc3=0.0
+      endif
+cdiag if (mnproc.eq.1) then
+cdiag write (lp,'(i9,'' relax time interpolation: months'',4i3,
+cdiag.  '',  weights '',4f6.3)') nstep,lc0,lc1,lc2,lc3,wc0,wc1,wc2,wc3
+cdiag endif !1st tile
+#else
       nstep=nstep+1
-      dtime=(nstep/nts_day)+mod(nstep,nts_day)*(baclin/86400.0d0)
+      dtime=dtime0+(nstep-nstep0)/(86400.0d0/baclin)
 c
       time  =dtime
       time_8=dtime  !'baroclinic' time for body force tides
@@ -1104,16 +2305,7 @@ cdiag   endif !1st tile
 c
 c ---   set weights and fields for high frequency atmospheric forcing.
 c ---   only two fields are used (linear interpolation in time).
-#ifdef NUOPC
-          if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
-     &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip)) 
-     &        then
-               call forfunh(dtime)
-          endif
-#else
-          call forfunh(dtime)
-
-#endif 
+        call forfunh(dtime)
       elseif (mslprf) then
 c ---   pressure can be the only atmospheric forcing,
 c ---   set weights and fields for high frequency pressure forcing.
@@ -1224,7 +2416,23 @@ cdiag if (mnproc.eq.1) then
 cdiag write (lp,'(i9,'' relax time interpolation: months'',4i3,
 cdiag.  '',  weights '',4f6.3)') nstep,lc0,lc1,lc2,lc3,wc0,wc1,wc2,wc3
 cdiag endif !1st tile
+#endif /* USE_CCSM3:else */
 c
+#if defined(USE_ESMF)
+      if     (get_import) then     ! new ESMF Import fields
+        call Import_ESMF
+        if (incflg.ne.0) then
+          call incupd_si_c(dtime)
+        endif
+        if     (nstep.eq.nstep0+1) then
+          call momtum_hs(n,m)
+          time=dtime0
+          call forday(dtime0,yrflag, iyear,jday,ihour)
+          call Archive_ESMF(iyear,jday,ihour)
+          time=dtime
+        endif !initial ESMF Archive
+      endif !get_import
+#endif
 c
       if     (bnstfq.ne.0.0) then  ! new fields for baro nesting
         call rdbaro(dtime)
@@ -1234,8 +2442,7 @@ c
         call rdnest(dtime)
       endif
 c
-         call pipe_comparall(n,m, 'ENTERm, step')
-         call pipe_comparall(m,n, 'ENTERn, step')
+         call pipe_comparall(m,n, 'ENTER , step')
          call xctmr0(40)
       call cnuity(m,n)
          call xctmr1(40)
@@ -1257,6 +2464,19 @@ c
          call xctmr1(43)
          call pipe_comparall(m,n, 'barotp, step')
          call xctmr0(44)
+#if defined(USE_CCSM3)
+      call thermf_c(m,n)   !,mm,nn,k1m,k1n)
+         call xctmr1(44)
+         call pipe_comparall(m,n, 'thermf, step')
+      !get potential freezing/melting heat flux needed for ice model.
+      !mixed layer T and S are adjusted only TWICE in each coupling interval.
+      !
+      call ice_formation(k1n, ice_ts)
+      !===================================================================
+      !if (.false. .and. ice_ts) then   !DBI: switched this call off!
+      !  call ice_flx_to_coupler        ! work done in ice_formation now!
+      !endif
+#else
       call thermf(m,n, dtime)
          call xctmr1(44)
          call pipe_comparall(m,n, 'thermf, step')
@@ -1277,6 +2497,7 @@ c
             call xctmr1(45)
             call pipe_comparall(m,n, 'thermi, step') !thermf_oi
       endif !icegln:icecpl:else
+#endif /* USE_CCSM3:else */
       if (trcout) then
            call xctmr0(50)
         call trcupd(m,n)
@@ -1369,39 +2590,6 @@ c
             call xctmr0(49)
             call xctmr1(49)
       endif !hybrid:isopyc
-      
-! --- Check if beginning of year
-      call forday (dtime,yrflag, iyear,iday,ihour)
-      dtime_new=(nstep+1)/(86400.0d0/baclin)
-      call forday (dtime_new,yrflag, iyear_new,iday,ihour)
-      if (pcpadj.and.iyear_new.gt.iyear) then
-!        if (pcpadj) then
-          call precip_adjust(m,n)
-          if (mnproc.eq.1) then
-              write(lp,'(a15,1pe22.15)') 'pcp_fact    = ', pcp_fact
-              write(lp,'(a15,1pe22.15)') 'sum_precip  = ', sum_precip
-              write(lp,'(a15,1pe22.15)') 'ssh_initial = ', ssh_initial
-              do k=1,kdm
-               write(lp,'(a15,1x,i2.2, 2x,1pe22.15)') 'sal_initial  = ',
-     &              k, sal_initial(k)  
-              enddo
-          endif 
-      endif
-! --- get the value of pcp_facth for thermf
-      pcp_facth=pcp_fact
-      if (present(endtime)) then
-! --- in a coupled setting, precip are adjusted in the coupler
-          pcp_facth=1.d0
-      endif 
-
-      if (present(endtime)) then 
-!!Alex update halo before export 
-          call xctilr(srfhgt( 1-nbdy,1-nbdy  ),1,   1, 6,6, halo_ps)
-          call xctilr(u(    1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_uv) !! for export
-          call xctilr(v(    1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_vv) !! for export
-          call xctilr(ubavg(1-nbdy,1-nbdy,  1),1,   2, 6,6, halo_uv) !! for export
-          call xctilr(vbavg(1-nbdy,1-nbdy,  1),1,   2, 6,6, halo_vv) !! for export
-      endif 
 c
 c --- update floats/moorings
       if     (synflt) then
@@ -1428,7 +2616,6 @@ c
       lfatal    = .false.
       diag_tide = tidflg.gt.0 .and.
      &            mod(dtime+dsmall,hours1).lt.dsmall2  !at least hourly
-      
       if (diagno .or.
      &    histry .or. hiprof .or. hitile .or. hisurf .or. histmn .or.
      &    nstep.eq.nstep0+1 .or.
@@ -1436,7 +2623,11 @@ c
      &    mod(dtime+dsmall,ddsurf).lt.dsmall2 .or.
      &    mod(dtime+dsmall, days1).lt.dsmall2     ) then     ! at least daily
 c
+#if defined(USE_CCSM3)
+        jday = days_in_prior_months(imonth)+iday
+#else
         call forday(dtime,yrflag, iyear,jday,ihour)
+#endif
         write(c_ydh,'('' ('',i4.4,''/'',i3.3,1x,i2.2,'')'')')
      &    iyear,jday,ihour
 c
@@ -1594,7 +2785,11 @@ c --- note that mixed-layer fields must be switched on in mxkprf
      &    nstep.eq.nstep0+1 .or.
      &    mod(dtime+dsmall,days6).lt.dsmall2) then  ! at least every 6 days
 c
+#if defined(USE_CCSM3)
+        jday = days_in_prior_months(imonth)+iday
+#else
         call forday(dtime,yrflag, iyear,jday,ihour)
+#endif
         write(c_ydh,'('' ('',i4.4,''/'',i3.3,1x,i2.2,'')'')')
      &    iyear,jday,ihour
 c
@@ -2228,6 +3423,7 @@ c ---     NaN detection, for each tracer.
         enddo !ktr
       endif  !diagno ...
 c
+#if ! defined(USE_CCSM3)
 c --- diagnose meridional overturning and heat flux
       if     (mod(dtime+dsmall,dmonth).lt.dsmall2) then
         call xctmr0(52)
@@ -2238,6 +3434,7 @@ c --- diagnose meridional overturning and heat flux
         call overtn(dtime,dyear)
         call xctmr1(52)
       endif
+#endif
 c
       if     (meanfq.ne.0.0) then
         if     (.not. histmn) then
@@ -2250,8 +3447,13 @@ c
 c ---     output to mean archive file
 c
           call mean_end(dtime)
+#if defined(USE_CCSM3)
+          jday = days_in_prior_months(imonth)+iday
+          call mean_archiv(n, iyear,imonth,jday,ihour)
+#else
           call forday(time_ave,yrflag, iyear,jday,ihour)
           call mean_archiv(n, iyear,jday,ihour)
+#endif
 c
           call mean_zero(dtime)
           call mean_add(n, 0.5)
@@ -2265,7 +3467,11 @@ c
 c
 c ---   output to archive file
 c
+#if defined(USE_CCSM3)
+        jday = days_in_prior_months(imonth)+iday
+#else
         call forday(dtime,yrflag, iyear,jday,ihour)
+#endif
 c
 !$OMP   PARALLEL DO PRIVATE(j,k,i)
 !$OMP&           SCHEDULE(STATIC,jblk)
@@ -2343,35 +3549,18 @@ c
         call xctmr1(53)
       endif  ! histry.or.hiprof.or.hitile.or.hisurf.or.lfatal
 c
+#if defined(USE_ESMF)
+      if     (put_export) then
 c
-
-!!Alex end of coupling sequence
-      ! regular end-of-run condition
-      end_of_run = nstep.ge.nstep2
-
-      ! stepable end-of-run condition
-      if (present(endtime)) then
-        ! endtime present means that "end_of_run_cpl" needs to be set correctly
-        nstep2_cpl=nint(endtime*(86400.0d0/baclin))
-
-        if(mnproc.eq.1) print *,"mod_hycom,nstep,nstep2,nstep2_cpl =",
-     &    nstep,nstep2,nstep2_cpl
-        if(mnproc.eq.1) print *,"endtime =",
-     &    endtime
-
-        if(nstep.ge.nstep2_cpl) then
-          end_of_run_cpl = .true.
-        else
-          end_of_run_cpl = .false.
-        endif
+c ---   fill the ESMF Export State.
+c
+        call Export_ESMF
+        call forday(dtime,yrflag, iyear,jday,ihour)
+        call Archive_ESMF(iyear,jday,ihour)
       endif
-
-      if (present(restart_write)) then
-          restrt_cpl = restart_write .and. end_of_run_cpl
-      else
-          restrt_cpl = .false.
-      endif 
-      if (restrt .or. restrt_cpl) then !!Alex
+#endif
+c
+      if (restrt) then
         call xctmr0(51)
 c
 c ---   output to restart and flux statitics files
@@ -2389,6 +3578,29 @@ c
 !$OMP     END PARALLEL DO
         endif
 c
+#if defined(USE_CCSM3)
+        call ccsm3_time_date_stamp (ccsm3_string, 'ymds')
+        flnmra = trim(flnmrsod)// '.'//trim(ccsm3_string)
+        flnmrb = trim(flnmrsod)//'h.'//trim(ccsm3_string)
+        if (mnproc == 1) then
+          open(1,file=trim(pointer_filename),form='formatted',
+     &            status='unknown')
+          write(1,'(a)')trim(flnmra)
+          write(1,'(a)')trim(flnmrb)
+          write(1,*)time                        ! real,  in days
+          write(1,*)dtime                       ! real8, in days
+          write(1,*)nstep,iyear,imonth,iday     ! integer
+     &,            elapsed_days
+          write(1,*)eom, eoy                    ! logical
+          close(1)
+c
+          write(lp,'(2a)')'RESTART: (mainloop) to file: ',trim(flnmra)
+          write(lp,*)     '     time =                    ',time
+          write(lp,*)     '     nstep,iyear,imonth,iday : ',
+     &                          nstep,iyear,imonth,iday
+          call flush(lp)
+        endif !mnproc == 1
+#else
         call forday(dtime,yrflag, iyear,jday,ihour)
         if (mnproc.eq.1) then
         write (lp,'(a,i9, 9x,a,i6.4, 9x,a,i5.3, 9x,a,i4.2)')
@@ -2399,37 +3611,20 @@ c
         call flush(lp)
         endif !1st tile
 c
-!!Alex handle restart for CESM rpointer filename
+        flnmra = flnmrso  !.a extension added by restart_out
+        flnmrb = flnmrso  !.b extension added by restart_out
+#endif
 c
-c --- get the restart filename
-c
-        if (restrt_cpl) then
-          write(flnmra,'(a,i4.4,a,i3.3,a,i2.2)') 
-     &                 'restart_', iyear,'-',jday,'-',ihour
-          open(1,file=trim(pointer_filename),form='formatted',
-     &            status='unknown')
-          write(1,'(a)')trim(flnmra)
-          close(1)
-          flnmrb = trim(flnmra)
-        else           
-          flnmra = flnmrso  !.a extension added by restart_out
-          flnmrb = flnmrso  !.b extension added by restart_out
-        endif 
-c
-        call restart_out(nstep,dtime, flnmra,flnmrb, nstep.ge.nstep2,
-     &                   restrt_cpl ) !!Alex
+        call restart_out(nstep,dtime, flnmra,flnmrb, nstep.ge.nstep2)
 c
 c ---   set layer thickness (incl.bottom pressure) at u,v points
 c ---   needed because restart_out may have modified dp
-c
-        call dpthuv
 c
         call xctilr(dp(1-nbdy,1-nbdy,1,1),1,2*kk, nbdy,nbdy, halo_ps)
         call xctilr(dpmixl(1-nbdy,1-nbdy,1),1,2,  nbdy,nbdy, halo_ps)
 c
         margin = nbdy
 c
-        nstep = nstep+1  !for pipe_compare
         do nm=1,2
 !$OMP     PARALLEL DO PRIVATE(j,k,i)
 !$OMP&             SCHEDULE(STATIC,jblk)
@@ -2437,7 +3632,7 @@ c
             if     (nm.eq.mod(nstep+1,2)+1) then
               do i=1-margin,ii+margin
                 if (SEA_P) then
-                  dpbl( i,j)=dpmixl(i,j,nm)
+                  dpbl(i,j)=dpmixl(i,j,nm)
                 endif !ip
               enddo !i
             endif !nm
@@ -2457,27 +3652,10 @@ c
      &                p,depthu,depthv, margin,max(0,margin-1))
 c            
         enddo  !nm=1,2
-        nstep = nstep-1  !restore
-c
-c ---   update montg to preserve bit for bit reproducability on restart
-        m=mod(nstep  ,2)+1
-        n=mod(nstep+1,2)+1
-        if     (meanfq.ne.0.0) then
-c ---     assume meanfq not changed to zero when rerun from restart
-          call momtum_hs(n,m)
-          surflx(:,:) = 0.0
-          salflx(:,:) = 0.0
-          if     (histmn) then
-            call mean_zero(dtime)
-            call mean_add(n, 0.5)
-          endif  ! histmn
-        endif !meanfq
-        call momtum_hs(n,m)
 c
         call xctmr1(51)
-      endif                     ! restrt
+      endif  ! restrt
 c
-
       if     (histry .or. hiprof .or. hitile .or. hisurf) then
         if (mnproc.eq.1) then
         write (lp,'(a,i9,a,f13.5,a)')
@@ -2494,15 +3672,51 @@ c
 c
       delt1=baclin+baclin
 c
+#if ! defined(USE_CCSM3)
+      end_of_run = nstep.ge.nstep2
+#endif
 c
 c --- at end: output float restart file 
 c
       if     (synflt .and. end_of_run) then
         call floats_restart
       endif !synflt+end_of_run
-
+#if defined(USE_ESMF)
+      call xctmr1(80)   !time  inside HYCOM_Run
+      call xctmr0(79)   !time outside HYCOM_Run
+#endif
       end subroutine HYCOM_Run
 
+#if defined(USE_ESMF)
+      subroutine HYCOM_Final
+     &           (gridComp, impState, expState, extClock, rc)
+c
+c --- Calling parameters
+      type(ESMF_GridComp)  :: gridComp
+      type(ESMF_State)     :: impState
+      type(ESMF_State)     :: expState
+      type(ESMF_Clock)     :: extClock
+      integer, intent(out) :: rc
+c
+c --- Report
+      call ESMF_LogWrite("HYCOM finalize routine called",
+     &     ESMF_LOG_INFO, rc=rc)
+      call ESMF_LogFlush(rc=rc)
+c
+c --- Destroy internal ocean clock
+*     call ESMF_ClockDestroy(intClock, rc=rc)
+c
+c --- print active timers.
+      call xctmr1(79)   !time outside HYCOM_Run
+      call xctmrp
+c
+      if (mnproc .eq. 1) then
+        write(nod,'(a)') 'normal stop'
+        call flush(nod)
+      endif
+c
+      end subroutine HYCOM_Final
+#else
       subroutine HYCOM_Final
 c
 c --- end of the run.
@@ -2510,9 +3724,24 @@ c --- end of the run.
       write(nod,'(a)') 'normal stop'
       call flush(nod)
       endif !1st tile
+#if defined(USE_CCSM3)
+c
+c --- print active timers.
+      call xctmrp
+c
+      call shr_timer_print ( timer_send_to_cpl  )
+      call shr_timer_print ( timer_recv_from_cpl)
+      call shr_timer_print ( timer_recv_to_send )
+      call shr_timer_print ( timer_send_to_recv )
+c
+      call ccsm3_exit_HYCOM('hycom normal stop',normal_exit=.true.)
+                      stop '(hycom normal stop)'  !won't get here
+#else
       call xcstop('(normal)')  !calls xctmrp
              stop '(normal)'   !won't get here
+#endif
       end subroutine HYCOM_Final
+#endif /* USE_ESMF:else */
 
       end module mod_hycom
 c
@@ -2557,5 +3786,3 @@ c> Jan. 2014 - added mslprf and forfunhp
 c> Apr. 2014 - added ice shelf logic (ishlf)
 c> Apr. 2014 - replace ip with ipa for mass sums, reduces need for jja
 c> May  2014 - use land/sea masks (e.g. ip) to skip land
-c> Feb. 2015 - removed dtime0 from calculation of dtime
-c> Feb. 2015 - fixed issues with bit for bit reproducability on restart

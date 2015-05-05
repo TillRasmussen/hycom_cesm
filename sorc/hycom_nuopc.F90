@@ -28,6 +28,7 @@ module hycom
   use mct_mod,          only : mct_gsMap, mct_gGrid, mct_gsMap_gsize
   use shr_string_mod,   only : shr_string_listGetNum
   use seq_flds_mod
+  use seq_infodata_mod
   use seq_timemgr_mod
   use esmfshr_nuopc_mod
 #endif
@@ -242,9 +243,6 @@ module hycom
   !-----------------------------------------------------------------------------
 
   subroutine InitializeRealize(gcomp, importState, exportState, clock, rc)
-#ifdef HYCOM_IN_CESM
-    use seq_infodata_mod
-#endif
     type(ESMF_GridComp)  :: gcomp
     type(ESMF_State)     :: importState, exportState
     type(ESMF_Clock)     :: clock
@@ -496,6 +494,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+    call seq_infodata_PutData(infodata, precip_fact=pcp_fact)
 
     ! Reset the slice counter
     is%wrap%slice = 1
@@ -965,6 +964,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
+    call seq_infodata_PutData(infodata, precip_fact=pcp_fact)
     
 #ifdef HYCOM_IN_CESM
     !! Copy o2x Array to CESM 1D Fields if forcing is used.

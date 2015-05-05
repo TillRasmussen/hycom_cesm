@@ -1,0 +1,50 @@
+ModuleCmd_Switch.c(172):ERROR:152: Module 'PrgEnv-cray' is currently not loaded
+cd /p/home/wallcraf/hycom/RELO_GLB/src_2.2.98-09Tsig2-i_relo_mpi
+echo /p/home/wallcraf/hycom/RELO_GLB/src_2.2.98-09Tsig2-i_relo_mpi
+/p/home/wallcraf/hycom/RELO_GLB/src_2.2.98-09Tsig2-i_relo_mpi
+eval `/opt/modules/3.2.6.7/bin/modulecmd tcsh list`
+/opt/modules/3.2.6.7/bin/modulecmd tcsh list
+Currently Loaded Modulefiles:
+  1) modules/3.2.6.7
+  2) eswrap/1.1.0-1.020200.1231.0
+  3) switch/1.0-1.0502.54233.2.96.ari
+  4) craype-network-aries
+  5) craype/2.2.0
+  6) cray-mpich/6.3.1
+  7) pbs
+  8) craype-ivybridge
+  9) bct-env/0.1
+ 10) mpscp/1.3a
+ 11) totalview/8.13.0
+ 12) intel/14.0.2.144
+ 13) cray-libsci/12.2.0
+ 14) udreg/2.3.2-1.0502.9275.1.12.ari
+ 15) ugni/5.0-1.0502.9685.4.24.ari
+ 16) pmi/5.0.3-1.0000.9981.128.2.ari
+ 17) dmapp/7.0.1-1.0502.9501.5.219.ari
+ 18) gni-headers/3.0-1.0502.9684.5.2.ari
+ 19) xpmem/0.1-2.0502.55507.3.2.ari
+ 20) dvs/2.5_0.9.0-1.0502.1873.1.145.ari
+ 21) alps/5.2.1-2.0502.9041.11.6.ari
+ 22) rca/1.0.0-2.0502.53711.3.127.ari
+ 23) atp/1.7.2
+ 24) PrgEnv-intel/5.2.40
+setenv ARCH Axc30-intel-sio-relo
+setenv TYPE `echo $cwd | awk -F"_" '{print $NF}'`
+echo /p/home/wallcraf/hycom/RELO_GLB/src_2.2.98-09Tsig2-i_relo_mpi
+awk -F_ {print $NF}
+echo ARCH =  Axc30-intel-sio-relo   TYPE =  mpi
+ARCH =  Axc30-intel-sio-relo   TYPE =  mpi
+if ( ! -e ../config/Axc30-intel-sio-relo_mpi ) then
+make hycom ARCH=Axc30-intel-sio-relo TYPE=mpi
+ftn -DIA32 -DREAL8 -DMPI -DSERIAL_IO -DENDIAN_IO -DNAN2003 -DTIMER -DRELO -DARCTIC -traceback -xHost -O3 -fp-model precise -ftz -align array64byte -r8 -warn nogeneral -diag-disable 10212 -mcmodel=small -c mod_hycom.F
+ftn -DIA32 -DREAL8 -DMPI -DSERIAL_IO -DENDIAN_IO -DNAN2003 -DTIMER -DRELO -DARCTIC -traceback -xHost -O3 -fp-model precise -ftz -align array64byte -r8 -warn nogeneral -diag-disable 10212 -mcmodel=small -c dpudpv.F
+ftn -DIA32 -DREAL8 -DMPI -DSERIAL_IO -DENDIAN_IO -DNAN2003 -DTIMER -DRELO -DARCTIC -traceback -xHost -O3 -fp-model precise -ftz -align array64byte -r8 -warn nogeneral -diag-disable 10212 -mcmodel=small -c hycom.F
+ftn  -V -traceback -xHost -O3 -fp-model precise -ftz -align array64byte -r8 -warn nogeneral -diag-disable 10212 -mcmodel=small -o hycom  hycom.o mod_dimensions.o mod_xc.o mod_za.o mod_cb_arrays.o mod_pipe.o mod_incupd.o mod_floats.o mod_stokes.o mod_tides.o mod_mean.o mod_archiv.o mod_tsadvc.o mod_momtum.o mod_hycom.o barotp.o  bigrid.o blkdat.o  cnuity.o convec.o diapfl.o dpthuv.o  dpudpv.o forfun.o  geopar.o hybgen.o icloan.o inicon.o inigiss.o inikpp.o   inimy.o latbdy.o matinv.o mxkprf.o  mxkrt.o  mxkrtm.o  mxpwp.o overtn.o poflat.o  prtmsk.o  psmoo.o restart.o thermf.o trcupd.o machine.o  wtime.o machi_c.o  isnan.o 
+Intel(R) Fortran Intel(R) 64 Compiler XE for applications running on Intel(R) 64, Version 14.0.2.144 Build 20140120
+Copyright (C) 1985-2014 Intel Corporation.  All rights reserved.
+
+GNU ld (GNU Binutils; SUSE Linux Enterprise 11) 2.23.1
+if ( Axc30-intel-sio-relo == Asp5 || Axc30-intel-sio-relo == sp5 ) then
+if ( Axc30-intel-sio-relo == Asp6 || Axc30-intel-sio-relo == sp6 ) then
+if ( Axc30-intel-sio-relo == Asp6-nofl || Axc30-intel-sio-relo == sp6-nofl ) then
