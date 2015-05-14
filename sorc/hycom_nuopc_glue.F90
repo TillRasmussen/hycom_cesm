@@ -85,6 +85,7 @@ module hycom_nuopc_glue
     integer, intent(out), optional              :: rc
     
     integer, allocatable, target  :: deBlockList(:,:,:)
+    integer, allocatable, target  :: deBlockList_buf(:,:,:)
     integer, pointer      :: sendData(:), recvData(:)
     type(ESMF_VM)         :: vm
     integer               :: localPet, petCount
@@ -141,6 +142,7 @@ module hycom_nuopc_glue
     ! first step: set the local piece of information
     
     allocate(deBlockList(2, 2, ijpr)) ! dimCount, 2, deCount
+    allocate(deBlockList_buf(2, 2, ijpr)) ! dimCount, 2, deCount
     
     deBlockList(1, 1, mnproc) = i0+1  ! minIndex 1st dim
     deBlockList(2, 1, mnproc) = j0+1  ! minIndex 2nd dim
@@ -148,16 +150,21 @@ module hycom_nuopc_glue
     deBlockList(1, 2, mnproc) = i0+ii ! maxIndex 1st dim
     deBlockList(2, 2, mnproc) = j0+jj ! maxIndex 2nd dim
 
+    deBlockList_buf = deBlockList
+
     ! second step: all-to-all the information so every PET has full deBlockList
 
     sendData => deBlockList(:,1,mnproc)
-    recvData => deBlockList(:,1,1)
+    recvData => deBlockList_buf(:,1,1)
     
     call ESMF_VMAllGather(vm, sendData, recvData, 4, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    deBlockList = deBlockList_buf
+    deallocate(deBlockList_buf)
 
 #if 0
     write(dumpFile,"('deBlockList',I3.3,'.dat')") localPet
