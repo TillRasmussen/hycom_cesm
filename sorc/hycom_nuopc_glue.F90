@@ -887,6 +887,16 @@ module hycom_nuopc_glue
         cpl_siv = .true.
         impPtr => siv_import
         twoLevel = .false.
+!To Alex, connect the water flux from river here then 
+! convert Kg/m^2/s -> m/s as needed below for these two fields
+!      elseif (fieldStdName == "water_flux_into_sea_water") then
+!        cpl_siv = .true.
+!        impPtr => 
+!        twoLevel = 
+!      elseif (fieldStdName == "frozen_water_flux_into_sea_water") then
+!        cpl_siv = .true.
+!        impPtr => 
+!        twoLevel = 
       endif
       
       ! copy the data into the right import location

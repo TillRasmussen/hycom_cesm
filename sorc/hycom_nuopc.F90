@@ -58,9 +58,6 @@ module hycom
     logical                         :: connected
   end type
 
-  type(HYCOM_CESM_FIELD_TABLE_ENTRY):: hycom2cesm_table(30)
-  type(HYCOM_CESM_FIELD_TABLE_ENTRY):: cesm2hycom_table(30)
-
   public loadHycomDictionary
 
   type(mct_gsMap), public, pointer  :: gsmap_o
@@ -68,8 +65,12 @@ module hycom
   integer                           :: OCNID      
   type(ESMF_Routehandle), save      :: HYCOM2CESM_RHR8, CESM2HYCOM_RHR8
   type(ESMF_Routehandle), save      :: HYCOM2CESM_RHI4, CESM2HYCOM_RHI4
-  integer, parameter, public        :: number_import_fields = 28
+  integer, parameter, public        :: number_import_fields = 30
   integer, parameter, public        :: number_export_fields = 8
+
+  type(HYCOM_CESM_FIELD_TABLE_ENTRY):: cesm2hycom_table(number_import_fields)
+  type(HYCOM_CESM_FIELD_TABLE_ENTRY):: hycom2cesm_table(number_export_fields)
+
 #endif
   
   !-----------------------------------------------------------------------------
@@ -148,56 +149,60 @@ module hycom
     
     rc = ESMF_SUCCESS
 
+#ifndef HYCOM_IN_CESM
     ! importable fields:
-    !call NUOPC_StateAdvertiseFields(importState, &
-    !  StandardNames=(/ &
-    !  "surface_downward_eastward_stress       ",    & ! from ATM
-    !  "surface_downward_northward_stress      ",    & ! from ATM
-    !  "wind_speed_height10m                   ",    & ! from ATM
-    !  "friction_speed                         ",    & ! from ATM
-    !  "mean_net_sw_flx                        ",    & ! from ATM
-    !  "mean_down_lw_flx                       ",    & ! from ATM
-    !  "mean_up_lw_flx                         ",    & ! from ATM
-    !  "mean_lat_flx                           ",    & ! from ATM
-    !  "mean_sens_flx                          ",    & ! from ATM
-    !  "inst_temp_height2m                     ",    & ! from ATM
-    !  "mean_prec_rate                         ",    & ! from ATM
-    !  "inst_spec_humid_height2m               ",    & ! from ATM
-    !  "sea_surface_temperature                ",    & ! from ATM
-    !  "sea_ice_area_fraction                  ",    & ! from SEA-ICE
-    !  "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-    !  "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-    !  "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
-    !  "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-    !  "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
-    !  "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
-    !  "sea_ice_temperature                    ",    & ! from SEA-ICE
-    !  "sea_ice_thickness                      ",    & ! from SEA-ICE
-    !  "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-    !  "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
-    !  rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
+    call NUOPC_StateAdvertiseFields(importState, &
+      StandardNames=(/ &
+      "surface_downward_eastward_stress       ",    & ! from ATM
+      "surface_downward_northward_stress      ",    & ! from ATM
+      "wind_speed_height10m                   ",    & ! from ATM
+      "friction_speed                         ",    & ! from ATM
+      "mean_net_sw_flx                        ",    & ! from ATM
+      "mean_down_lw_flx                       ",    & ! from ATM
+      "mean_up_lw_flx                         ",    & ! from ATM
+      "mean_lat_flx                           ",    & ! from ATM
+      "mean_sens_flx                          ",    & ! from ATM
+      "inst_temp_height2m                     ",    & ! from ATM
+      "mean_prec_rate                         ",    & ! from ATM
+      "inst_spec_humid_height2m               ",    & ! from ATM
+      "sea_surface_temperature                ",    & ! from ATM
+      "water_flux_into_sea_water              ",    & ! from ATM
+      "frozen_water_flux_into_sea_water       ",    & ! from ATM
+      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
+      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
+      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
+      "sea_ice_temperature                    ",    & ! from SEA-ICE
+      "sea_ice_thickness                      ",    & ! from SEA-ICE
+      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+      "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
     
     ! exportable fields:
-    !call NUOPC_StateAdvertiseFields(exportState, &
-    !  StandardNames=(/ &
-    !  "sea_surface_temperature                  ",    &
-    !  "upward_sea_ice_basal_available_heat_flux ",    &
-    !  "sea_lev                                  ",    &
-    !  "mixed_layer_depth                        ",    &
-    !  "s_surf                                   ",    &
-    !  "eastward_sea_surface_slope               ",    &
-    !  "northward_sea_surface_slope              ",    &
-    !  "ocn_current_zonal                        ",    &
-    !  "ocn_current_merid                        "/),  &
-    !  rc=rc)
-    !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-    !  line=__LINE__, &
-    !  file=__FILE__)) &
-    !  return  ! bail out
+    call NUOPC_StateAdvertiseFields(exportState, &
+      StandardNames=(/ &
+      "sea_surface_temperature                  ",    &
+      "upward_sea_ice_basal_available_heat_flux ",    &
+      "sea_lev                                  ",    &
+      "mixed_layer_depth                        ",    &
+      "s_surf                                   ",    &
+      "eastward_sea_surface_slope               ",    &
+      "northward_sea_surface_slope              ",    &
+      "ocn_current_zonal                        ",    &
+      "ocn_current_merid                        "/),  &
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
 
     ! set Component name so it becomes identifiable
     call ESMF_GridCompSet(gcomp, name="HYCOM", rc=rc)
@@ -425,6 +430,8 @@ module hycom
       "mean_prec_rate                         ",    & ! from ATM
       "inst_spec_humid_height2m               ",    & ! from ATM
       "sea_surface_temperature                ",    & ! from ATM
+      "water_flux_into_sea_water              ",    & ! from ATM
+      "frozen_water_flux_into_sea_water       ",    & ! from ATM
       "sea_ice_area_fraction                  ",    & ! from SEA-ICE
       "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
       "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
@@ -487,6 +494,11 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
+    ! Reset the slice counter
+    is%wrap%slice = 1
+
+#ifdef HYCOM_IN_CESM
+
     ! Export precip_fact for precipitation adjustment !!Alex
     PRINT*,'Alex precip_fact=',pcp_fact
     call ESMF_AttributeSet(exportState, name="precip_fact", value=pcp_fact, rc=rc)
@@ -495,11 +507,6 @@ module hycom
       file=__FILE__)) &
     return ! bail out
     call seq_infodata_PutData(infodata, precip_fact=pcp_fact)
-
-    ! Reset the slice counter
-    is%wrap%slice = 1
-
-#ifdef HYCOM_IN_CESM
 
     ! Prepare for CESM SPECIFIC DATA STRUCTURES
     import_state = importState
@@ -958,6 +965,7 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
+#ifdef HYCOM_IN_CESM
     ! Export precip_fact for precipitation adjustment !!Alex 
     call ESMF_AttributeSet(exportState, name="precip_fact", value=pcp_fact, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -965,8 +973,7 @@ module hycom
       file=__FILE__)) &
     return ! bail out
     call seq_infodata_PutData(infodata, precip_fact=pcp_fact)
-    
-#ifdef HYCOM_IN_CESM
+
     !! Copy o2x Array to CESM 1D Fields if forcing is used.
     !call esmfshr_nuopc_copy(ocn_export_fields, 'd2x', exportState, rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -2340,6 +2347,14 @@ module hycom
     cesm2hycom_table(28)%cesm_stdname  = "Foxx_surface_upward_sensible_heat_flux"
     cesm2hycom_table(28)%unit          = "W/m^2"
 
+    cesm2hycom_table(29)%hycom_stdname = "water_flux_into_sea_water"
+    cesm2hycom_table(29)%cesm_stdname  = "Foxx_water_flux_into_sea_water"
+    cesm2hycom_table(29)%unit          = "Kg/m^2/s"
+
+    cesm2hycom_table(30)%hycom_stdname = "frozen_water_flux_into_sea_water"
+    cesm2hycom_table(30)%cesm_stdname  = "Foxx_frozen_water_flux_into_sea_water"
+    cesm2hycom_table(30)%unit          = "Kg/m^2/s"
+
     ! --------------------------------------------------------------------------
     hycom2cesm_table(1)%hycom_stdname = "sea_surface_temperature"
     hycom2cesm_table(1)%cesm_stdname  = "surface_temperature_o"
@@ -2580,7 +2595,9 @@ module hycom
       return  ! bail out
 
   end subroutine
-
+  
+  ! All standard names here are defined by HYCOM, not CESM dependent
+  ! A translation happens with hycom2cesm and cesm2hycom tables
   subroutine loadHycomDictionary(rc)
     integer, intent(out)                     :: rc
     rc = ESMF_SUCCESS
@@ -3054,6 +3071,33 @@ module hycom
         canonicalUnits="", &
         defaultLongName="northward sea surface slope", &
         defaultShortName="dhdy", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "water_flux_into_sea_water")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="water_flux_into_sea_water", &
+        canonicalUnits="kg m-2 s-1", &
+        defaultLongName="Water flux due to runoff (liquid)", &
+        defaultShortName="rofl", &
+        rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif 
+    if (.not. NUOPC_FieldDictionaryHasEntry( &
+      "frozen_water_flux_into_sea_water")) then
+      call NUOPC_FieldDictionaryAddEntry( &
+        standardName="frozen_water_flux_into_sea_water", &
+        canonicalUnits="kg m-2 s-1", &
+        defaultLongName="Water flux due to runoff (frozen)", &
+        defaultShortName="rofi", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
