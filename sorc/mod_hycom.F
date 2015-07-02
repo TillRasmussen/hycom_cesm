@@ -300,7 +300,33 @@ c
 c --- set up parameters defining the geographic environment
 c
       call geopar
+
+cc --- model is to be integrated from time step 'nstep1' to 'nstep2'
+!!Alex no limits file for CESM
+      if (.not.present(hycom_start_dtg)  .or. 
+     &    .not.present(hycom_end_dtg  )) then
+          open( unit=uoff+99,file=trim(flnminp)//'limits')
+          read(      uoff+99,*) day1,day2
+          close(unit=uoff+99)
+      endif
+c --- non-positive day1 indicates a new initialization, or
+c --- the start of a yrflag==3 case.
+!!Alex  set limits  for CESM
+      if (present(hycom_start_dtg)) day1 = hycom_start_dtg
+      if (present(hycom_end_dtg  )) day2 = hycom_end_dtg
+      linit =day1.le.0.0 
+      day1  =abs(day1)
 c
+      dtime=day1
+      nstep1=nint(dtime*(86400.0d0/baclin))
+      dtime=(nstep1/nts_day)+mod(nstep1,nts_day)*(baclin/86400.0d0)
+      day1 =dtime
+c
+      dtime=day2
+      nstep2=nint(dtime*(86400.0d0/baclin))
+      dtime=(nstep2/nts_day)+mod(nstep2,nts_day)*(baclin/86400.0d0)
+      day2 =dtime
+    
 c --- set up forcing functions
 c
       if (yrflag.lt.2) then
@@ -311,8 +337,18 @@ c
       elseif (jerlv0.eq.-1) then
         call forfunc  !  annual/monthly chl
       endif
-      call forfunp  !    annual/monthly rivers
-      call forfunr  ! bimonthly/monthly climatology
+
+#ifdef NUOPC
+      if (.not. (cpl_orivers .and. cpl_irivers)) then
+          if (linit) then
+              call forfunp      !    annual/monthly rivers
+          endif
+      endif
+#else
+      call forfunp              !    annual/monthly rivers
+#endif
+
+      call forfunr              ! bimonthly/monthly climatology
       watcum=0.
       empcum=0.
 c
@@ -390,32 +426,6 @@ c --- veldf2, veldf4 and thkdf4 may be spacially varying
 c
       call forfundf
 c
-c --- model is to be integrated from time step 'nstep1' to 'nstep2'
-!!Alex no limits file for CESM
-      if (.not.present(hycom_start_dtg)  .or. 
-     &    .not.present(hycom_end_dtg  )) then
-          open( unit=uoff+99,file=trim(flnminp)//'limits')
-          read(      uoff+99,*) day1,day2
-          close(unit=uoff+99)
-      endif
-c --- non-positive day1 indicates a new initialization, or
-c --- the start of a yrflag==3 case.
-!!Alex  set limits  for CESM
-      if (present(hycom_start_dtg)) day1 = hycom_start_dtg
-      if (present(hycom_end_dtg  )) day2 = hycom_end_dtg
-      linit =day1.le.0.0 
-      day1  =abs(day1)
-c
-      dtime=day1
-      nstep1=nint(dtime*(86400.0d0/baclin))
-      dtime=(nstep1/nts_day)+mod(nstep1,nts_day)*(baclin/86400.0d0)
-      day1 =dtime
-c
-      dtime=day2
-      nstep2=nint(dtime*(86400.0d0/baclin))
-      dtime=(nstep2/nts_day)+mod(nstep2,nts_day)*(baclin/86400.0d0)
-      day2 =dtime
-c
       if     (mxlkpp) then
 c ---   initialize kpp mixing
         call inikpp
@@ -427,6 +437,7 @@ c ---   initialize nasa giss mixing
         call inigiss
       endif
 c
+
       if (linit) then
 c
 c ---   set up initial conditions
@@ -821,7 +832,7 @@ c ---   only two fields are used (linear interpolation in time).
           endif
 #else
           call forfunh(dtime0)
-
+          
 #endif 
         elseif (mslprf) then
           w0=-99.9

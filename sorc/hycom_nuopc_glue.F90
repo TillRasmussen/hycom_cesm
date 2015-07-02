@@ -454,7 +454,9 @@ module hycom_nuopc_glue
     cpl_surtmp    =.false.
     cpl_seatmp    =.false.
     cpl_implicit  =.false.
-    
+    cpl_orivers   =.false.
+    cpl_irivers   =.false.
+   
   end subroutine
 
   !-----------------------------------------------------------------------------
@@ -730,7 +732,7 @@ module hycom_nuopc_glue
     
     ! loop over all of the import Fields and pull the data in
     do iField=1, fieldCount
-    
+   
       field = fieldList(iField)
       fieldName = fieldNameList(iField)
     
@@ -755,9 +757,9 @@ module hycom_nuopc_glue
         file=__FILE__)) &
         return  ! bail out
 #endif
-      
-      !call ESMF_LogWrite("HYCOM_GlueFieldsDataImport(): "// &
-      !  trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
+!!Alex      
+      call ESMF_LogWrite("HYCOM_GlueFieldsDataImport(): "// &
+        trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
         
 #ifndef WORKAROUND_HOLES
       ! Access the HYCOM distributed field.
@@ -788,7 +790,7 @@ module hycom_nuopc_glue
         file=__FILE__)) &
         return  ! bail out
 #endif
-      
+ 
       ! identify the exact import field by standard name and copy the data
       twoLevel = .false. ! reset
       if (fieldStdName == "surface_downward_eastward_stress") then
@@ -889,15 +891,16 @@ module hycom_nuopc_glue
         twoLevel = .false.
 !To Alex, connect the water flux from river here then 
 ! convert Kg/m^2/s -> m/s as needed below for these two fields
-!      elseif (fieldStdName == "water_flux_into_sea_water") then
-!        cpl_siv = .true.
-!        impPtr => 
-!        twoLevel = 
-!      elseif (fieldStdName == "frozen_water_flux_into_sea_water") then
-!        cpl_siv = .true.
-!        impPtr => 
-!        twoLevel = 
+      elseif (fieldStdName == "water_flux_into_sea_water") then
+        cpl_orivers = .true.
+        impPtr2 => imp_orivers
+        twoLevel = .true.
+      elseif (fieldStdName == "frozen_water_flux_into_sea_water") then
+        cpl_irivers = .true.
+        impPtr2 => imp_irivers
+        twoLevel = .true.
       endif
+      
       
       ! copy the data into the right import location
       if (twoLevel) then
@@ -1027,8 +1030,45 @@ module hycom_nuopc_glue
             enddo
             enddo
           endif
-        endif
         
+        ! special treatment for rivers water flux
+        else if (fieldStdName=="water_flux_into_sea_water") then
+          if (initFlag) then
+            ! convert (kg m-2 s-1) to (m s-1) 
+            do j=1,jj
+            do i=1,ii
+              impPtr2(i,j,1) = impPtr2(i,j,1) * 1.e-3
+              impPtr2(i,j,2) = impPtr2(i,j,2) * 1.e-3
+            enddo
+            enddo
+          else
+           !  convert (kg m-2 s-1) to (m s-1) 
+           do j=1,jj
+            do i=1,ii
+              impPtr2(i,j,1) = impPtr2(i,j,1) * 1.e-3
+            enddo
+            enddo
+          endif
+        ! special treatment for rivers  flux from ice
+        else if (fieldStdName=="frozen_water_flux_into_sea_water") then
+          if (initFlag) then
+            ! convert (kg m-2 s-1) to (m s-1)
+            do j=1,jj
+            do i=1,ii
+              impPtr2(i,j,1) = impPtr2(i,j,1) * 1.e-3
+              impPtr2(i,j,2) = impPtr2(i,j,2) * 1.e-3
+            enddo
+            enddo
+          else
+           !  convert (kg m-2 s-1) to (m s-1) 
+           do j=1,jj
+            do i=1,ii
+              impPtr2(i,j,1) = impPtr2(i,j,1) * 1.e-3
+            enddo
+            enddo
+          endif
+       endif
+       
       else ! single-level imports
         do j=1,jj
         do i=1,ii
@@ -1052,8 +1092,8 @@ module hycom_nuopc_glue
           enddo
        enddo
     endif
-    
-    
+
+
     ! transfer SEA-ICE imports into native HYCOM variables
     do j=1,jj
     do i=1,ii

@@ -924,13 +924,15 @@ module hycom
     !TODO: is taken care of during initialize.
     initFlag = .false.
     if (is%wrap%slice==1 .and. (.not. restFlag)) initFlag = .true.
-
+    
+    
     ! Import data to HYCOM native structures through glue fields.
     call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    
     
     !call ESMF_VMLogMemInfo('MEMORY Usage BEFORE HYCOM_RUN', rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

@@ -36,11 +36,12 @@ c
               if     (ishlf(i,j).eq.1) then  !standard ocean point
 #ifdef NUOPC
                 if ( cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
-     &                          .and. cpl_precip     ) then
+     &                          .and. cpl_precip    ) then
 
                     sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
                     surflx(i,j) = surflx(i,j) + flxice(i,j)       !cell average
                     salflx(i,j) = salflx(i,j) + sflice(i,j) +     !cell average
+     &                                          rivflx(i,j) +     !rivers everywhere
      &                                          sssflx(i,j)       !relax everywhere
                 else 
                     sswflx(i,j) = (1.0-covice(i,j))*sswflx(i,j) +
@@ -85,6 +86,7 @@ c
                     sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
                     surflx(i,j) = surflx(i,j) + flxice(i,j)       !cell average
                     salflx(i,j) = salflx(i,j) + sflice(i,j) +     !cell average
+     &                                          rivflx(i,j) +     !rivers everywhere
      &                                          sssflx(i,j)       !relax everywhere
                 else 
                     sswflx(i,j) = (1.0-covice(i,j))*sswflx(i,j) +
@@ -1810,13 +1812,29 @@ c --- salflx = salt flux (psu m/s kg/m**3) into ocean
       salflx(i,j)=emnp*(saln(i,j,1,n)*qthref)
 c --- allow for rivers as a precipitation bogas
       if     (priver) then
-        rivflx(i,j) = - ( rivers(i,j,lr0)*wr0+rivers(i,j,lr1)*wr1
-     &                   +rivers(i,j,lr2)*wr2+rivers(i,j,lr3)*wr3) *
-     &                  (saln(i,j,1,n)*qthref)*pcp_facth
-*       salflx(i,j) = salflx(i,j)+rivflx(i,j) !update rivflx in thermf_oi
+#ifdef NUOPC
+        
+c --- rivers (ocean/ice contribution ; pcp_fact taken care of in cpl) 
+        if(cpl_orivers.and.cpl_irivers) then
+            rivflx(i,j) = -
+     &                  ((imp_orivers(i,j,1)+imp_irivers(i,j,1))*cpl_w2
+     &                  +(imp_orivers(i,j,2)+imp_irivers(i,j,2))*cpl_w3)
+     &                  * saln(i,j,1,n)*qthref
+        else 
+            rivflx(i,j) = - ( rivers(i,j,lr0)*wr0+rivers(i,j,lr1)*wr1
+     &                       +rivers(i,j,lr2)*wr2+rivers(i,j,lr3)*wr3) *
+     &                      (saln(i,j,1,n)*qthref)*pcp_facth
+        endif
+#else
+            rivflx(i,j) = - ( rivers(i,j,lr0)*wr0+rivers(i,j,lr1)*wr1
+     &                       +rivers(i,j,lr2)*wr2+rivers(i,j,lr3)*wr3) *
+     &                      (saln(i,j,1,n)*qthref)*pcp_facth         
+*     salflx(i,j) = salflx(i,j)+rivflx(i,j) !update rivflx in thermf_oi
+#endif
       else
         rivflx(i,j) = 0.0
       endif
+      
 c --- relax to surface salinity
       if     (srelax) then
 c ---   use a reference relaxation thickness (min. mixed layer depth)

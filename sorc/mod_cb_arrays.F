@@ -804,7 +804,8 @@ c==>  import from atm
       logical cpl_taux, cpl_tauy, cpl_wndspd, cpl_ustara,
      & cpl_airtmp, cpl_vapmix, cpl_swflx, cpl_lwmdnflx, cpl_lwmupflx,
      & cpl_latflx, cpl_sensflx,
-     & cpl_precip, cpl_surtmp, cpl_seatmp
+     & cpl_precip, cpl_surtmp, cpl_seatmp,
+     & cpl_orivers,cpl_irivers
 
       real cpl_w2, cpl_w3
       logical cpl_implicit
@@ -815,14 +816,16 @@ c==>  import from atm
      & imp_taux, imp_tauy, imp_taue, imp_taun, imp_wndspd, imp_ustara,
      & imp_airtmp, imp_vapmix, imp_swflx, imp_lwdflx, imp_lwuflx,
      & imp_latflx, imp_sensflx,
-     & imp_precip, imp_surtmp, imp_seatmp
+     & imp_precip, imp_surtmp, imp_seatmp,
+     & imp_orivers,imp_irivers 
      
 #else
       real, target, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) ::
      & imp_taux, imp_tauy, imp_taue, imp_taun, imp_wndspd, imp_ustara,
      & imp_airtmp, imp_vapmix, imp_swflx, imp_lwdflx, imp_lwuflx,
      & imp_latflx, imp_sensflx,
-     & imp_precip, imp_surtmp, imp_seatmp
+     & imp_precip, imp_surtmp, imp_seatmp,
+     & imp_orivers,imp_irivers
 #endif
       
 c==>  import from ice
