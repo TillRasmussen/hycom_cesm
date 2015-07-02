@@ -757,9 +757,8 @@ module hycom_nuopc_glue
         file=__FILE__)) &
         return  ! bail out
 #endif
-!!Alex      
-      call ESMF_LogWrite("HYCOM_GlueFieldsDataImport(): "// &
-        trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
+      !call ESMF_LogWrite("HYCOM_GlueFieldsDataImport(): "// &
+      !  trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
         
 #ifndef WORKAROUND_HOLES
       ! Access the HYCOM distributed field.
@@ -889,8 +888,6 @@ module hycom_nuopc_glue
         cpl_siv = .true.
         impPtr => siv_import
         twoLevel = .false.
-!To Alex, connect the water flux from river here then 
-! convert Kg/m^2/s -> m/s as needed below for these two fields
       elseif (fieldStdName == "water_flux_into_sea_water") then
         cpl_orivers = .true.
         impPtr2 => imp_orivers

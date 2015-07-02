@@ -1544,6 +1544,8 @@ c
      &           imp_latflx(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &          imp_sensflx(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_precip(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
+     &          imp_irivers(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
+     &          imp_orivers(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_surtmp(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_seatmp(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) )
       call mem_stat_add( 16*(idm+2*nbdy)*(jdm+2*nbdy)*(2) )
@@ -1565,6 +1567,8 @@ c
                 imp_precip = 0.d0
                 imp_surtmp = 0.d0
                 imp_seatmp = 0.d0
+                imp_irivers = 0.d0
+                imp_orivers = 0.d0
 
 #if defined(RELO)
       allocate(
