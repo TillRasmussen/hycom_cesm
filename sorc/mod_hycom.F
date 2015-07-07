@@ -300,32 +300,6 @@ c
 c --- set up parameters defining the geographic environment
 c
       call geopar
-
-cc --- model is to be integrated from time step 'nstep1' to 'nstep2'
-!!Alex no limits file for CESM
-      if (.not.present(hycom_start_dtg)  .or. 
-     &    .not.present(hycom_end_dtg  )) then
-          open( unit=uoff+99,file=trim(flnminp)//'limits')
-          read(      uoff+99,*) day1,day2
-          close(unit=uoff+99)
-      endif
-c --- non-positive day1 indicates a new initialization, or
-c --- the start of a yrflag==3 case.
-!!Alex  set limits  for CESM
-      if (present(hycom_start_dtg)) day1 = hycom_start_dtg
-      if (present(hycom_end_dtg  )) day2 = hycom_end_dtg
-      linit =day1.le.0.0 
-      day1  =abs(day1)
-c
-      dtime=day1
-      nstep1=nint(dtime*(86400.0d0/baclin))
-      dtime=(nstep1/nts_day)+mod(nstep1,nts_day)*(baclin/86400.0d0)
-      day1 =dtime
-c
-      dtime=day2
-      nstep2=nint(dtime*(86400.0d0/baclin))
-      dtime=(nstep2/nts_day)+mod(nstep2,nts_day)*(baclin/86400.0d0)
-      day2 =dtime
     
 c --- set up forcing functions
 c
@@ -337,17 +311,7 @@ c
       elseif (jerlv0.eq.-1) then
         call forfunc  !  annual/monthly chl
       endif
-
-#ifdef NUOPC
-      if (.not. (cpl_orivers .and. cpl_irivers)) then
-          if (linit) then
-              call forfunp      !    annual/monthly rivers
-          endif
-      endif
-#else
       call forfunp              !    annual/monthly rivers
-#endif
-
       call forfunr              ! bimonthly/monthly climatology
       watcum=0.
       empcum=0.
@@ -426,6 +390,32 @@ c --- veldf2, veldf4 and thkdf4 may be spacially varying
 c
       call forfundf
 c
+cc --- model is to be integrated from time step 'nstep1' to 'nstep2'
+!!Alex no limits file for CESM
+      if (.not.present(hycom_start_dtg)  .or. 
+     &    .not.present(hycom_end_dtg  )) then
+          open( unit=uoff+99,file=trim(flnminp)//'limits')
+          read(      uoff+99,*) day1,day2
+          close(unit=uoff+99)
+      endif
+c --- non-positive day1 indicates a new initialization, or
+c --- the start of a yrflag==3 case.
+!!Alex  set limits  for CESM
+      if (present(hycom_start_dtg)) day1 = hycom_start_dtg
+      if (present(hycom_end_dtg  )) day2 = hycom_end_dtg
+      linit =day1.le.0.0 
+      day1  =abs(day1)
+c
+      dtime=day1
+      nstep1=nint(dtime*(86400.0d0/baclin))
+      dtime=(nstep1/nts_day)+mod(nstep1,nts_day)*(baclin/86400.0d0)
+      day1 =dtime
+c
+      dtime=day2
+      nstep2=nint(dtime*(86400.0d0/baclin))
+      dtime=(nstep2/nts_day)+mod(nstep2,nts_day)*(baclin/86400.0d0)
+      day2 =dtime
+
       if     (mxlkpp) then
 c ---   initialize kpp mixing
         call inikpp
@@ -914,18 +904,29 @@ c ---   read in kpar or chk field for 4 consecutive months
 c
       if (priver) then
 c ---   read in rivers field for 4 consecutive months
-        mr1=1.+mod(dtime0+dyear0,dyear)/dmonth
-        mr0=mod(mr1+10,12)+1
-        mr2=mod(mr1,   12)+1
-        mr3=mod(mr2,   12)+1
-        lr0=1
-        lr1=2
-        lr2=3
-        lr3=4
-        call rdrivr(mr0,lr0)
-        call rdrivr(mr1,lr1)
-        call rdrivr(mr2,lr2)
-        call rdrivr(mr3,lr3)
+         mr1=1.+mod(dtime0+dyear0,dyear)/dmonth
+         mr0=mod(mr1+10,12)+1
+         mr2=mod(mr1,   12)+1
+         mr3=mod(mr2,   12)+1
+         lr0=1
+         lr1=2
+         lr2=3
+         lr3=4
+#ifdef NUOPC
+         if (.not. (cpl_orivers .and. cpl_irivers)) then
+            if (linit) then 
+               call rdrivr(mr0,lr0)
+               call rdrivr(mr1,lr1)
+               call rdrivr(mr2,lr2)
+               call rdrivr(mr3,lr3)
+            endif 
+         endif 
+#else
+         call rdrivr(mr0,lr0)
+         call rdrivr(mr1,lr1)
+         call rdrivr(mr2,lr2)
+         call rdrivr(mr3,lr3)
+#endif             
       endif
 c
       if     (clmflg.eq.12) then
@@ -1164,28 +1165,53 @@ c ---   monthly fields.
 c
 c --- set weights for quasi-hermite time interpolation for rivers.
       if     (priver) then
+#ifdef NUOPC
+         if (.not. (cpl_orivers .and. cpl_irivers)) then
 c ---   monthly fields.
-        x=1.+mod(dtime+dyear0,dyear)/dmonth
-        if (int(x).ne.mr1) then
-          mr1=x
-          mr0=mod(mr1+10,12)+1
-          mr2=mod(mr1,   12)+1
-          mr3=mod(mr2,   12)+1
-          lt =lr0
-          lr0=lr1
-          lr1=lr2
-          lr2=lr3
-          lr3=lt
-          call rdrivr(mr3,lr3)
-        endif
-        x=mod(x,1.)
-        x1=1.-x
-        wr1=x1*(1.+x *(1.-1.5*x ))
-        wr2=x *(1.+x1*(1.-1.5*x1))
-        wr0=-.5*x *x1*x1
-        wr3=-.5*x1*x *x
+            x=1.+mod(dtime+dyear0,dyear)/dmonth
+            if (int(x).ne.mr1) then
+               mr1=x
+               mr0=mod(mr1+10,12)+1
+               mr2=mod(mr1,   12)+1
+               mr3=mod(mr2,   12)+1
+               lt =lr0
+               lr0=lr1
+               lr1=lr2
+               lr2=lr3
+               lr3=lt
+               call rdrivr(mr3,lr3)
+            endif
+            x=mod(x,1.)
+            x1=1.-x
+            wr1=x1*(1.+x *(1.-1.5*x ))
+            wr2=x *(1.+x1*(1.-1.5*x1))
+            wr0=-.5*x *x1*x1
+            wr3=-.5*x1*x *x
+         endif
+#else
+c ---   monthly fields.
+         x=1.+mod(dtime+dyear0,dyear)/dmonth
+         if (int(x).ne.mr1) then
+            mr1=x
+            mr0=mod(mr1+10,12)+1
+            mr2=mod(mr1,   12)+1
+            mr3=mod(mr2,   12)+1
+            lt =lr0
+            lr0=lr1
+            lr1=lr2
+            lr2=lr3
+            lr3=lt
+            call rdrivr(mr3,lr3)
+         endif
+         x=mod(x,1.)
+         x1=1.-x
+         wr1=x1*(1.+x *(1.-1.5*x ))
+         wr2=x *(1.+x1*(1.-1.5*x1))
+         wr0=-.5*x *x1*x1
+         wr3=-.5*x1*x *x
+#endif
       endif
-c
+c     
 c --- set weights for quasi-hermite time interpolation for temperature,
 c --- salinity and pressure relaxation fields.
       if     (clmflg.eq.12) then

@@ -3162,7 +3162,8 @@ c --- tridiagonal matrix solution arrays
 c
       real    ghatflux
       integer k,ka,ktr,nlayer
-c
+      real riv_input !!Alex rivers from cpl or file
+c     
       real, parameter :: difriv =   60.0e-4  !river diffusion
 c
       include 'stmt_fns.h'
@@ -3207,7 +3208,16 @@ cdiag     call flush(lp)
 cdiag endif !test
 c
 c --- do rivers here because difs is also used for tracers.
-      if     (thkriv.gt.0.0 .and. rivers(i,j,1).ne.0.0) then
+#ifdef NUOPC
+      if(cpl_orivers.and.cpl_irivers) then
+         riv_input = imp_orivers(i,j,1)+imp_irivers(i,j,1)
+      else
+         riv_input = rivers(i,j,1)
+      endif
+#else
+      riv_input = rivers(i,j,1)
+#endif  
+      if     (thkriv.gt.0.0 .and. riv_input.ne.0.0) then
         do k=1,nlayer-1
           if     (-zm(k)+0.5*hm(k).lt.thkriv) then !interface<thkriv
             diffs(k+1) = max(diffs(k+1),difriv)
