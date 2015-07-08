@@ -628,8 +628,11 @@ c
 !$OMP   END PARALLEL DO
       call xcsum(d1, util1,ipa)
       call xcsum(area_ms, util2,ipa)
-      t1mean=d1/area_ms
-                                        
+      if (area_ms.ne.0.0) then
+         t1mean=d1/area_ms	
+      else
+         t1mean=0.0
+      endif                                   
 
 !$OMP   PARALLEL DO PRIVATE(j,i)
 !$OMP&           SCHEDULE(STATIC,jblk)
@@ -1617,6 +1620,10 @@ c ---   Sensible Heat flux (W/m2)
         snsibl=ssen*csh*wind* tdif         !wind=samo
 #endif
         surflx(i,j) = radfl - snsibl - evap
+!!Alex get radiative, sensible and latent heat flux in the output
+        radfla(i,j) = radfl
+        snsfla(i,j) = snsibl
+        evafla(i,j) = evap
 c
 cdiag   if     (i.eq.itest.and.j.eq.jtest) then
 cdiag     write(lp,'(i9,2i5,a,3f8.5)')
@@ -1727,6 +1734,11 @@ c --- Sensible Heat flux
 #endif
 c --- Total surface fluxes
         surflx(i,j) = radfl - snsibl - evap
+!!Alex get radiative, sensible and latent heat flux in the output
+        radfla(i,j) = radfl
+        snsfla(i,j) = snsibl
+        evafla(i,j) = evap
+
       elseif (flxflg.eq.3) then
 c
 c ---   input radiation flux is the net flux.

@@ -145,7 +145,7 @@ c
 c
       qdep = max( 0.0, min( 1.0,
      &                      (depths(i,j) - dsns)/
-     &                      (dpns        - dsns)  ) )
+     &                   max(dpns        - dsns,epsil)  ) )
 c
       pmin(0)=0.0
       do k=1,kk
@@ -410,6 +410,8 @@ c
           v(i,j,k,1) = 0.0
           v(i,j,k,2) = 0.0
         enddo !k
+        umix(i,j) = 0.0 !!Alex
+        vmix(i,j) = 0.0 !!Alex
       enddo !i
       enddo !j
 c

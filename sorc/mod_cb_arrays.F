@@ -947,8 +947,8 @@ c
       call mem_stat_add( 9*(idm+2*nbdy)*(jdm+2*nbdy) )
 #endif
               corio = r_init
-             potvor = r_init
-             srfhgt = r_init
+             potvor = 0.0     !for ifort -fpe0 (floating overflow) 
+             srfhgt = r_init 
              steric = r_init
              sshgmn = r_init
              thmean = r_init
@@ -1018,8 +1018,8 @@ c
      &        vflux3(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       call mem_stat_add( 16*(idm+2*nbdy)*(jdm+2*nbdy) )
 #endif
-              defor1 = r_init
-              defor2 = r_init
+              defor1 = 0.0     !for ifort -fpe0 (floating overflow) 
+              defor2 = 0.0     !for ifort -fpe0 (floating overflow)
                ubrhs = r_init
                vbrhs = r_init
                utotm = r_init
@@ -1244,9 +1244,9 @@ c
                 si_v = r_init
                si_tx = r_init
                si_ty = r_init
-              radfla = r_init
-              snsfla = r_init
-              evafla = r_init
+              radfla = 0.0 
+              snsfla = 0.0
+              evafla = 0.0
 c
       if     (flxflg.eq.6) then
 #if defined(RELO)
@@ -1459,7 +1459,7 @@ c
      &     maskms(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       call mem_stat_add( (idm+2*nbdy)*(jdm+2*nbdy)/2 ) !real=2*int
 #endif
-           maskms = 0. !!Alex
+           maskms = 1. !!Alex
 c
       if (mxlmy) then
 #if defined(RELO)

@@ -1725,7 +1725,7 @@ c
           do j= 1,jj
             do i= 1,ii
               if (rmus(i,j).ne.0.) then
-                rmus(i,j)=1/(rmus(i,j)*86400.) !! put the relaxation time in 1/s
+                rmus(i,j)=1/max(rmus(i,j)*86400.,epsil) !! put the relaxation time in 1/s
               endif
             enddo !i
           enddo !j
@@ -1765,35 +1765,14 @@ c
           do j= 1,jj
             do i= 1,ii
               if (rmut(i,j).ne.0.) then
-                rmut(i,j)=1/(rmut(i,j)*86400.) !! put the relaxation time in 1/s
+                rmut(i,j)=1/max(rmut(i,j)*86400.,epsil) !! put the relaxation time in 1/s
               endif
             enddo !i
           enddo !j
 !$OMP END PARALLEL DO
 
-!! --- build a  ocean mask  without marginal seas
-!$OMP PARALLEL DO PRIVATE(j,i)
-!$OMP&         SCHEDULE(STATIC,jblk)
-          do j= 1,jj
-            do i= 1,ii
-              if (ip(i,j).eq.1 ) then
-                  maskms(i,j) = 1.
-              endif
-              if (rmut(i,j).gt.0. ) then
-                  maskms(i,j) = 0.
-              endif
-              
-            enddo               !i
-          enddo                 !j
-!$OMP END PARALLEL DO
-
           call xctilr(rmut  ,1,1, nbdy,nbdy, halo_ps)
       endif
-          call xcsum(tot,maskms,ipa)
-          if (mnproc.eq.1) then
-            print*,'TOTAL MASK: ', tot
-          endif
-          call xctilr(maskms,1,1, nbdy,nbdy, halo_ps)
 
 c
 c
@@ -3232,6 +3211,12 @@ c
       endif !1st tile
       call xcsync(flush_lp)
 c
+      if (.not.relaxf) then
+        swall(:,:,1,:) = 0.0  !may be used for sss clim
+        twall(:,:,1,:) = 0.0  !may be used for sst clim
+        return
+      endif
+
       if     (relaxf) then
         if     (clmflg.eq.12) then
           mrec = mnth

@@ -273,7 +273,7 @@ c
 c --- terrain following starts at depth dpns and ends at depth dsns
       qdep = max( 0.0, min( 1.0,
      &                      (depths(i,j) - dsns)/
-     &                      (dpns        - dsns)  ) )
+     &                   max(dpns        - dsns,epsil)  ) )
 c
       if     (qdep.lt.1.0) then
 c ---   terrain following, qhrlx=1 and ignore dp00
@@ -1426,7 +1426,7 @@ c
 c --- terrain following starts at depth dpns and ends at depth dsns
       qdep = max( 0.0, min( 1.0,
      &                      (depths(i,j) - dsns)/
-     &                      (dpns        - dsns)  ) )
+     &                   max(dpns        - dsns,epsil)  ) )
 c
       dp0cum(1)=0.0
       dp0ij( 1)=qdep*dp0k(1) + (1.0-qdep)*ds0k(1)

@@ -353,7 +353,6 @@ c
 c
 c --- spatially varying sss relaxation !!Alex
 c
-      maskms(:,:)=1. !define the marginal sea mask
       if (sssflg.ne.0) then
           if     (sssrmu.lt.0.) then
               call forfunrs     ! spatially varying rmus
@@ -375,6 +374,27 @@ c
               rmut(:,:)=0.
           endif
       endif 
+
+c
+c --- define a mask for marginal sea
+c
+      maskms(:,:)=1. 
+!! --- build a  ocean mask  without marginal seas
+!$OMP PARALLEL DO PRIVATE(j,i)
+!$OMP&         SCHEDULE(STATIC,jblk)
+      do j= 1,jj
+        do i= 1,ii
+           if (ip(i,j).eq.1 ) then
+              maskms(i,j) = 1.
+           endif
+           if (rmut(i,j).gt.0. ) then
+              maskms(i,j) = 0.            
+           endif
+        enddo               !i
+      enddo                 !j
+!$OMP END PARALLEL DO
+      call xctilr(maskms,1,1, nbdy,nbdy, halo_ps)
+
 c
 c --- "scalar" tidal SAL factor
 c
@@ -470,6 +490,24 @@ c
                thmix(i,j) = th3d(i,j,1,n)
               surflx(i,j) = 0.0
               salflx(i,j) = 0.0
+              srfhgt(i,j) = 0.0
+              sswflx(i,j) = 0.0
+              mixflx(i,j) = 0.0 
+              sstflx(i,j) = 0.0
+              sssflx(i,j) = 0.0
+              bhtflx(i,j) = 0.0 
+              buoflx(i,j) = 0.0
+              ustar(i,j)  = 0.0
+              hekman(i,j) = 0.0
+
+              flxice(i,j) = 0.0
+              sflice(i,j) = 0.0
+              fswice(i,j) = 0.0 
+              do k=1,kk+1
+                 vcty(i,j,k) = 0.0
+                 dift(i,j,k) = 0.0
+                 difs(i,j,k) = 0.0
+              enddo
             endif !ip
           enddo !i
           if (isopyc .or. mxlkrt) then
@@ -666,6 +704,8 @@ c
           ssh_initial = 0.d0
           pcp_fact    = 1.d0
           pcp_facth   = pcp_fact
+          util1(:,:)  = 0.0d0
+          util2(:,:)  = 0.d0
 
 ! --- initialize sal_initial 
           do k=1,kdm
@@ -683,7 +723,9 @@ c
 !$OMP END PARALLEL DO
             call xcsum(vol,util2,ipa)
             call xcsum(sal_initial(k),util1,ipa)
-            sal_initial(k)=sal_initial(k)/vol
+            if (vol.gt.0d0) then
+               sal_initial(k)=sal_initial(k)/max(vol,epsil)
+            endif
           enddo
           
 ! --- write initial factor

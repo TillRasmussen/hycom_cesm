@@ -859,13 +859,21 @@ c
      &              max(0.0,fay(i, jb)) - min(0.0,fay(i, j) )
             if (famax > 0.0) then
               qp = (fqmax-fldlo(i,j)) *fcn(i,j)*scal(i,j)*qdt2
-              rp(i,j) = min(1.0, qp/famax)
+              if     (qp.lt.famax) then
+                rp(i,j) = qp/famax
+              else
+                rp(i,j) = 1.0
+              endif
             else
               rp(i,j) = 0.0
             endif
             if (famin > 0.0) then
               qm = (fldlo(i,j)-fqmin) *fcn(i,j)*scal(i,j)*qdt2
-              rm(i,j) = min(1.0, qm/famin)
+              if     (qm.lt.famin) then
+                rm(i,j) = qm/famin
+              else
+                rm(i,j) = 1.0
+              endif
             else
               rm(i,j) = 0.0
             endif
@@ -1194,13 +1202,21 @@ c
      &              max(0.0,fay(i, jb)) - min(0.0,fay(i, j) )
             if (famax > 0.0) then
               qp = (fqmax-fldlo(i,j)) *fcn(i,j)*scal(i,j)*qdt2
-              rp(i,j) = min(1.0, qp/famax)
+              if     (qp.lt.famax) then
+                rp(i,j) = qp/famax
+              else
+                rp(i,j) = 1.0
+              endif
             else
               rp(i,j) = 0.0
             endif
             if (famin > 0.0) then
               qm = (fldlo(i,j)-fqmin) *fcn(i,j)*scal(i,j)*qdt2
-              rm(i,j) = min(1.0, qm/famin)
+              if     (qm.lt.famin) then
+                rm(i,j) = qm/famin
+              else
+                rm(i,j) = 1.0
+              endif
             else
               rm(i,j) = 0.0
             endif

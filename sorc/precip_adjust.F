@@ -64,6 +64,8 @@ c
 
 ! --- Compute the averaged sea surface height.
 
+      util1(:,:) = 0.d0
+      util2(:,:) = 0.d0
 !$OMP PARALLEL DO PRIVATE(j,i)
 !$OMP&         SCHEDULE(STATIC,jblk)
       do j=1,jj
@@ -97,7 +99,9 @@ c
 
         call xcsum(vol(k),util2,ipa)
         call xcsum(sal_final(k),util1,ipa)
-        sal_final(k)=sal_final(k)/vol(k)
+        if (vol(k).gt.0d0) then
+           sal_final(k)=sal_final(k)/max(vol(k),epsil)
+        endif
       enddo 
 
 

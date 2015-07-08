@@ -3985,6 +3985,8 @@ c
         sarc = -1.0
       endif
 c
+      itynew = 0  !for used before defined check
+c
       if     (nhl.gt.0) then
         if     (ipr.eq.1 .and. jpr.eq.1) then
           do k= l1,ld
