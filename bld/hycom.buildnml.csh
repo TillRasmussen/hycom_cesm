@@ -10,10 +10,30 @@ set NY = $OCN_NY
 
 cd $RUNDIR
 mkdir -p OUTPUT
-mv  archv.* archm.* OUTPUT/
-mv *cice.h.*.nc OUTPUT/
-rm ovrtn_out 
-cp -p -f /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_h98/* .
+
+ls archv.* >& /dev/null
+if ( $status == 0 ) then
+  mv archv.* OUTPUT/
+endif
+ls archm.* >& /dev/null
+if ( $status == 0 ) then
+  mv archm.* OUTPUT/
+endif
+ls *cice.h.*.nc >& /dev/null
+if ( $status == 0 ) then
+  mv *cice.h.*.nc OUTPUT/
+endif
+if (-e ovrtn_out) then
+  rm ovrtn_out 
+endif
+
+if (-e /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_h98/) then
+  cp -p -f /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_h98/* .
+else
+  echo "error copying hycom input data file, abort"
+  exit 2
+endif
+
 set base_filename = "hycom_in"
 
 set inst_counter = 1
@@ -43,4 +63,4 @@ EOF
 
 end
 
-
+echo "HYCOM configure done."
