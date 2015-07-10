@@ -802,6 +802,12 @@ c
         w1=0.0
         w2=0.0
         w3=0.0
+        surflx(:,:) = 0.0
+        salflx(:,:) = 0.0
+        sssflx(:,:) = 0.0
+        covice(:,:) = 0.0
+        flxice(:,:) = 0.0
+        sflice(:,:) = 0.0
 c        call mean_zero(DBLE(time))
         call mean_zero(time)
         call momtum_hs(n,m)  !calculate srfhgt
@@ -925,15 +931,6 @@ c ---     jerlv0=-1 uses an input annual/monthly chl  field
           enddo
         endif
 
-!$OMP     PARALLEL DO PRIVATE(j,i)
-!$OMP&             SCHEDULE(STATIC,jblk)
-          do j=1-nbdy,jj+nbdy
-            do i=1-nbdy,ii+nbdy
-              oftaux(i,j) = 0.0
-              oftauy(i,j) = 0.0
-              offlux(i,j) = 0.0
-            enddo !i
-          enddo !j
 #endif
       
       if (jerlv0.le.0) then

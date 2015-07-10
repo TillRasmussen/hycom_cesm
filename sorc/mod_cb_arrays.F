@@ -949,7 +949,7 @@ c
               corio = r_init
              potvor = 0.0     !for ifort -fpe0 (floating overflow) 
              srfhgt = r_init 
-             steric = r_init
+             steric = 0.0 
              sshgmn = r_init
              thmean = r_init
              montg1 = r_init
@@ -1331,20 +1331,20 @@ c
      &         rivers(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,4) )
       call mem_stat_add( 2*(idm+2*nbdy)*(jdm+2*nbdy)*4 )
 #endif
-                 taux = r_init
-                 tauy = r_init
-               wndspd = r_init
-               ustara = r_init
-               mslprs = r_init
-               airtmp = r_init
-               vapmix = r_init
-               precip = r_init
-               radflx = r_init
-                swflx = r_init
-               surtmp = r_init
-               seatmp = r_init
-                akpar = r_init
-               rivers = r_init
+                 taux = 0.0 
+                 tauy = 0.0
+               wndspd = 0.0 
+               ustara = 0.0
+               mslprs = 0.0
+               airtmp = 0.0
+               vapmix = 0.0
+               precip = 0.0
+               radflx = 0.0
+                swflx = 0.0
+               surtmp = 0.0
+               seatmp = 0.0
+                akpar = 0.0
+               rivers = 0.0
 c
 #if defined(RELO)
       allocate(
@@ -1353,9 +1353,9 @@ c
      &     offlux(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) )
       call mem_stat_add( 3*(idm+2*nbdy)*(jdm+2*nbdy) )
 #endif
-           offlux = r_init
-           oftaux = r_init
-           oftauy = r_init
+           offlux = 0.0 
+           oftaux = 0.0 
+           oftauy = 0.0
 c
 #if defined(RELO)
       allocate(
