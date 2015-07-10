@@ -535,6 +535,14 @@ c
         write (intvl,'(i3.3)') 0
         endif !1st tile
         if     (rstrfq.ne.0.0) then  !don't write if benchmarking (no restart)
+          lc0=1
+          lc1=2
+          lc2=3
+          lc3=4
+          wc0=1.0
+          wc1=0.0
+          wc2=0.0
+          wc3=0.0
           call archiv(n, kk, iyear,jday,ihour, intvl)
         endif
 c
