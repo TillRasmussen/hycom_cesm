@@ -215,10 +215,8 @@ c
             radfla_m(i,j) = radfla_m(i,j) + s*radfla(i,j)
             snsfla_m(i,j) = snsfla_m(i,j) + s*snsfla(i,j)
             evafla_m(i,j) = evafla_m(i,j) + s*evafla(i,j)
-            if (abs(surtx(i,j)) .lt. 100.) then
-                surtx_m(i,j) =  surtx_m(i,j) + s*surtx(i,j)
-                surty_m(i,j) =  surty_m(i,j) + s*surty(i,j)
-            endif
+             surtx_m(i,j) =  surtx_m(i,j) + s*surtx(i,j)
+             surty_m(i,j) =  surty_m(i,j) + s*surty(i,j)
         endif !ip
           if (SEA_U) then
 #if defined(STOKES)

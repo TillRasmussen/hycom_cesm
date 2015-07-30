@@ -1666,7 +1666,7 @@ c
       return
       end
 c
-!!Alex forfunrs added fro spatially varying surface relaxation
+!!Alex forfunrs added for spatially varying surface relaxation
       subroutine forfunrs
       use mod_xc         ! HYCOM communication interface
       use mod_cb_arrays  ! HYCOM saved arrays

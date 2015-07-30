@@ -495,6 +495,8 @@ c
               mixflx(i,j) = 0.0 
               sstflx(i,j) = 0.0
               sssflx(i,j) = 0.0
+               surtx(i,j) = 0.0
+               surty(i,j) = 0.0
               bhtflx(i,j) = 0.0 
               buoflx(i,j) = 0.0
               ustar(i,j)  = 0.0
@@ -804,6 +806,8 @@ c
         w3=0.0
         surflx(:,:) = 0.0
         salflx(:,:) = 0.0
+         surtx(:,:) = 0.0
+         surty(:,:) = 0.0
         sssflx(:,:) = 0.0
         covice(:,:) = 0.0
         flxice(:,:) = 0.0
