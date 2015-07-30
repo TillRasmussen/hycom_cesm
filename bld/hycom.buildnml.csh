@@ -34,6 +34,17 @@ else
   exit 2
 endif
 
+## determine if we need precip_fact
+setenv cpl_epbal `awk -F '[""]' '/CPL_EPBAL/ {print $4}' ${CASEROOT}/env_run.xml`
+echo 'CPL_EPBAL:' ${cpl_epbal}
+if (${cpl_epbal} == ocn) then
+  echo 'copy blkdat.input for GHY compset'
+  cp -f blkdat.input_G blkdat.input
+else
+  echo 'copy blkdat.input for BHY compset'
+  cp -f blkdat.input_B blkdat.input
+endif
+
 set base_filename = "hycom_in"
 
 set inst_counter = 1
