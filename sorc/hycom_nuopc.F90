@@ -269,6 +269,9 @@ module hycom
     type(InternalState)         :: is
     integer                     :: stat
     type(ESMF_CALKIND_FLAG)     :: calkind
+    LOGICAL                     :: restFlag = .false.        ! initial/restart run (F/T)
+    character(len=80)           :: pointer_filename          ! restart pointer file !!Alex
+    logical                     :: restart_write = .false.   ! write restart
 #ifdef HYCOM_IN_CESM            
     type(ESMF_State)            :: import_state, export_state
     type(ESMF_Mesh)             :: mesh, meshIn, meshOut
@@ -281,9 +284,6 @@ module hycom
     integer, pointer            :: fptrSeqIndex(:)
     character(len=32)           :: starttype                 ! infodata start type
     real(ESMF_KIND_R8)          :: l_startTime_r8
-    character(len=80)           :: pointer_filename          ! restart pointer file !!Alex
-    logical                     :: restart_write = .false.   ! write restart
-    LOGICAL                     :: restFlag = .false.        ! initial/restart run (F/T)
 #endif
     
     rc = ESMF_SUCCESS
@@ -343,6 +343,7 @@ module hycom
       
     print *, " HYCOM_INIT -->> startTime_r8=", startTime_r8, "stopTime_r8=", stopTime_r8
 
+#ifdef HYCOM_IN_CESM
     ! get coupling frequency from ocean clock for 1st export
      call ESMF_ClockGet(ccsm_Eclock_o, timeStep=timeStep, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -381,15 +382,26 @@ module hycom
     ! Get the pointer restart name !!Alex
     pointer_filename = 'rpointer.ocn' 
     restart_write = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
+#else
+    ! NON-CESM use of this cap requires different way to
+    ! manage cold start and restart runs
+    pointer_filename = 'rpointer.ocn' 
+    restart_write = .false.
+#endif
 
     call ESMF_LOGWRITE("BEFORE HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
+#ifdef HYCOM_IN_CESM
     ! Call into the HYCOM initialization  
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
 !      hycom_start_dtg=-0.d0, hycom_end_dtg=stopTime_r8)
 !      hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
        hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8, &
        pointer_filename=pointer_filename,  restart_write=restart_write)
+#else
+    call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
+       hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
+#endif
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
@@ -811,6 +823,7 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
+#ifdef HYCOM_IN_CESM
     ! get endtime from driver coupling frequency ocn_cpl
     ! There is an issue with ocn integration time, fix it by using global ocn
     ! clock. The ocn attempts to run on most frequent coupling frequency and 
@@ -833,6 +846,7 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#endif
 
     ! get endtime 
     interval = currTime - hycomRefTime
@@ -900,6 +914,7 @@ module hycom
       return  ! bail out
 #endif
     
+#ifdef HYCOM_IN_CESM
     ! Get start type run : start-up or continuous run !!Alex add restFlag
     call ESMF_AttributeGet(exportState, name="start_type", value=starttype, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -919,6 +934,7 @@ module hycom
        rc = ESMF_RC_OBJ_BAD
        return
     end if
+#endif
 
     !TODO: don't need the additional initialization step once data-dependency
     !TODO: is taken care of during initialize.
@@ -942,7 +958,12 @@ module hycom
   
     ! Get the pointer restart name 
     pointer_filename = 'rpointer.ocn' 
+#ifdef HYCOM_IN_CESM
     restart_write = seq_timemgr_RestartAlarmIsOn(ccsm_EClock_o)
+#else
+    restart_write = .false. ! non CESM code needs a different menchanism to
+                            ! handle restarts
+#endif
 
     ! Enter the advancing loop over HYCOM_run...
     do
