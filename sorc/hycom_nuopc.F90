@@ -283,7 +283,7 @@ module hycom
     real(ESMF_KIND_R8)          :: l_startTime_r8
     character(len=80)           :: pointer_filename          ! restart pointer file !!Alex
     logical                     :: restart_write = .false.   ! write restart
-    LOGICAL                     :: restFlag = .false.        ! initial/restart run (F/T)
+    logical                     :: restFlag = .false.        ! initial/restart run (F/T)
 #endif
     
     rc = ESMF_SUCCESS
@@ -393,15 +393,15 @@ module hycom
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
-    ! Write some HYCOM distribution info into the Log.
-    call HYCOM_TileInfo(rc=rc)
+    ! Fill in the glue structure.
+    call HYCOM_GlueInitialize(is%wrap%glue, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
-    ! Fill in the glue structure.
-    call HYCOM_GlueInitialize(is%wrap%glue, rc=rc)
+
+    ! Write some HYCOM distribution info into the Log.
+    call HYCOM_TileInfo(rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &

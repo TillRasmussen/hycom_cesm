@@ -365,6 +365,7 @@ c
 c
 c --- spatially varying sst relaxation !!Alex
 c
+      rmut(:,:)=0.
       if (sstflg.ne.0) then
           if     (sstrmu.lt.0.) then
               call forfunrs     ! spatially varying rmut
@@ -446,7 +447,7 @@ c ---   initialize m-y 2.5 mixing
 c ---   initialize nasa giss mixing
         call inigiss
       endif
-c
+
 
       if (linit) then
 c
@@ -880,6 +881,38 @@ c ---   only two fields are used (linear interpolation in time).
                   call forfunh(dtime0)
               endif 
           endif
+
+#if defined (ARCTIC)          
+          ltripolar=.true.
+c
+c --- update last active row of array
+          if     (iceflg.ge.2 .and. icmflg.ne.3) then
+             call xctila(covice,1,1,halo_ps)  !Sea Ice Concentration
+             call xctila(  si_c,1,1,halo_ps)  !Sea Ice Concentration
+             call xctila( si_tx,1,1,halo_pv)  !Sea Ice X-Stress into ocean
+             call xctila( si_ty,1,1,halo_pv)  !Sea Ice Y-Stress into ocean
+             call xctila(fswice,1,1,halo_ps)  !Solar Heat Flux thru Ice to Ocean
+             call xctila(flxice,1,1,halo_ps)  !Ice Freezing/Melting Heat Flux
+             call xctila(sflice,1,1,halo_ps)  !Ice Virtual Salt Flux
+             call xctila(temice,1,1,halo_ps)  !Sea Ice Temperature
+             call xctila(  si_t,1,1,halo_ps)  !Sea Ice Temperature
+             call xctila(thkice,1,1,halo_ps)  !Sea Ice Thickness
+             call xctila(  si_h,1,1,halo_ps)  !Sea Ice Thickness
+             call xctila(  si_u,1,1,halo_pv)  !Sea Ice X-Velocity
+             call xctila(  si_v,1,1,halo_pv)  !Sea Ice Y-Velocity
+          elseif (iceflg.ge.2 .and. icmflg.eq.3) then
+             call xctila(  si_c,1,1,halo_ps)  !Sea Ice Concentration
+             call xctila( si_tx,1,1,halo_pv)  !Sea Ice X-Stress into ocean
+             call xctila( si_ty,1,1,halo_pv)  !Sea Ice Y-Stress into ocean
+             call xctila(  si_h,1,1,halo_ps)  !Sea Ice Thickness
+             call xctila(  si_t,1,1,halo_ps)  !Sea Ice Temperature
+             call xctila(  si_u,1,1,halo_pv)  !Sea Ice X-Velocity
+             call xctila(  si_v,1,1,halo_pv)  !Sea Ice Y-Velocity
+          endif
+#else
+          ltripolar=.false.
+#endif
+          
 #else
           call forfunh(dtime0)
           
@@ -1173,6 +1206,35 @@ c ---   only two fields are used (linear interpolation in time).
      &        then
                call forfunh(dtime)
           endif
+
+#if defined(ARCTIC)
+c
+c --- update last active row of array
+      if     (iceflg.ge.2 .and. icmflg.ne.3) then
+        call xctila(covice,1,1,halo_ps)  !Sea Ice Concentration
+        call xctila(  si_c,1,1,halo_ps)  !Sea Ice Concentration
+        call xctila( si_tx,1,1,halo_pv)  !Sea Ice X-Stress into ocean
+        call xctila( si_ty,1,1,halo_pv)  !Sea Ice Y-Stress into ocean
+        call xctila(fswice,1,1,halo_ps)  !Solar Heat Flux thru Ice to Ocean
+        call xctila(flxice,1,1,halo_ps)  !Ice Freezing/Melting Heat Flux
+        call xctila(sflice,1,1,halo_ps)  !Ice Virtual Salt Flux
+        call xctila(temice,1,1,halo_ps)  !Sea Ice Temperature
+        call xctila(  si_t,1,1,halo_ps)  !Sea Ice Temperature
+        call xctila(thkice,1,1,halo_ps)  !Sea Ice Thickness
+        call xctila(  si_h,1,1,halo_ps)  !Sea Ice Thickness
+        call xctila(  si_u,1,1,halo_pv)  !Sea Ice X-Velocity
+        call xctila(  si_v,1,1,halo_pv)  !Sea Ice Y-Velocity
+      elseif (iceflg.ge.2 .and. icmflg.eq.3) then
+        call xctila(  si_c,1,1,halo_ps)  !Sea Ice Concentration
+        call xctila( si_tx,1,1,halo_pv)  !Sea Ice X-Stress into ocean
+        call xctila( si_ty,1,1,halo_pv)  !Sea Ice Y-Stress into ocean
+        call xctila(  si_h,1,1,halo_ps)  !Sea Ice Thickness
+        call xctila(  si_t,1,1,halo_ps)  !Sea Ice Temperature
+        call xctila(  si_u,1,1,halo_pv)  !Sea Ice X-Velocity
+        call xctila(  si_v,1,1,halo_pv)  !Sea Ice Y-Velocity
+      endif
+#endif
+
 #else
           call forfunh(dtime)
 

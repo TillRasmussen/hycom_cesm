@@ -11,10 +11,18 @@ else
   exit 1
 endif
 
-gmake ARCH=intelrelo TYPE=nuopc USER_DEFS="-DHYCOM_IN_CESM" nuopc
-if ($status) then
-   echo "error executing gmake ARCH=intelrelo TYPE=nuopc USER_DEFS=-DHYCOM_IN_CESM nuopc"
-   exit 2
+if ($OCN_GRID == "gh72") then
+  gmake ARCH=Aintelrelo TYPE=nuopc USER_DEFS="-DHYCOM_IN_CESM" nuopc
+  if ($status) then
+     echo "error executing gmake ARCH=Aintelrelo TYPE=nuopc USER_DEFS=-DHYCOM_IN_CESM nuopc"
+     exit 2
+  endif
+else
+  gmake ARCH=intelrelo TYPE=nuopc USER_DEFS="-DHYCOM_IN_CESM" nuopc
+  if ($status) then
+     echo "error executing gmake ARCH=intelrelo TYPE=nuopc USER_DEFS=-DHYCOM_IN_CESM nuopc"
+     exit 2
+  endif
 endif
 
 cp -p *.mod $objdir

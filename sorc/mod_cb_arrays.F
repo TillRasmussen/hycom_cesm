@@ -796,6 +796,8 @@ c
 #if defined(NUOPC)
 c
 c --- NUOPC glue code structures
+c==>  tripolar grid
+      logical ltripolar
 c==>  import from coupler
       real ocn_cpl_frq
 

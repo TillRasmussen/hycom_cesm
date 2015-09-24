@@ -11,6 +11,8 @@ module hycom_nuopc_glue
   use hycom_nuopc_glue_common_blocks
 
   implicit none
+
+  integer :: jja, jtdma 
   
   private
   
@@ -68,7 +70,7 @@ module hycom_nuopc_glue
     call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO)
     write (msg, *) "mproc=", mproc, "   nproc=", nproc, "   mnproc=", mnproc
     call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO)
-    write (msg, *) "i0=", i0, "   ii=", ii, "   j0=", j0, "   jj=", jj
+    write (msg, *) "i0=", i0, "   ii=", ii, "   j0=", j0, "   jj=", jja
     call ESMF_LogWrite(msg, ESMF_LOGMSG_INFO)
 !!Alex    write (msg, *) "margin=", margin, "   nreg=", nreg, "   vland=", vland
     write (msg, *) "nbdy=", nbdy, "   nreg=", nreg, "   vland=", vland
@@ -137,6 +139,15 @@ module hycom_nuopc_glue
       return
     endif
 
+    ! change the domain if HYCOM Arctic patch   
+    if (ltripolar) then
+       jtdma = jtdm-1
+       jja   = min(jj,jtdma-j0)
+    else
+       jtdma = jtdm
+       jja   = jj
+    endif
+   
     ! prepare the deBlockList needed for DistGrid creation
     
     ! first step: set the local piece of information
@@ -144,11 +155,11 @@ module hycom_nuopc_glue
     allocate(deBlockList(2, 2, ijpr)) ! dimCount, 2, deCount
     allocate(deBlockList_buf(2, 2, ijpr)) ! dimCount, 2, deCount
     
-    deBlockList(1, 1, mnproc) = i0+1  ! minIndex 1st dim
-    deBlockList(2, 1, mnproc) = j0+1  ! minIndex 2nd dim
+    deBlockList(1, 1, mnproc) = i0+1   ! minIndex 1st dim
+    deBlockList(2, 1, mnproc) = j0+1   ! minIndex 2nd dim
     
-    deBlockList(1, 2, mnproc) = i0+ii ! maxIndex 1st dim
-    deBlockList(2, 2, mnproc) = j0+jj ! maxIndex 2nd dim
+    deBlockList(1, 2, mnproc) = i0+ii  ! maxIndex 1st dim
+    deBlockList(2, 2, mnproc) = j0+jja ! maxIndex 2nd dim
 
     deBlockList_buf = deBlockList
 
@@ -187,7 +198,7 @@ module hycom_nuopc_glue
       return  ! bail out
     
     ! ready to create the HYCOM DistGrid from deBlockList with periodic connect.
-    dg = ESMF_DistGridCreate(minIndex=(/1,1/), maxIndex=(/itdm,jtdm/), &
+    dg = ESMF_DistGridCreate(minIndex=(/1,1/), maxIndex=(/itdm,jtdma/), &
       deBlockList=deBlockList, connectionList=connectionList, &
       indexflag=ESMF_INDEX_GLOBAL, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -888,6 +899,8 @@ module hycom_nuopc_glue
         cpl_siv = .true.
         impPtr => siv_import
         twoLevel = .false.
+!To Alex, connect the water flux from river here then 
+! convert Kg/m^2/s -> m/s as needed below for these two fields
       elseif (fieldStdName == "water_flux_into_sea_water") then
         cpl_orivers = .true.
         impPtr2 => imp_orivers
@@ -903,7 +916,7 @@ module hycom_nuopc_glue
       if (twoLevel) then
         if (initFlag) then
           ! initial condition set #2 to initial
-          do j=1,jj
+          do j=1,jja
           do i=1,ii
             impPtr2(i,j,2) = farrayPtr(i,j)
           enddo
@@ -917,7 +930,7 @@ module hycom_nuopc_glue
           enddo
         endif
         ! fill #1
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
           impPtr2(i,j,1) = farrayPtr(i,j)
         enddo
@@ -927,7 +940,7 @@ module hycom_nuopc_glue
         if (fieldStdName=="sea_surface_temperature") then
           if (initFlag) then
             ! unit change: K -> C
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) - 273.15
               impPtr2(i,j,2) = impPtr2(i,j,2) - 273.15
@@ -935,7 +948,7 @@ module hycom_nuopc_glue
             enddo
           else
             ! unit change: K -> C
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) - 273.15
             enddo
@@ -944,7 +957,7 @@ module hycom_nuopc_glue
           if (sstflg/=3) then
             ! consider atmos air surface temperature
             cpl_seatmp = .true.
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               imp_seatmp(i,j,1) = max(sstmin, min(imp_surtmp(i,j,1), sstmax))
               imp_seatmp(i,j,2) = max(sstmin, min(imp_surtmp(i,j,2), sstmax))
@@ -956,7 +969,7 @@ module hycom_nuopc_glue
         else if (fieldStdName=="inst_temp_height2m") then
           if (initFlag) then
             ! unit change: K -> C
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) - 273.15
               impPtr2(i,j,2) = impPtr2(i,j,2) - 273.15
@@ -964,7 +977,7 @@ module hycom_nuopc_glue
             enddo
           else
             ! unit change: K -> C
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) - 273.15
             enddo
@@ -975,7 +988,7 @@ module hycom_nuopc_glue
         else if (fieldStdName=="mean_prec_rate") then
           if (initFlag) then
             ! unit change: mm/s (same as kg s-1 m-2) -> m/s
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) * 1.D-3
               impPtr2(i,j,2) = impPtr2(i,j,2) * 1.D-3
@@ -983,7 +996,7 @@ module hycom_nuopc_glue
             enddo
           else
             ! unit change: mm/s (same as kg s-1 m-2) -> m/s
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) * 1.D-3
             enddo
@@ -994,7 +1007,7 @@ module hycom_nuopc_glue
         else if (fieldStdName=="mean_lat_flx") then
           if (initFlag) then
             ! change the sign to comply with HYCOM convention 
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = -impPtr2(i,j,1) 
               impPtr2(i,j,2) = -impPtr2(i,j,2) 
@@ -1002,7 +1015,7 @@ module hycom_nuopc_glue
             enddo
           else
             ! change the sign to comply with HYCOM convention 
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = -impPtr2(i,j,1) 
             enddo
@@ -1013,7 +1026,7 @@ module hycom_nuopc_glue
         else if (fieldStdName=="mean_sens_flx") then
           if (initFlag) then
             ! change the sign to comply with HYCOM convention 
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = -impPtr2(i,j,1) 
               impPtr2(i,j,2) = -impPtr2(i,j,2) 
@@ -1021,7 +1034,7 @@ module hycom_nuopc_glue
             enddo
           else
            ! change the sign to comply with HYCOM convention 
-           do j=1,jj
+           do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = -impPtr2(i,j,1) 
             enddo
@@ -1032,7 +1045,7 @@ module hycom_nuopc_glue
         else if (fieldStdName=="water_flux_into_sea_water") then
           if (initFlag) then
             ! convert (kg m-2 s-1) to (m s-1) 
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) * 1.e-3
               impPtr2(i,j,2) = impPtr2(i,j,2) * 1.e-3
@@ -1040,7 +1053,7 @@ module hycom_nuopc_glue
             enddo
           else
            !  convert (kg m-2 s-1) to (m s-1) 
-           do j=1,jj
+           do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) * 1.e-3
             enddo
@@ -1050,7 +1063,7 @@ module hycom_nuopc_glue
         else if (fieldStdName=="frozen_water_flux_into_sea_water") then
           if (initFlag) then
             ! convert (kg m-2 s-1) to (m s-1)
-            do j=1,jj
+            do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) * 1.e-3
               impPtr2(i,j,2) = impPtr2(i,j,2) * 1.e-3
@@ -1058,7 +1071,7 @@ module hycom_nuopc_glue
             enddo
           else
            !  convert (kg m-2 s-1) to (m s-1) 
-           do j=1,jj
+           do j=1,jja
             do i=1,ii
               impPtr2(i,j,1) = impPtr2(i,j,1) * 1.e-3
             enddo
@@ -1067,7 +1080,7 @@ module hycom_nuopc_glue
        endif
        
       else ! single-level imports
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
           impPtr(i,j) = farrayPtr(i,j)
         enddo
@@ -1078,7 +1091,7 @@ module hycom_nuopc_glue
 
     ! Rotate the wind stress to local grid    
     if (cpl_taux .and. cpl_tauy) then
-       do j=1,jj
+       do j=1,jja
           do i=1,ii
              imp_taux(i,j,1)= imp_taue(i,j,1) * cos(pang(i,j)) + imp_taun(i,j,1) * sin(pang(i,j))
              imp_taux(i,j,2)= imp_taue(i,j,2) * cos(pang(i,j)) + imp_taun(i,j,2) * sin(pang(i,j))
@@ -1092,7 +1105,7 @@ module hycom_nuopc_glue
 
 
     ! transfer SEA-ICE imports into native HYCOM variables
-    do j=1,jj
+    do j=1,jja
     do i=1,ii
       if (iceflg.ge.2 .and. icmflg.ne.3) then
         covice(i,j) = sic_import(i,j) !Sea Ice Concentration
@@ -1263,7 +1276,7 @@ module hycom_nuopc_glue
 
       ! identify the exact export field by standard name and copy the data
       if (fieldStdName == "sea_surface_temperature") then
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
           farrayPtr(i,j) = 0.5*(temp(i,j,1,2)+temp(i,j,1,1))  ! construct SST [C]
           farrayPtr(i,j) = farrayPtr(i,j) + 273.15            ! [C] -> [K]
@@ -1272,7 +1285,7 @@ module hycom_nuopc_glue
       elseif (fieldStdName == "upward_sea_ice_basal_available_heat_flux") then
       ! get coupling frequency in time steps
         cplfrq = nint( ocn_cpl_frq*(86400.0/baclin) )
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
 ! ---     quantities for available freeze/melt heat flux
@@ -1296,7 +1309,7 @@ module hycom_nuopc_glue
         enddo
         enddo        
       elseif (fieldStdName == "sea_lev") then
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
               farrayPtr(i,j) = 1./g * srfhgt(i,j)   ! convert ssh to m
@@ -1306,7 +1319,7 @@ module hycom_nuopc_glue
         enddo
         enddo
       elseif (fieldStdName == "mixed_layer_depth") then
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
               farrayPtr(i,j) = dpbl(i,j) * qonem    ! convert mld to m
@@ -1316,13 +1329,13 @@ module hycom_nuopc_glue
          enddo
         enddo
       elseif (fieldStdName == "s_surf") then
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
           farrayPtr(i,j) = 0.5*(saln(i,j,1,2)+saln(i,j,1,1))
         enddo
         enddo
       elseif (fieldStdName == "ocn_current_zonal") then
-        do j=1,jj
+        do j=1,jja
            do i=1,ii
            if (.not. initFlag) then 
               ! calculate utot(i,j)
@@ -1348,7 +1361,7 @@ module hycom_nuopc_glue
         enddo
         enddo
       elseif (fieldStdName == "ocn_current_merid") then
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
               ! calculate utot(i,j)
@@ -1374,7 +1387,7 @@ module hycom_nuopc_glue
         enddo
         enddo
       elseif (fieldStdName == "eastward_sea_surface_slope") then
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
            if (.not. initFlag) then
               ! calculate the eastward slope
@@ -1394,7 +1407,7 @@ module hycom_nuopc_glue
          enddo
         enddo
       elseif (fieldStdName == "northward_sea_surface_slope") then
-        do j=1,jj
+        do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
               ! calculate the eastward slope

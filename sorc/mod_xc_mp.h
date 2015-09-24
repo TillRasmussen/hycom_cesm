@@ -36,7 +36,7 @@
 # define MTYPED mpi_double_precision
 # define MTYPEI mpi_integer
 #endif
-#else /* most MPI's allow mpi_real[48] */
+#else /* most MPIs allow mpi_real[48] */
 #if defined(REAL4)
 # define MTYPE4 mpi_real4
 # define MTYPER mpi_real4

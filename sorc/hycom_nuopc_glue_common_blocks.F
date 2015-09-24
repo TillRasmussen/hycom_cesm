@@ -86,6 +86,6 @@
         ! scalars and flags
         public g, onem, qonem, thkfrz, baclin, spcifh, pcp_fact
         public tfrz_0, tfrz_s, frzh
-        public iceflg, icmflg, sstflg,itest,jtest
+        public iceflg, icmflg, sstflg,itest,jtest,ltripolar
         
       end module
