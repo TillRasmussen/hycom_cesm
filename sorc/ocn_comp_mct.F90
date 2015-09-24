@@ -1,4 +1,5 @@
 module ocn_comp_mct
+#ifdef HYCOM_IN_CESM
 
 ! !USES:
 
@@ -125,4 +126,5 @@ subroutine ocn_final_mct(EClock, cdata, x2d, d2x)
  end subroutine ocn_final_mct
 !===============================================================================
 
+#endif
 end module ocn_comp_mct
