@@ -28,21 +28,66 @@ if (-e ovrtn_out) then
   rm ovrtn_out
 endif
 
-## get the input file depending on the grid 
-if ($OCN_GRID == "gh72") then
-    if (-e ${RUNDIR}/../../INPUT_glbt072/) then
-      cp -p -f ${RUNDIR}/../../INPUT_glbt072/* .
-    else
-      echo "error copying hycom input data file, abort"
-      exit 2
-    endif
-else
-    if (-e ${RUNDIR}/../../INPUT_h98/) then
-      cp -p -f ${RUNDIR}/../../INPUT_h98/* .
-    else
-      echo "error copying hycom input data file, abort"
-      exit 2
-    endif
+## Get input files
+## NCAR Machine
+if ($MACH == "yellowstone") then
+  echo "We are on" ${MACH}
+  echo "Getting ocean input files"
+## get the input file depending on the grid
+  if ($OCN_GRID == "gh72") then
+      if (-e /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_glbt072/) then
+        cp -p -f /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_glbt072/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
+  else if ($OCN_GRID == "g16") then
+      if (-e /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_h98/) then
+        cp -p -f /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_h98/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
+  endif
+## NAVY Machines
+else  if ($MACH == "shepard") then
+  echo "We are on" ${MACH}
+  echo "Getting ocean input files"
+## get the input file depending on the grid
+  if ($OCN_GRID == "gh72") then
+      if (-e /p/work1/abozec/hycom/HYCOM_CESM/INPUT_glbt072/) then
+        cp -p -f /p/work1/abozec/hycom/HYCOM_CESM/INPUT_glbt072/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
+  else if ($OCN_GRID == "g16") then
+      if (-e /p/work1/abozec/hycom/HYCOM_CESM/INPUT_h98/) then
+        cp -p -f /p/work1/abozec/hycom/HYCOM_CESM/INPUT_h98/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
+  endif
+else  if ($MACH == "kilrain") then
+  echo "We are on" ${MACH}
+  echo "Getting ocean input files"
+## get the input file depending on the grid
+  if ($OCN_GRID == "gh72") then
+      if (-e /scr/abozec/HYCOM_CESM/INPUT_glbt072/) then
+        cp -p -f /scr/abozec/HYCOM_CESM/INPUT_glbt072/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
+  else if ($OCN_GRID == "g16") then
+      if (-e /scr/abozec/HYCOM_CESM/INPUT_h98/) then
+        cp -p -f /scr/abozec/HYCOM_CESM/INPUT_h98/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
+  endif
 endif
 
 ## determine if we need precip_fact
