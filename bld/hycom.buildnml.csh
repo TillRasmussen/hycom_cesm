@@ -41,7 +41,7 @@ if ($MACH == "yellowstone") then
         echo "error copying hycom input data file, abort"
         exit 2
       endif
-  else if ($OCN_GRID == "g16") then
+  else if ($OCN_GRID == "gx1v6") then
       if (-e /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_h98/) then
         cp -p -f /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_h98/* .
       else
@@ -61,7 +61,7 @@ else  if ($MACH == "shepard") then
         echo "error copying hycom input data file, abort"
         exit 2
       endif
-  else if ($OCN_GRID == "g16") then
+  else if ($OCN_GRID == "gx1v6") then
       if (-e /p/work1/abozec/hycom/HYCOM_CESM/INPUT_h98/) then
         cp -p -f /p/work1/abozec/hycom/HYCOM_CESM/INPUT_h98/* .
       else
@@ -80,7 +80,7 @@ else  if ($MACH == "kilrain") then
         echo "error copying hycom input data file, abort"
         exit 2
       endif
-  else if ($OCN_GRID == "g16") then
+  else if ($OCN_GRID == "gx1v6") then
       if (-e /scr/abozec/HYCOM_CESM/INPUT_h98/) then
         cp -p -f /scr/abozec/HYCOM_CESM/INPUT_h98/* .
       else
