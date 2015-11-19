@@ -6,7 +6,7 @@ module hycom_nuopc_glue
 
   use ESMF
   use NUOPC
-  
+
   use mod_xc
   use hycom_nuopc_glue_common_blocks
 
@@ -516,13 +516,8 @@ module hycom_nuopc_glue
     if (present(rc)) rc = ESMF_SUCCESS
     
     ! determine shortName from field dictionary, to be used as fieldName
-    call NUOPC_FieldDictionaryGetEntry(standardName, &
-      defaultShortName=fieldName, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    
+    fieldName=standardName
+
     call ESMF_StateGet(state, stateintent=stateIntent, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &

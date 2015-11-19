@@ -11,7 +11,7 @@ module hycom
   use ESMF
   use NUOPC
   use NUOPC_Model, only: &
-    model_routine_SS      => routine_SetServices, &
+    model_routine_SS      => SetServices, &
     model_label_Advance   => label_Advance
   
   use MOD_HYCOM, only : HYCOM_Init, HYCOM_Run, HYCOM_Final, &
@@ -90,27 +90,35 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
     
+    ! Provide InitializeP0 to switch from default IPDv00 to IPDv02
+    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
+      InitializeP0, phase=0, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
     ! set entry point for methods that require specific implementation
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-      phaseLabelList=(/"IPDv00p1"/), userRoutine=InitializeAdvertise, rc=rc)
+      phaseLabelList=(/"IPDv01p1"/), userRoutine=InitializeAdvertise, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
     call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_INITIALIZE, &
-      phaseLabelList=(/"IPDv00p2"/), userRoutine=InitializeRealize, rc=rc)
+      phaseLabelList=(/"IPDv01p3"/), userRoutine=InitializeRealize, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
     
-    ! overwrite Finalize
-    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
-      userRoutine=Finalize, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+!    ! overwrite Finalize
+!    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_FINALIZE, &
+!      userRoutine=Finalize, rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
 
     ! attach specializing method(s)
     call NUOPC_CompSpecialize(gcomp, specLabel=model_label_Advance, &
@@ -121,16 +129,16 @@ module hycom
       return  ! bail out
 #ifdef HYCOM_IN_CESM
     ! Run routine to execute run functionality for tight coupling
-    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
-      userRoutine=routine_Run2, phase=2, rc=rc)
+    call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
+      userRoutine=routine_Run2, phaseLabelList=(/"OCN_TIGHT_RUN_PHASE"/), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
     ! Run routine to execute run functionality for loose coupling
-    call ESMF_GridCompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
-      userRoutine=routine_Run3, phase=3, rc=rc)
+    call NUOPC_CompSetEntryPoint(gcomp, ESMF_METHOD_RUN, &
+      userRoutine=routine_Run3, phaseLabelList=(/"OCN_LOOSE_RUN_PHASE"/), rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -140,6 +148,24 @@ module hycom
   end subroutine
   
   !-----------------------------------------------------------------------------
+
+  subroutine InitializeP0(gcomp, importState, exportState, clock, rc)
+    type(ESMF_GridComp)   :: gcomp
+    type(ESMF_State)      :: importState, exportState
+    type(ESMF_Clock)      :: clock
+    integer, intent(out)  :: rc
+
+    rc = ESMF_SUCCESS
+
+    ! Switch to IPDv01 by filtering all other phaseMap entries
+    call NUOPC_CompFilterPhaseMap(gcomp, ESMF_METHOD_INITIALIZE, &
+      acceptStringList=(/"IPDv01p"/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+  end subroutine
 
   subroutine InitializeAdvertise(gcomp, importState, exportState, clock, rc)
     type(ESMF_GridComp)  :: gcomp
@@ -834,13 +860,13 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
-    call NUOPC_TimePrint(currTime, &
+    call ESMF_TimePrint(currTime, &
       "--------------> HYCOM_Run() advancing from: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    call NUOPC_TimePrint(currTime + timeStep_O, &
+    call ESMF_TimePrint(currTime + timeStep_O, &
       "--------------> HYCOM_Run() advancing to: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1587,6 +1613,7 @@ module hycom
     type(ESMF_Field)                                       :: hycom_field ! hycom field
     character(len=256)                                     :: cesm_field_shortname
     character(len=256)                                     :: l_hycom_field_shortname
+
     logical                                                :: l_connectOnly, l_zeroDst
     real(ESMF_KIND_R8), pointer                            :: fptr1D(:)
 
@@ -1600,20 +1627,14 @@ module hycom
     !return ! bail out
 
     ! retrieve 1D field from cesm export State
-    call NUOPC_FieldDictionaryGetEntry(standardName=trim(cesm_field_stdname), &
-      defaultShortName=cesm_field_shortname, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-    call ESMF_StateGet(exportState, itemName=cesm_field_shortname, field =cesm_field, rc=rc)
+    call ESMF_StateGet(exportState, itemName=cesm_field_stdname, field =cesm_field, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
 
     if(.not. present(hycom_field_shortname)) then
-      call NUOPC_FieldDictionaryGetEntry(standardName=trim(hycom_field_stdname), &
+      call esmfshr_FieldDictionaryGetEntry(standardName=trim(hycom_field_stdname), &
         defaultShortName=l_hycom_field_shortname, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -1702,20 +1723,14 @@ module hycom
     !return ! bail out
 
     ! retrieve 1D field from cesm import State
-    call NUOPC_FieldDictionaryGetEntry(standardName=trim(cesm_field_stdname), &
-      defaultShortName=cesm_field_shortname, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-    return ! bail out
-    call ESMF_StateGet(importState, itemName=cesm_field_shortname, field =cesm_field, rc=rc)
+    call ESMF_StateGet(importState, itemName=cesm_field_stdname, field =cesm_field, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
 
     if(.not. present(hycom_field_shortname)) then
-      call NUOPC_FieldDictionaryGetEntry(standardName=trim(hycom_field_stdname), &
+      call esmfshr_FieldDictionaryGetEntry(standardName=trim(hycom_field_stdname), &
         defaultShortName=l_hycom_field_shortname, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -2243,20 +2258,20 @@ module hycom
     enddo
 
     cesm2hycom_table(1)%hycom_stdname  = "surface_downward_eastward_stress"
-    cesm2hycom_table(1)%cesm_stdname   = "Foxx_surface_downward_eastward_stress"
+    cesm2hycom_table(1)%cesm_stdname   = "Foxx_taux"
     cesm2hycom_table(1)%unit           = "Pa"
 
     cesm2hycom_table(2)%hycom_stdname  = "surface_downward_northward_stress"
-    cesm2hycom_table(2)%cesm_stdname   = "Foxx_surface_downward_northward_stress"
+    cesm2hycom_table(2)%cesm_stdname   = "Foxx_tauy"
     cesm2hycom_table(2)%unit           = "Pa"
 
     cesm2hycom_table(3)%hycom_stdname  = "wind_speed_height10m"
-    cesm2hycom_table(3)%cesm_stdname   = "Sx_10m_wind"
+    cesm2hycom_table(3)%cesm_stdname   = "Sx_u10"
     cesm2hycom_table(3)%unit           = "m/s"
     cesm2hycom_table(3)%connected      = .false.
 
     cesm2hycom_table(4)%hycom_stdname  = "friction_speed"
-    cesm2hycom_table(4)%cesm_stdname   = "fraction_velocity"
+    cesm2hycom_table(4)%cesm_stdname   = "So_ustar"
     cesm2hycom_table(4)%unit           = "m/s"
     cesm2hycom_table(4)%connected      = .false.
 
@@ -2266,7 +2281,7 @@ module hycom
     cesm2hycom_table(5)%connected      = .false.
 
     cesm2hycom_table(6)%hycom_stdname  = "mean_net_sw_flx"
-    cesm2hycom_table(6)%cesm_stdname   = "Foxx_surface_net_shortwave_flux"
+    cesm2hycom_table(6)%cesm_stdname   = "Foxx_swnet"
     cesm2hycom_table(6)%unit           = "W/m^2"
 
     cesm2hycom_table(7)%hycom_stdname  = "mean_net_lw_flx"
@@ -2275,43 +2290,43 @@ module hycom
     cesm2hycom_table(7)%connected      = .false.
 
     cesm2hycom_table(8)%hycom_stdname  = "mean_down_lw_flx"
-    cesm2hycom_table(8)%cesm_stdname   = "downwelling_longwave_flux"
+    cesm2hycom_table(8)%cesm_stdname   = "Faxa_lwdn"
     cesm2hycom_table(8)%unit           = "W/m^2"
 
     cesm2hycom_table(9)%hycom_stdname  = "mean_up_lw_flx"
-    cesm2hycom_table(9)%cesm_stdname   = "Foxx_surface_net_upward_longwave_flux"
+    cesm2hycom_table(9)%cesm_stdname   = "Foxx_lwup"
     cesm2hycom_table(9)%unit           = "W/m^2"
 
     cesm2hycom_table(10)%hycom_stdname  = "inst_temp_height2m"
-    cesm2hycom_table(10)%cesm_stdname   = "air_temperature"
+    cesm2hycom_table(10)%cesm_stdname   = "Sa_tbot"
     cesm2hycom_table(10)%unit           = "K"
     cesm2hycom_table(10)%connected      = .false.
 
     cesm2hycom_table(11)%hycom_stdname = "mean_prec_rate"
-    cesm2hycom_table(11)%cesm_stdname  = "precipitation_flux"
+    cesm2hycom_table(11)%cesm_stdname  = "Faxa_prec"
     cesm2hycom_table(11)%unit          = "Kg/m^2/s"
 
     cesm2hycom_table(12)%hycom_stdname = "inst_spec_humid_height2m"
-    cesm2hycom_table(12)%cesm_stdname  = "specific_humidity"
+    cesm2hycom_table(12)%cesm_stdname  = "Sa_shum"
     cesm2hycom_table(12)%unit          = "Kg/Kg"
     cesm2hycom_table(12)%connected     = .false.
 
     cesm2hycom_table(13)%hycom_stdname = "sea_surface_temperature"
-    cesm2hycom_table(13)%cesm_stdname  = "air_potential_temperature"
+    cesm2hycom_table(13)%cesm_stdname  = "Sa_ptem"
     cesm2hycom_table(13)%unit          = "K"
     cesm2hycom_table(13)%connected     = .false.
 
     cesm2hycom_table(14)%hycom_stdname = "sea_ice_area_fraction"
-    cesm2hycom_table(14)%cesm_stdname  = "Si_sea_ice_area_fraction"
+    cesm2hycom_table(14)%cesm_stdname  = "Si_ifrac"
     cesm2hycom_table(14)%unit          = "1"
 
     cesm2hycom_table(15)%hycom_stdname = "downward_x_stress_at_sea_ice_base"
-    cesm2hycom_table(15)%cesm_stdname  = "Fioi_surface_downward_eastward_stress_ioi"
+    cesm2hycom_table(15)%cesm_stdname  = "Fioi_taux"
     cesm2hycom_table(15)%unit          = "Pa"
     cesm2hycom_table(15)%connected     = .false.
 
     cesm2hycom_table(16)%hycom_stdname = "downward_y_stress_at_sea_ice_base"
-    cesm2hycom_table(16)%cesm_stdname  = "Fioi_surface_downward_northward_stress_ioi"
+    cesm2hycom_table(16)%cesm_stdname  = "Fioi_tauy"
     cesm2hycom_table(16)%unit          = "Pa"
     cesm2hycom_table(16)%connected     = .false.
 
@@ -2321,15 +2336,15 @@ module hycom
     cesm2hycom_table(17)%connected     = .false.
 
     cesm2hycom_table(18)%hycom_stdname = "upward_sea_ice_basal_heat_flux"
-    cesm2hycom_table(18)%cesm_stdname  = "surface_snow_melt_heat_flux"
+    cesm2hycom_table(18)%cesm_stdname  = "Fioi_melth"
     cesm2hycom_table(18)%unit          = "W/^2"
 
     cesm2hycom_table(19)%hycom_stdname = "downward_sea_ice_basal_salt_flux"
-    cesm2hycom_table(19)%cesm_stdname  = "virtual_salt_flux_into_sea_water"
+    cesm2hycom_table(19)%cesm_stdname  = "Fioi_salt"
     cesm2hycom_table(19)%unit          = "Kg/m^2/s"
 
     cesm2hycom_table(20)%hycom_stdname = "downward_sea_ice_basal_water_flux"
-    cesm2hycom_table(20)%cesm_stdname  = "surface_melt_flux"
+    cesm2hycom_table(20)%cesm_stdname  = "Fioi_meltw"
     cesm2hycom_table(20)%unit          = "Kg/m^2/s"
 
     cesm2hycom_table(21)%hycom_stdname = "sea_ice_temperature"
@@ -2353,62 +2368,62 @@ module hycom
     cesm2hycom_table(24)%connected     = .false.
 
     cesm2hycom_table(25)%hycom_stdname = "downward_x_stress_ocean"
-    cesm2hycom_table(25)%cesm_stdname  = "Faox_surface_downward_eastward_stress"
+    cesm2hycom_table(25)%cesm_stdname  = "Faox_taux"
     cesm2hycom_table(25)%unit          = "Pa"
     cesm2hycom_table(25)%connected     = .false.
 
     cesm2hycom_table(26)%hycom_stdname = "downward_y_stress_ocean"
-    cesm2hycom_table(26)%cesm_stdname  = "Faox_surface_downward_northward_stress"
+    cesm2hycom_table(26)%cesm_stdname  = "Faox_tauy"
     cesm2hycom_table(26)%unit          = "Pa"
     cesm2hycom_table(26)%connected     = .false.
 
     cesm2hycom_table(27)%hycom_stdname = "mean_lat_flx"
-    cesm2hycom_table(27)%cesm_stdname  = "Foxx_surface_upward_latent_heat_flux"
+    cesm2hycom_table(27)%cesm_stdname  = "Foxx_lat"
     cesm2hycom_table(27)%unit          = "W/m^2"
 
     cesm2hycom_table(28)%hycom_stdname = "mean_sens_flx"
-    cesm2hycom_table(28)%cesm_stdname  = "Foxx_surface_upward_sensible_heat_flux"
+    cesm2hycom_table(28)%cesm_stdname  = "Foxx_sen"
     cesm2hycom_table(28)%unit          = "W/m^2"
 
     cesm2hycom_table(29)%hycom_stdname = "water_flux_into_sea_water"
-    cesm2hycom_table(29)%cesm_stdname  = "Foxx_water_flux_into_sea_water"
+    cesm2hycom_table(29)%cesm_stdname  = "Foxx_rofl"
     cesm2hycom_table(29)%unit          = "Kg/m^2/s"
 
     cesm2hycom_table(30)%hycom_stdname = "frozen_water_flux_into_sea_water"
-    cesm2hycom_table(30)%cesm_stdname  = "Foxx_frozen_water_flux_into_sea_water"
+    cesm2hycom_table(30)%cesm_stdname  = "Foxx_rofi"
     cesm2hycom_table(30)%unit          = "Kg/m^2/s"
 
     ! --------------------------------------------------------------------------
     hycom2cesm_table(1)%hycom_stdname = "sea_surface_temperature"
-    hycom2cesm_table(1)%cesm_stdname  = "surface_temperature_o"
+    hycom2cesm_table(1)%cesm_stdname  = "So_t"
     hycom2cesm_table(1)%unit          = "K"
 
     hycom2cesm_table(2)%hycom_stdname = "s_surf"
-    hycom2cesm_table(2)%cesm_stdname  = "sea_surface_salinity"
+    hycom2cesm_table(2)%cesm_stdname  = "So_s"
     hycom2cesm_table(2)%unit          = "g/Kg"
 
     hycom2cesm_table(3)%hycom_stdname = "ocn_current_zonal"
-    hycom2cesm_table(3)%cesm_stdname  = "eastward_sea_water_velocity"
+    hycom2cesm_table(3)%cesm_stdname  = "So_u"
     hycom2cesm_table(3)%unit          = "m/s"
 
     hycom2cesm_table(4)%hycom_stdname = "ocn_current_merid"
-    hycom2cesm_table(4)%cesm_stdname  = "northward_sea_water_velocity"
+    hycom2cesm_table(4)%cesm_stdname  = "So_v"
     hycom2cesm_table(4)%unit          = "m/s"
 
     hycom2cesm_table(5)%hycom_stdname = "eastward_sea_surface_slope"
-    hycom2cesm_table(5)%cesm_stdname  = "sea_surface_eastward_slope"
+    hycom2cesm_table(5)%cesm_stdname  = "So_dhdx"
     hycom2cesm_table(5)%unit          = ""
 
     hycom2cesm_table(6)%hycom_stdname = "northward_sea_surface_slope"
-    hycom2cesm_table(6)%cesm_stdname  = "sea_surface_northward_slope"
+    hycom2cesm_table(6)%cesm_stdname  = "So_dhdy"
     hycom2cesm_table(6)%unit          = ""
 
     hycom2cesm_table(7)%hycom_stdname = "upward_sea_ice_basal_available_heat_flux"
-    hycom2cesm_table(7)%cesm_stdname  = "surface_snow_and_ice_melt_heat_flux"
+    hycom2cesm_table(7)%cesm_stdname  = "Fioo_q"
     hycom2cesm_table(7)%unit          = "W/m^2"
 
     hycom2cesm_table(8)%hycom_stdname = "mixed_layer_depth"
-    hycom2cesm_table(8)%cesm_stdname  = "ocean_boundary_layer_depth"
+    hycom2cesm_table(8)%cesm_stdname  = "So_bldepth"
     hycom2cesm_table(8)%unit          = "m"
 
   end subroutine
@@ -2627,7 +2642,7 @@ module hycom
 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "surface_downward_eastward_stress")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="surface_downward_eastward_stress", &
         canonicalUnits="Pa", &
         defaultLongName="Surface Downward Eastward Stress", &
@@ -2640,7 +2655,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "surface_downward_northward_stress")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="surface_downward_northward_stress", &
         canonicalUnits="Pa", &
         defaultLongName="Surface Downward Northward Stress", &
@@ -2653,7 +2668,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "wind_speed_height10m")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="wind_speed_height10m", &
         canonicalUnits="m s-1", &
         defaultLongName="Wind Speed at 10m", &
@@ -2666,7 +2681,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "friction_speed")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="friction_speed", &
         canonicalUnits="m s-1", &
         defaultLongName="Friction Speed", &
@@ -2679,7 +2694,7 @@ module hycom
     endif
     if (.not.NUOPC_FieldDictionaryHasEntry( &
       "mean_down_sw_flx")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="mean_down_sw_flx", &
         canonicalUnits="W m-2", &
         defaultLongName="Mean Downward Short Wave Radiation Flux", &
@@ -2691,7 +2706,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "mean_net_sw_flx")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="mean_net_sw_flx", &
         canonicalUnits="W m-2", &
         defaultLongName="Mean Net Short Wave Radiation Flux", &
@@ -2704,7 +2719,7 @@ module hycom
     endif 
     if (.not.NUOPC_FieldDictionaryHasEntry( &
       "mean_down_lw_flx")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="mean_down_lw_flx", &
         canonicalUnits="W m-2", &
         defaultLongName="Mean Downward Long Wave Radiation Flux", &
@@ -2716,7 +2731,7 @@ module hycom
     endif
     if (.not.NUOPC_FieldDictionaryHasEntry( &
       "mean_up_lw_flx")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="mean_up_lw_flx", &
         canonicalUnits="W m-2", &
         defaultLongName="Mean Upward Long Wave Radiation Flux", &
@@ -2728,7 +2743,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "mean_net_lw_flx")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="mean_net_lw_flx", &
         canonicalUnits="W m-2", &
         defaultLongName="Mean Net Long Wave Radiation Flux", &
@@ -2741,7 +2756,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "mean_lat_flx")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="mean_lat_flx", &
         canonicalUnits="W m-2", &
         defaultLongName="Mean Latent Heat Flux", &
@@ -2754,7 +2769,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "mean_sens_flx")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="mean_sens_flx", &
         canonicalUnits="W m-2", &
         defaultLongName="Mean Sensible Heat Flux", &
@@ -2767,7 +2782,7 @@ module hycom
     endif 
     if (.not.NUOPC_FieldDictionaryHasEntry( &
       "inst_temp_height2m")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="inst_temp_height2m", &
         canonicalUnits="K", &
         defaultLongName="Instantaneous Temperature 2m Above Ground", &
@@ -2779,7 +2794,7 @@ module hycom
     endif
     if (.not.NUOPC_FieldDictionaryHasEntry( &
       "inst_spec_humid_height2m")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="inst_spec_humid_height2m", &
         canonicalUnits="kg kg-1", &
         defaultLongName="Instantaneous Specific Humidity 2m Above Ground", &
@@ -2791,7 +2806,7 @@ module hycom
     endif
     if (.not.NUOPC_FieldDictionaryHasEntry( &
       "mean_prec_rate")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="mean_prec_rate", &
         canonicalUnits="kg s m-2", &
         defaultLongName="Mean Liquid Precipitation Rate", &
@@ -2803,7 +2818,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "air_surface_temperature")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="air_surface_temperature", &
         canonicalUnits="K", &
         defaultLongName="Air surface temerature", &
@@ -2816,7 +2831,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "upward_sea_ice_basal_available_heat_flux")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="upward_sea_ice_basal_available_heat_flux", &
         canonicalUnits="W m-2", &
         defaultLongName="Oceanic Heat Flux Available to Sea Ice", &
@@ -2829,7 +2844,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "sea_lev")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="sea_lev", &
         canonicalUnits="m", &
         defaultLongName="sea level", &
@@ -2842,7 +2857,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "mixed_layer_depth")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="mixed_layer_depth", &
         canonicalUnits="m", &
         defaultLongName="Mixed Layer Depth in Ocean", &
@@ -2855,7 +2870,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "s_surf")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="s_surf", &
         canonicalUnits="psu", &
         defaultLongName="sea surface salinity on t-cell", &
@@ -2868,7 +2883,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "sea_ice_area_fraction")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="sea_ice_area_fraction", &
         canonicalUnits="1", &
         defaultLongName="Sea Ice Concentration", &
@@ -2881,7 +2896,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "downward_x_stress_at_sea_ice_base")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="downward_x_stress_at_sea_ice_base", &
         canonicalUnits="Pa", &
         defaultLongName="Sea Ice X-Stress", &
@@ -2894,7 +2909,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "downward_y_stress_at_sea_ice_base")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="downward_y_stress_at_sea_ice_base", &
         canonicalUnits="Pa", &
         defaultLongName="Sea Ice Y-Stress", &
@@ -2907,7 +2922,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "downward_sea_ice_basal_solar_heat_flux")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="downward_sea_ice_basal_solar_heat_flux", &
         canonicalUnits="W m-2", &
         defaultLongName="Solar Heat Flux thru Ice to Ocean", &
@@ -2920,7 +2935,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "upward_sea_ice_basal_heat_flux")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="upward_sea_ice_basal_heat_flux", &
         canonicalUnits="W m-2", &
         defaultLongName="Ice Freezing/Melting Heat Flux", &
@@ -2933,7 +2948,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "downward_sea_ice_basal_salt_flux")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="downward_sea_ice_basal_salt_flux", &
         canonicalUnits="kg m-2 s-1", &
         defaultLongName="Ice Freezing/Melting Salt Flux", &
@@ -2946,7 +2961,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "downward_sea_ice_basal_water_flux")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="downward_sea_ice_basal_water_flux", &
         canonicalUnits="kg m-2 s-1", &
         defaultLongName="Ice Net Water Flux", &
@@ -2959,7 +2974,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "sea_ice_temperature")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="sea_ice_temperature", &
         canonicalUnits="K", &
         defaultLongName="Sea Ice Temperature", &
@@ -2972,7 +2987,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "sea_ice_thickness")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="sea_ice_thickness", &
         canonicalUnits="m", &
         defaultLongName="Sea Ice Thickness", &
@@ -2985,7 +3000,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "sea_ice_x_velocity")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="sea_ice_x_velocity", &
         canonicalUnits="m s-1", &
         defaultLongName="Sea Ice X-Velocity", &
@@ -2998,7 +3013,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "sea_ice_y_velocity")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="sea_ice_y_velocity", &
         canonicalUnits="m s-1", &
         defaultLongName="Sea Ice Y-Velocity", &
@@ -3011,7 +3026,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "dummyfield")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="dummyfield", &
         canonicalUnits="1", &
         defaultLongName="Dummy Test Field", &
@@ -3024,7 +3039,7 @@ module hycom
     endif
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "ocn_current_zonal")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="ocn_current_zonal", &
         canonicalUnits="m s-1", &
         defaultLongName="ocean current zonal component", &
@@ -3037,7 +3052,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "ocn_current_merid")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="ocn_current_merid", &
         canonicalUnits="m s-1", &
         defaultLongName="ocean current meridional component", &
@@ -3050,7 +3065,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "downward_x_stress_ocean")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="downward_x_stress_ocean", &
         canonicalUnits="Pa", &
         defaultLongName="ocean downward eastward stress", &
@@ -3063,7 +3078,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "downward_y_stress_ocean")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="downward_y_stress_ocean", &
         canonicalUnits="Pa", &
         defaultLongName="ocean downward northward stress", &
@@ -3076,7 +3091,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "eastward_sea_surface_slope")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="eastward_sea_surface_slope", &
         canonicalUnits="", &
         defaultLongName="eastward sea surface slope", &
@@ -3089,7 +3104,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "northward_sea_surface_slope")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="northward_sea_surface_slope", &
         canonicalUnits="", &
         defaultLongName="northward sea surface slope", &
@@ -3103,7 +3118,7 @@ module hycom
 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "water_flux_into_sea_water")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="water_flux_into_sea_water", &
         canonicalUnits="kg m-2 s-1", &
         defaultLongName="Water flux due to runoff (liquid)", &
@@ -3116,7 +3131,7 @@ module hycom
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
       "frozen_water_flux_into_sea_water")) then
-      call NUOPC_FieldDictionaryAddEntry( &
+      call esmfshr_FieldDictionaryAddEntry( &
         standardName="frozen_water_flux_into_sea_water", &
         canonicalUnits="kg m-2 s-1", &
         defaultLongName="Water flux due to runoff (frozen)", &
