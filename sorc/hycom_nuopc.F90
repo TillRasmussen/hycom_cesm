@@ -177,7 +177,7 @@ module hycom
 
 #ifndef HYCOM_IN_CESM
     ! importable fields:
-    call NUOPC_StateAdvertiseFields(importState, &
+    call NUOPC_Advertise(importState, &
       StandardNames=(/ &
       "surface_downward_eastward_stress       ",    & ! from ATM
       "surface_downward_northward_stress      ",    & ! from ATM
@@ -212,7 +212,7 @@ module hycom
       return  ! bail out
     
     ! exportable fields:
-    call NUOPC_StateAdvertiseFields(exportState, &
+    call NUOPC_Advertise(exportState, &
       StandardNames=(/ &
       "sea_surface_temperature                  ",    &
       "upward_sea_ice_basal_available_heat_flux ",    &
@@ -932,7 +932,7 @@ module hycom
     !  return  ! bail out
 #else
     ! write out the Fields in the importState
-    call NUOPC_StateWrite(importState, filePrefix="field_ocn_import_", &
+    call NUOPC_Write(importState, filePrefix="field_ocn_import_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1061,7 +1061,7 @@ module hycom
     !  return  ! bail out
 #else
     ! write out the Fields in the exportState
-    call NUOPC_StateWrite(exportState, filePrefix="field_ocn_export_", &
+    call NUOPC_Write(exportState, filePrefix="field_ocn_export_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &

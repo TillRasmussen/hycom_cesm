@@ -536,7 +536,7 @@ module hycom_nuopc_glue
 #ifdef HYCOM_IN_CESM
     connected = .true.
 #else
-    connected = NUOPC_StateIsFieldConnected(state, fieldName=fieldName, rc=rc)
+    connected = NUOPC_IsConnected(state, fieldName=fieldName, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -567,7 +567,7 @@ module hycom_nuopc_glue
       return ! bail out
 #else
       ! realize the Field in the State
-      call NUOPC_StateRealizeField(state, field=field, rc=rc)
+      call NUOPC_Realize(state, field=field, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
         file=__FILE__)) &
@@ -756,7 +756,7 @@ module hycom_nuopc_glue
       return ! bail out
       if(.not. isConnected) cycle
 #else
-      call NUOPC_FieldAttributeGet(field, name="StandardName", &
+      call NUOPC_GetAttribute(field, name="StandardName", &
         value=fieldStdName, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -1235,7 +1235,7 @@ module hycom_nuopc_glue
       !  trim(msg), ESMF_LOGMSG_INFO)
       if(.not. isConnected) cycle
 #else
-      call NUOPC_FieldAttributeGet(field, name="StandardName", &
+      call NUOPC_GetAttribute(field, name="StandardName", &
         value=fieldStdName, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
