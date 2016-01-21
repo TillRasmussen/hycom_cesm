@@ -793,6 +793,14 @@ c
      & pcp_facth,              ! precipitation factor for stand-alone simulation
      & sum_precip              ! annual sum of precipitation
 
+
+#if defined(RELO)
+      real, save, allocatable, dimension(:,:) ::
+#else
+      real, save, dimension(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
+#endif 
+     & dhde,dhdn               ! sea-surface height slope for CICE
+
 #if defined(NUOPC)
 c
 c --- NUOPC glue code structures
@@ -1527,6 +1535,15 @@ c
       sal_initial = r_init
       endif
 
+#if defined(RELO)
+      allocate(
+     &             dhde(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &             dhdn(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy))
+      call mem_stat_add( 2*(idm+2*nbdy)*(jdm+2*nbdy) )
+#endif
+
+                dhde = 0.d0
+                dhdn = 0.d0
 c
 #if defined(NUOPC)
 

@@ -64,6 +64,8 @@
         public dpbl           ! turbulent boundary layer depth
         public saln           ! salinity
         public pang           ! ANGLET
+        public dhde           ! eastward ssh slope
+        public dhdn           ! northward ssh slope
         
         ! native imports
         public covice         ! ice coverage (rel.units)

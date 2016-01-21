@@ -1385,17 +1385,7 @@ module hycom_nuopc_glue
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then
-              ! calculate the eastward slope
-                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j)) 
-                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j)) 
-                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
-                  
-                ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  )) 
-                ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1)) 
-                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
-
-              ! convert to eastward/northward grid
-                farrayPtr(i,j) = dhdx*cos(pang(i,j)) + dhdy*sin(-pang(i,j))
+              farrayPtr(i,j) = dhde(i,j)
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1405,16 +1395,7 @@ module hycom_nuopc_glue
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
-              ! calculate the eastward slope
-                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j)) 
-                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j)) 
-                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
-                  
-                ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  )) 
-                ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1)) 
-                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
-              ! convert to eastward/northward grid
-              farrayPtr(i,j) = dhdy*cos(pang(i,j)) - dhdx*sin(-pang(i,j))
+              farrayPtr(i,j) = dhdn(i,j)
            else
               farrayPtr(i,j) = 0.
            endif

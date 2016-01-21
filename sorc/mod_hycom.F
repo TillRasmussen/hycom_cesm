@@ -107,6 +107,7 @@ c
       real,         intent(in), optional :: hycom_end_dtg
       character*80, intent(in), optional :: pointer_filename
       logical,      intent(in), optional :: restart_write
+      real :: ssh_n,ssh_s,ssh_e,ssh_w,dhdx,dhdy
 
       include 'stmt_fns.h'
 c
@@ -956,6 +957,7 @@ c ---         map shallow depths to high jerlov numbers
               jerlov(i,j)=max(jerlv0,jerlov(i,j))
             enddo
           enddo
+!$OMP END PARALLEL DO
         else
 c ---     jerlv0= 0 uses an input annual/monthly kpar field
 c ---     jerlv0=-1 uses an input annual/monthly chl  field
@@ -966,6 +968,7 @@ c ---     jerlv0=-1 uses an input annual/monthly chl  field
               jerlov(i,j)=jerlv0
             enddo
           enddo
+!$OMP END PARALLEL DO
         endif
 
 #endif
@@ -1083,11 +1086,35 @@ c
 
       if (present(hycom_start_dtg)) then
 !!Alex update halo for calculation of  of seas surface slope for CICE (NUOPC)
-          call xctilr(srfhgt( 1-nbdy,1-nbdy), 1, 1, 6, 6, halo_ps)
-          call xctilr(u(    1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_uv) !! for export
-          call xctilr(v(    1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_vv) !! for export
-          call xctilr(ubavg(1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_uv) !! for export
-          call xctilr(vbavg(1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_vv) !! for export
+          call xctilr(srfhgt(1-nbdy,1-nbdy    ),1,  1,  6,6, halo_ps)
+          call xctilr(u(     1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_uv) !! for export
+          call xctilr(v(     1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_vv) !! for export
+          call xctilr(ubavg (1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_uv) !! for export
+          call xctilr(vbavg (1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_vv) !! for export
+
+!Alex  calculation of seas surface slope for CICE (NUOPC)
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+            if (SEA_P) then
+              ! calculate the eastward slope
+                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j)) 
+                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j)) 
+                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
+                  
+                ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  )) 
+                ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1)) 
+                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
+
+              ! convert to eastward/northward grid
+                dhde(i,j) = dhdx*cos(pang(i,j)) + dhdy*sin(-pang(i,j))
+                dhdn(i,j) = dhdy*cos(pang(i,j)) - dhdx*sin(-pang(i,j))
+           endif
+         enddo
+        enddo
+!$OMP END PARALLEL DO
+
       endif 
       
 c
@@ -1108,6 +1135,8 @@ c
       real,         intent(in), optional :: endtime
       character*80, intent(in), optional :: pointer_filename
       logical,      intent(in), optional :: restart_write
+      real :: ssh_n,ssh_s,ssh_e,ssh_w,dhdx,dhdy
+
       real          utot,vtot,usur1,usur2,vsur1,vsur2,uu,vv
       real          nstep2_cpl
       logical       restrt_cpl
@@ -1545,12 +1574,36 @@ c
       endif 
 
       if (present(endtime)) then 
-!!Alex update halo before export 
-          call xctilr(srfhgt( 1-nbdy,1-nbdy  ),1,   1, 6,6, halo_ps)
-          call xctilr(u(    1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_uv) !! for export
-          call xctilr(v(    1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_vv) !! for export
-          call xctilr(ubavg(1-nbdy,1-nbdy,  1),1,   2, 6,6, halo_uv) !! for export
-          call xctilr(vbavg(1-nbdy,1-nbdy,  1),1,   2, 6,6, halo_vv) !! for export
+!!Alex update halo for calculation of  of seas surface slope for CICE (NUOPC)
+          call xctilr(srfhgt(1-nbdy,1-nbdy    ),1,  1,  6,6, halo_ps)
+          call xctilr(u(     1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_uv) !! for export
+          call xctilr(v(     1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_vv) !! for export
+          call xctilr(ubavg (1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_uv) !! for export
+          call xctilr(vbavg (1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_vv) !! for export
+
+!Alex  calculation of seas surface slope for CICE (NUOPC)
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+            if (SEA_P) then
+              ! calculate the eastward slope
+                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j))
+                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j))
+                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
+
+                ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  ))
+                ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1))
+                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
+
+              ! convert to eastward/northward grid
+                dhde(i,j) = dhdx*cos(pang(i,j)) + dhdy*sin(-pang(i,j))
+                dhdn(i,j) = dhdy*cos(pang(i,j)) - dhdx*sin(-pang(i,j))
+           endif
+         enddo
+        enddo
+!$OMP END PARALLEL DO
+
       endif 
 c
 c --- update floats/moorings
