@@ -66,6 +66,8 @@
         public pang           ! ANGLET
         public dhde           ! eastward ssh slope
         public dhdn           ! northward ssh slope
+        public umxl           ! eastward u velocity
+        public vmxl           ! northward v velocity
         
         ! native imports
         public covice         ! ice coverage (rel.units)

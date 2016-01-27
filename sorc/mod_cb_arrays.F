@@ -799,7 +799,8 @@ c
 #else
       real, save, dimension(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
 #endif 
-     & dhde,dhdn               ! sea-surface height slope for CICE
+     & dhde,dhdn,              ! sea-surface height slope for CICE
+     & umxl,vmxl               ! surface u and v for CICE  
 
 #if defined(NUOPC)
 c
@@ -1538,12 +1539,16 @@ c
 #if defined(RELO)
       allocate(
      &             dhde(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
-     &             dhdn(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy))
-      call mem_stat_add( 2*(idm+2*nbdy)*(jdm+2*nbdy) )
+     &             dhdn(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &             umxl(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &             vmxl(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy))
+      call mem_stat_add( 4*(idm+2*nbdy)*(jdm+2*nbdy) )
 #endif
 
                 dhde = 0.d0
                 dhdn = 0.d0
+                umxl = 0.d0
+                vmxl = 0.d0
 c
 #if defined(NUOPC)
 

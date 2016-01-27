@@ -1274,7 +1274,7 @@ module hycom_nuopc_glue
         do j=1,jja
         do i=1,ii
           farrayPtr(i,j) = 0.5*(temp(i,j,1,2)+temp(i,j,1,1))  ! construct SST [C]
-          farrayPtr(i,j) = farrayPtr(i,j) + 273.15            ! [C] -> [K]
+         farrayPtr(i,j) = farrayPtr(i,j) + 273.15d0            ! [C] -> [K]
         enddo
         enddo
       elseif (fieldStdName == "upward_sea_ice_basal_available_heat_flux") then
@@ -1282,7 +1282,7 @@ module hycom_nuopc_glue
         cplfrq = nint( ocn_cpl_frq*(86400.0/baclin) )
         do j=1,jja
         do i=1,ii
-           if (.not. initFlag) then 
+           if (.not. initFlag) then
 ! ---     quantities for available freeze/melt heat flux
 ! ---     relax to tfrz with e-folding time of cplfrq time steps
 ! ---     assuming the effective surface layer thickness is hfrz
@@ -1307,7 +1307,7 @@ module hycom_nuopc_glue
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
-              farrayPtr(i,j) = 1./g * srfhgt(i,j)   ! convert ssh to m
+              farrayPtr(i,j) = srfhgt(i,j)/g   ! convert ssh to m
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1326,30 +1326,16 @@ module hycom_nuopc_glue
       elseif (fieldStdName == "s_surf") then
         do j=1,jja
         do i=1,ii
-          farrayPtr(i,j) = 0.5*(saln(i,j,1,2)+saln(i,j,1,1))
+          farrayPtr(i,j) = 0.5d0 * (saln(i,j,1,2)+saln(i,j,1,1))
         enddo
         enddo
       elseif (fieldStdName == "ocn_current_zonal") then
         do j=1,jja
            do i=1,ii
            if (.not. initFlag) then 
-              ! calculate utot(i,j)
-              usur1 = 0.5*(u    (i  ,j  ,1, 1)+ubavg(i  ,j  ,  1) &
-                        +  u    (i  ,j  ,1, 2)+ubavg(i  ,j  ,  2)) 
-              ! calculate utot(i+1,j)
-              usur2 = 0.5*(u    (i+1,j  ,1, 1)+ubavg(i+1,j  ,  1) &
-                        +  u    (i+1,j  ,1, 2)+ubavg(i+1,j  ,  2))              
-              ! calculate vtot(i,j)
-              vsur1 = 0.5*(v    (i  ,j  ,1, 1)+vbavg(i  ,j  ,  1) &
-                        +  v    (i  ,j  ,1, 2)+vbavg(i  ,j  ,  2))
-              ! calculate vtot(i,j+1)
-              vsur2 = 0.5*(v    (i  ,j+1,1, 1)+vbavg(i  ,j+1,  1) &
-                        +  v    (i  ,j+1,1, 2)+vbavg(i  ,j+1,  2))
-              ! put u and v on the p-grid
-              utot = 0.5*(usur1 + usur2)
-              vtot = 0.5*(vsur1 + vsur2)
-              ! convert to eastward/northward grid
-              farrayPtr(i,j) = utot*cos(pang(i,j)) + vtot*sin(-pang(i,j))
+           ! Now calculated in mod_hycom.F with accurate loop boundaries to get a bit for bit restart
+           ! Results now differs from when the calculation was done here
+              farrayPtr(i,j) = umxl(i,j)
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1359,23 +1345,9 @@ module hycom_nuopc_glue
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
-              ! calculate utot(i,j)
-              usur1 = 0.5*(u    (i  ,j  ,1, 1)+ubavg(i  ,j  ,  1) &
-                        +  u    (i  ,j  ,1, 2)+ubavg(i  ,j  ,  2))
-              ! calculate utot(i+1,j) 
-              usur2 = 0.5*(u    (i+1,j  ,1, 1)+ubavg(i+1,j  ,  1) &
-                        +  u    (i+1,j  ,1, 2)+ubavg(i+1,j  ,  2))
-              ! calculate vtot(i,j)
-              vsur1 = 0.5*(v    (i  ,j  ,1, 1)+vbavg(i  ,j  ,  1) &
-                        +  v    (i  ,j  ,1, 2)+vbavg(i  ,j  ,  2))
-              ! calculate vtot(i,j+1)
-              vsur2 = 0.5*(v    (i  ,j+1,1, 1)+vbavg(i  ,j+1,  1) &
-                        +  v    (i  ,j+1,1, 2)+vbavg(i  ,j+1,  2))
-              ! put u and v on the p-grid              
-              utot = 0.5*(usur1 + usur2)
-              vtot = 0.5*(vsur1 + vsur2)
-              ! convert to eastward/northward grid
-              farrayPtr(i,j) = vtot*cos(pang(i,j)) - utot*sin(-pang(i,j))
+           ! Now calculated in mod_hycom.F with accurate loop boundaries to get a bit for bit restart
+           ! Results now differs from when the calculation was done here
+              farrayPtr(i,j) = vmxl(i,j)
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1385,6 +1357,8 @@ module hycom_nuopc_glue
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then
+           ! Now calculated in mod_hycom.F with accurate loop boundaries to get a bit for bit restart
+           ! Results now differs from when the calculation was done here
               farrayPtr(i,j) = dhde(i,j)
            else
               farrayPtr(i,j) = 0.
@@ -1395,6 +1369,8 @@ module hycom_nuopc_glue
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
+           ! Now calculated in mod_hycom.F with accurate loop boundaries to get a bit for bit restart
+           ! Results now differs from when the calculation was done here
               farrayPtr(i,j) = dhdn(i,j)
            else
               farrayPtr(i,j) = 0.

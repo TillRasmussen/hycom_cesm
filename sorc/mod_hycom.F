@@ -99,7 +99,6 @@ c
       integer      i,j,k,l,nm,margin
       character*80 flnm,flnmra,flnmrb
       integer      mpi_comm_ocean,istat
-      real          utot,vtot,usur1,usur2,vsur1,vsur2,uu,vv
 c
 !!Alex add variable for CESM
       integer,      intent(in), optional :: mpiCommunicator
@@ -108,6 +107,8 @@ c
       character*80, intent(in), optional :: pointer_filename
       logical,      intent(in), optional :: restart_write
       real :: ssh_n,ssh_s,ssh_e,ssh_w,dhdx,dhdy
+      real    dp1,usur1,vsur1,psur1,dp2,usur2,vsur2,psur2,thksur,
+     &        utot,vtot
 
       include 'stmt_fns.h'
 c
@@ -1092,7 +1093,7 @@ c
           call xctilr(ubavg (1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_uv) !! for export
           call xctilr(vbavg (1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_vv) !! for export
 
-!Alex  calculation of seas surface slope for CICE (NUOPC)
+!Alex  calculation of seas surface slope for export to CICE (NUOPC)
 !$OMP     PARALLEL DO PRIVATE(j,i)
 !$OMP&             SCHEDULE(STATIC,jblk)
           do j=1-nbdy,jj+nbdy
@@ -1110,6 +1111,51 @@ c
               ! convert to eastward/northward grid
                 dhde(i,j) = dhdx*cos(pang(i,j)) + dhdy*sin(-pang(i,j))
                 dhdn(i,j) = dhdy*cos(pang(i,j)) - dhdx*sin(-pang(i,j))
+           endif
+         enddo
+        enddo
+!$OMP END PARALLEL DO
+
+!!Alex calculation of u and v surf for export to CICE 
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+            if (SEA_P) then
+c ---       average currents over top thkcdw meters
+            thksur = onem*min( thkcdw, depths(i,j) )
+            usur1  = 0.0
+            vsur1  = 0.0
+            psur1  = 0.0
+            usur2  = 0.0
+            vsur2  = 0.0
+            psur2  = 0.0
+            do k= 1,kk
+              dp1   = min( dp(i,j,k,1), max( 0.0, thksur-psur1 ) )
+              usur1 = usur1 + dp1*(u(i,j,k,1)+u(i+1,j,k,1))
+              vsur1 = vsur1 + dp1*(v(i,j,k,1)+v(i,j+1,k,1))
+              psur1 = psur1 + dp1
+
+              dp2   = min( dp(i,j,k,2), max( 0.0, thksur-psur2 ) )
+              usur2 = usur2 + dp2*(u(i,j,k,2)+u(i+1,j,k,2))
+              vsur2 = vsur2 + dp2*(v(i,j,k,2)+v(i,j+1,k,2))
+              psur2 = psur2 + dp2
+
+              if     (min(psur1,psur2).ge.thksur) then
+                exit
+              endif
+            enddo
+            utot  = 0.25*( usur1/psur1 + ubavg(i,  j,1) +
+     &                                   ubavg(i+1,j,1) +
+     &                     usur2/psur2 + ubavg(i,  j,2) +
+     &                                   ubavg(i+1,j,2)  )
+            vtot  = 0.25*( vsur1/psur1 + vbavg(i,j,  1) +
+     &                                   vbavg(i,j+1,1) +
+     &                     vsur2/psur2 + vbavg(i,j,  2) +
+     &                                   vbavg(i,j+1,2)  )
+
+             umxl(i,j)=utot*cos(pang(i,j)) + vtot*sin(-pang(i,j))
+             vmxl(i,j)=vtot*cos(pang(i,j)) - utot*sin(-pang(i,j))
            endif
          enddo
         enddo
@@ -1136,8 +1182,9 @@ c
       character*80, intent(in), optional :: pointer_filename
       logical,      intent(in), optional :: restart_write
       real :: ssh_n,ssh_s,ssh_e,ssh_w,dhdx,dhdy
+      real    dp1,usur1,vsur1,psur1,dp2,usur2,vsur2,psur2,thksur,
+     &        utot,vtot
 
-      real          utot,vtot,usur1,usur2,vsur1,vsur2,uu,vv
       real          nstep2_cpl
       logical       restrt_cpl
 
@@ -1580,30 +1627,6 @@ c
           call xctilr(v(     1-nbdy,1-nbdy,1,1),1,2*kk, 6,6, halo_vv) !! for export
           call xctilr(ubavg (1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_uv) !! for export
           call xctilr(vbavg (1-nbdy,1-nbdy,1  ),1,   2, 6,6, halo_vv) !! for export
-
-!Alex  calculation of seas surface slope for CICE (NUOPC)
-!$OMP     PARALLEL DO PRIVATE(j,i)
-!$OMP&             SCHEDULE(STATIC,jblk)
-          do j=1-nbdy,jj+nbdy
-            do i=1-nbdy,ii+nbdy
-            if (SEA_P) then
-              ! calculate the eastward slope
-                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j))
-                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j))
-                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
-
-                ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  ))
-                ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1))
-                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
-
-              ! convert to eastward/northward grid
-                dhde(i,j) = dhdx*cos(pang(i,j)) + dhdy*sin(-pang(i,j))
-                dhdn(i,j) = dhdy*cos(pang(i,j)) - dhdx*sin(-pang(i,j))
-           endif
-         enddo
-        enddo
-!$OMP END PARALLEL DO
-
       endif 
 c
 c --- update floats/moorings
@@ -2567,6 +2590,78 @@ c
         else
           end_of_run_cpl = .false.
         endif
+
+        if (end_of_run_cpl) then 
+!Alex  calculation of seas surface slope for export to CICE (NUOPC)
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+            if (SEA_P) then
+              ! calculate the eastward slope
+                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j))
+                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j))
+                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
+
+                ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  ))
+                ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1))
+                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
+
+              ! convert to eastward/northward grid
+                dhde(i,j) = dhdx*cos(pang(i,j)) + dhdy*sin(-pang(i,j))
+                dhdn(i,j) = dhdy*cos(pang(i,j)) - dhdx*sin(-pang(i,j))
+           endif
+         enddo
+        enddo
+!$OMP END PARALLEL DO
+
+!!Alex calculation of u and v surf for export to CICE
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+            if (SEA_P) then
+c ---       average currents over top thkcdw meters
+            thksur = onem*min( thkcdw, depths(i,j) )
+            usur1  = 0.0
+            vsur1  = 0.0
+            psur1  = 0.0
+            usur2  = 0.0
+            vsur2  = 0.0
+            psur2  = 0.0
+            do k= 1,kk
+              dp1   = min( dp(i,j,k,1), max( 0.0, thksur-psur1 ) )
+              usur1 = usur1 + dp1*(u(i,j,k,1)+u(i+1,j,k,1))
+              vsur1 = vsur1 + dp1*(v(i,j,k,1)+v(i,j+1,k,1))
+              psur1 = psur1 + dp1
+
+              dp2   = min( dp(i,j,k,2), max( 0.0, thksur-psur2 ) )
+              usur2 = usur2 + dp2*(u(i,j,k,2)+u(i+1,j,k,2))
+              vsur2 = vsur2 + dp2*(v(i,j,k,2)+v(i,j+1,k,2))
+              psur2 = psur2 + dp2
+
+              if     (min(psur1,psur2).ge.thksur) then
+                exit
+              endif
+            enddo
+            utot = 0.25*( usur1/psur1 + ubavg(i,  j,1) +
+     &                                  ubavg(i+1,j,1) +
+     &                    usur2/psur2 + ubavg(i,  j,2) +
+     &                                  ubavg(i+1,j,2)  )
+            vtot = 0.25*( vsur1/psur1 + vbavg(i,j,  1) +
+     &                                  vbavg(i,j+1,1) +
+     &                    vsur2/psur2 + vbavg(i,j,  2) +
+     &                                  vbavg(i,j+1,2)  )
+
+             umxl(i,j)=utot*cos(pang(i,j)) + vtot*sin(-pang(i,j))
+             vmxl(i,j)=vtot*cos(pang(i,j)) - utot*sin(-pang(i,j))
+           endif
+         enddo
+        enddo
+!$OMP END PARALLEL DO
+
+        endif ! end_of_run_cpl 
+
       endif
 
       if (present(restart_write)) then
