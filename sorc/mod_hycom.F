@@ -107,7 +107,8 @@ c
       character*80, intent(in), optional :: pointer_filename
       logical,      intent(in), optional :: restart_write
       real :: ssh_n,ssh_s,ssh_e,ssh_w,dhdx,dhdy
-      real    dp1,usur1,vsur1,psur1,dp2,usur2,vsur2,psur2,thksur,
+      real :: maskn,masks,maske,maskw
+      real :: dp1,usur1,vsur1,psur1,dp2,usur2,vsur2,psur2,thksur,
      &        utot,vtot
 
       include 'stmt_fns.h'
@@ -1084,6 +1085,7 @@ c
       m=mod(nstep0  ,2)+1
       n=mod(nstep0+1,2)+1
       call momtum_hs(n,m)
+ 
 
       if (present(hycom_start_dtg)) then
 !!Alex update halo for calculation of  of seas surface slope for CICE (NUOPC)
@@ -1099,15 +1101,42 @@ c
           do j=1-nbdy,jj+nbdy
             do i=1-nbdy,ii+nbdy
             if (SEA_P) then
-              ! calculate the eastward slope
-                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j)) 
-                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j)) 
-                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
+             ssh_e = 0.0
+             ssh_w = 0.0
+             ssh_n = 0.0
+             ssh_s = 0.0
+             dhdx  = 0.0
+             dhdy  = 0.0
+             maskw = 0.0 
+             maske = 0.0
+             maskn = 0.0
+             masks = 0.0
+             ! calculate the eastward slope
+             if (srfhgt(i-1,j).ne.0.0) then
+               ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j)) 
+               maskw = 1.0
+             endif
+             if (srfhgt(i+1,j).ne.0.0) then
+               ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j)) 
+               maske = 1.0
+             endif
+            
+             if (ssh_e .ne.0.0 .or. ssh_w.ne.0.0) then
+                 dhdx=(ssh_e+ssh_w)/(maskw+maske) !! on the p-grid
+             endif
                   
+             ! calculate the northward slope
+             if (srfhgt(i,j-1).ne.0.0) then
                 ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  )) 
+                masks = 1.0
+             endif
+             if (srfhgt(i,j+1).ne.0.0) then
                 ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1)) 
-                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
-
+                maskn = 1.0
+             endif
+             if (ssh_n .ne.0.0 .and. ssh_s.ne.0.0) then
+                dhdy=(ssh_n+ssh_s)/(maskn+masks) !! on the p-grid
+             endif 
               ! convert to eastward/northward grid
                 dhde(i,j) = dhdx*cos(pang(i,j)) + dhdy*sin(-pang(i,j))
                 dhdn(i,j) = dhdy*cos(pang(i,j)) - dhdx*sin(-pang(i,j))
@@ -1182,7 +1211,8 @@ c
       character*80, intent(in), optional :: pointer_filename
       logical,      intent(in), optional :: restart_write
       real :: ssh_n,ssh_s,ssh_e,ssh_w,dhdx,dhdy
-      real    dp1,usur1,vsur1,psur1,dp2,usur2,vsur2,psur2,thksur,
+      real :: maskn,masks,maske,maskw
+      real :: dp1,usur1,vsur1,psur1,dp2,usur2,vsur2,psur2,thksur,
      &        utot,vtot
 
       real          nstep2_cpl
@@ -2592,21 +2622,49 @@ c
         endif
 
         if (end_of_run_cpl) then 
+
 !Alex  calculation of seas surface slope for export to CICE (NUOPC)
 !$OMP     PARALLEL DO PRIVATE(j,i)
 !$OMP&             SCHEDULE(STATIC,jblk)
           do j=1-nbdy,jj+nbdy
             do i=1-nbdy,ii+nbdy
             if (SEA_P) then
-              ! calculate the eastward slope
-                ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j))
-                ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j))
-                dhdx=0.5*(ssh_e+ssh_w) !! on the p-grid
+             ssh_e = 0.0
+             ssh_w = 0.0
+             ssh_n = 0.0
+             ssh_s = 0.0
+             dhdx  = 0.0
+             dhdy  = 0.0
+             maskw = 0.0
+             maske = 0.0
+             maskn = 0.0
+             masks = 0.0
+             ! calculate the eastward slope
+             if (srfhgt(i-1,j).ne.0.0) then
+               ssh_w = (srfhgt(i  ,j) - srfhgt(i-1,j))/(g*scux(i  ,j))
+               maskw = 1.0
+             endif
+             if (srfhgt(i+1,j).ne.0.0) then
+               ssh_e = (srfhgt(i+1,j) - srfhgt(i  ,j))/(g*scux(i+1,j))
+               maske = 1.0
+             endif
 
+             if (ssh_e .ne.0.0 .or. ssh_w.ne.0.0) then
+                 dhdx=(ssh_e+ssh_w)/(maskw+maske) !! on the p-grid
+             endif
+
+             ! calculate the northward slope
+             if (srfhgt(i,j-1).ne.0.0) then
                 ssh_s = (srfhgt(i,j  ) - srfhgt(i,j-1))/(g*scvy(i,j  ))
+                masks = 1.0
+             endif
+             if (srfhgt(i,j+1).ne.0.0) then
                 ssh_n = (srfhgt(i,j+1) - srfhgt(i,j  ))/(g*scvy(i,j+1))
-                dhdy=0.5*(ssh_n+ssh_s) !! on the p-grid
-
+                maskn = 1.0
+             endif
+             if (ssh_n .ne.0.0 .and. ssh_s.ne.0.0) then
+                dhdy=(ssh_n+ssh_s)/(maskn+masks) !! on the p-grid
+             endif
               ! convert to eastward/northward grid
                 dhde(i,j) = dhdx*cos(pang(i,j)) + dhdy*sin(-pang(i,j))
                 dhdn(i,j) = dhdy*cos(pang(i,j)) - dhdx*sin(-pang(i,j))
@@ -2614,6 +2672,7 @@ c
          enddo
         enddo
 !$OMP END PARALLEL DO
+
 
 !!Alex calculation of u and v surf for export to CICE
 !$OMP     PARALLEL DO PRIVATE(j,i)
