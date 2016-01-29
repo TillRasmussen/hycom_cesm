@@ -1,11 +1,19 @@
 #! /bin/csh -f 
 
 set objdir = $OBJROOT/ocn/obj
-set srcdir = $OBJROOT/ocn/src
-mkdir -p $srcdir
+set cfgdir = $OBJROOT/ocn/config
+mkdir -p $cfgdir
 mkdir -p $objdir
 if ( -d $CODEROOT/ocn/hycom/sorc ) then
-  cd $CODEROOT/ocn/hycom/sorc
+#  cd $CODEROOT/ocn/hycom/sorc
+    cd $objdir
+    cp $CODEROOT/ocn/hycom/sorc/Makefile .
+    cp $CODEROOT/ocn/hycom/sorc/*.F .
+    cp $CODEROOT/ocn/hycom/sorc/*.F90 .
+    cp $CODEROOT/ocn/hycom/sorc/*.h .
+    cp $CODEROOT/ocn/hycom/sorc/*.c .
+    cp $CODEROOT/ocn/hycom/sorc/*.f .
+    cp $CODEROOT/ocn/hycom/config/* $cfgdir/.
 else
   echo "error changing directory to $CODEROOT/ocn/hycom/sorc"
   exit 1
@@ -25,6 +33,6 @@ else
   endif
 endif
 
-cp -p *.mod $objdir
+#cp -p *.mod $objdir
 cp -p *.mod $LIBROOT/include
 cp -p libhycom_nuopc.a $LIBROOT/libocn.a
