@@ -903,9 +903,9 @@ c
      &          montg(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,kdm,2) )
       call mem_stat_add( 11*(idm+2*nbdy)*(jdm+2*nbdy)*kdm*2 )
 #endif
-                    u = r_init
-                    v = r_init
-                   dp = r_init
+                    u = 0.0   !!Alex -fpe0
+                    v = 0.0   !!Alex -fpe0
+                   dp = 0.0   !!Alex -fpe0
                   dpo = r_init
                   dpu = r_init
                   dpv = r_init
@@ -959,7 +959,7 @@ c
 #endif
               corio = r_init
              potvor = 0.0     !for ifort -fpe0 (floating overflow) 
-             srfhgt = r_init 
+             srfhgt = 0.0     !for ifort -fpe0 (floating overfow) !!Alex
              steric = 0.0 
              sshgmn = r_init
              thmean = r_init
@@ -1005,8 +1005,8 @@ c
      &         pbavg(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,3) )
       call mem_stat_add( 3*(idm+2*nbdy)*(jdm+2*nbdy)*3 )
 #endif
-               ubavg = r_init
-               vbavg = r_init
+               ubavg = 0.0     !!Alex -fpe0
+               vbavg = 0.0     !!Alex -fpe0
                pbavg = r_init
 c
 #if defined(RELO)
