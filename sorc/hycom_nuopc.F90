@@ -749,14 +749,14 @@ module hycom
     return ! bail out
 
     !! Redist 1D Field to 2D Field and write result in .nc Files
-    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
+    !call RedistAndWriteField(is%wrap%glue%grid, exportState, fileNamePrefix="field_ocn_init_export_", &
     !  timeslice=1, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !  return  ! bail out
 
-    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_init_export_", &
+    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, fileNamePrefix="fieldbundle_ocn_init_export_", &
     !  timeslice=1, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -924,7 +924,7 @@ module hycom
     enddo
 
     !! Redistribute 1D CESM import Fields to 2D Fields and write to .nc files
-    !call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
+    !call RedistAndWriteField(is%wrap%glue%grid, importState, fileNamePrefix="field_ocn_import_", &
     !  timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -932,7 +932,7 @@ module hycom
     !  return  ! bail out
 #else
     ! write out the Fields in the importState
-    call NUOPC_Write(importState, filePrefix="field_ocn_import_", &
+    call NUOPC_Write(importState, fileNamePrefix="field_ocn_import_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1046,14 +1046,14 @@ module hycom
     !  line=__LINE__, &
     !  file=__FILE__)) &
 
-    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_export_", &
+    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, fileNamePrefix="fieldbundle_ocn_export_", &
     !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !  return  ! bail out
 
-    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
+    !call RedistAndWriteField(is%wrap%glue%grid, exportState, fileNamePrefix="field_ocn_export_", &
     !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -1061,7 +1061,7 @@ module hycom
     !  return  ! bail out
 #else
     ! write out the Fields in the exportState
-    call NUOPC_Write(exportState, filePrefix="field_ocn_export_", &
+    call NUOPC_Write(exportState, fileNamePrefix="field_ocn_export_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1307,12 +1307,12 @@ module hycom
 
   end subroutine
 
-  subroutine HYCOM_WriteFieldBundle(grid, fieldbundle, fieldNameList, filePrefix, overwrite, &
+  subroutine HYCOM_WriteFieldBundle(grid, fieldbundle, fieldNameList, fileNamePrefix, overwrite, &
     status, timeslice, relaxedflag, rc)
     type(ESMF_Grid),            intent(in)            :: grid
     type(ESMF_FieldBundle),     intent(in)            :: fieldbundle
     character(len=*),           intent(in),  optional :: fieldNameList(:)
-    character(len=*),           intent(in),  optional :: filePrefix
+    character(len=*),           intent(in),  optional :: fileNamePrefix
     logical,                    intent(in),  optional :: overwrite
     type(ESMF_FileStatus_Flag), intent(in),  optional :: status
     integer,                    intent(in),  optional :: timeslice
@@ -1356,8 +1356,8 @@ module hycom
         file=FILENAME)) &
         return  ! bail out
       ! -> output to file
-      if (present(filePrefix)) then
-        write (fileName,"(A)") filePrefix//trim(fieldNameList_loc(i))//".nc"
+      if (present(fileNamePrefix)) then
+        write (fileName,"(A)") fileNamePrefix//trim(fieldNameList_loc(i))//".nc"
       else
         write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
       endif
@@ -1387,12 +1387,12 @@ module hycom
 
   end subroutine
 
-  subroutine RedistAndWriteField(grid, state, fieldNameList, filePrefix, overwrite, &
+  subroutine RedistAndWriteField(grid, state, fieldNameList, fileNamePrefix, overwrite, &
     status, timeslice, relaxedflag, rc)
     type(ESMF_Grid),            intent(in)            :: grid
     type(ESMF_State),           intent(in)            :: state
     character(len=*),           intent(in),  optional :: fieldNameList(:)
-    character(len=*),           intent(in),  optional :: filePrefix
+    character(len=*),           intent(in),  optional :: fileNamePrefix
     logical,                    intent(in),  optional :: overwrite
     type(ESMF_FileStatus_Flag), intent(in),  optional :: status
     integer,                    intent(in),  optional :: timeslice
@@ -1451,8 +1451,8 @@ module hycom
           file=FILENAME)) &
           return  ! bail out
         ! -> output to file
-        if (present(filePrefix)) then
-          write (fileName,"(A)") filePrefix//trim(fieldNameList_loc(i))//".nc"
+        if (present(fileNamePrefix)) then
+          write (fileName,"(A)") fileNamePrefix//trim(fieldNameList_loc(i))//".nc"
         else
           write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
         endif
