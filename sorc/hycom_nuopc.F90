@@ -40,6 +40,7 @@ module hycom
   ! private internal state to keep instance data
   type InternalStateStruct
     type(hycom_nuopc_glue_type)   :: glue
+    type(ESMF_Time)               :: hycomRefTime
     integer                       :: slice
   end type
 
@@ -289,7 +290,7 @@ module hycom
     type(ESMF_array)            :: array
     type(ESMF_VM)               :: vm
     integer                     :: mpiComm
-    TYPE(ESMF_Time)             :: startTime, stopTime, hycomRefTime, currTime
+    TYPE(ESMF_Time)             :: startTime, stopTime, currTime
     TYPE(ESMF_TimeInterval)     :: interval,timeStep
     real(ESMF_KIND_R8)          :: startTime_r8, stopTime_r8
     type(InternalState)         :: is
@@ -341,27 +342,33 @@ module hycom
       return  ! bail out
       
     ! Translate currTime and stopTime into HYCOM format
-    call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, rc=rc)
+    call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, &
+      calkindflag=calkind, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
     ! Define HYCOM Ref Time
-!!Alex    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
-!!gjt    call ESMF_TimeSet(hycomRefTime, yy=0001, mm=01, dd=01, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
-    call ESMF_TimeSet(hycomRefTime, yy=2009, mm=12, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
+#ifdef REAL_DATES
+    ! HYCOM starts time on Jan 1st, 1901
+    call ESMF_TimeSet(is%wrap%hycomRefTime, yy=1901, mm=01, dd=01, &
+      calkindflag=calkind, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    interval = currTime - hycomRefTime
+#else
+    ! not a simulation with real dates, just start at 0 with currTime
+    is%wrap%hycomRefTime = currTime
+#endif
+    interval = currTime - is%wrap%hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=startTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    interval = stopTime - hycomRefTime
+    interval = stopTime - is%wrap%hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=stopTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -798,7 +805,6 @@ module hycom
     type(ESMF_State)            :: importState, exportState
     type(ESMF_Time)             :: currTime
     type(ESMF_TimeInterval)     :: timeStep_O
-    type(ESMF_Time)             :: hycomRefTime
     type(ESMF_TimeInterval)     :: interval
     real(ESMF_KIND_R8)          :: endTime_r8    ! end of coupling sequence
     type(InternalState)         :: is
@@ -837,19 +843,12 @@ module hycom
     ! automatically each time before entering ModelAdvance(), but the HYCOM
     ! model must be stepped forward within this method.
     
-    CALL ESMF_ClockGet(clock, currTime=currTime,  rc=rc)
+    CALL ESMF_ClockGet(clock, currTime=currTime,  calkindflag=calkind, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
     ! Translate currTime + timeStep into HYCOM format
-!!Alex    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
-!!gjt    call ESMF_TimeSet(hycomRefTime, yy=0001, mm=01, dd=01, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
-    call ESMF_TimeSet(hycomRefTime, yy=2009, mm=12, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
 
 #ifdef HYCOM_IN_CESM
     ! get endtime from driver coupling frequency ocn_cpl
@@ -877,7 +876,7 @@ module hycom
 #endif
 
     ! get endtime 
-    interval = currTime - hycomRefTime
+    interval = currTime - is%wrap%hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=endTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
