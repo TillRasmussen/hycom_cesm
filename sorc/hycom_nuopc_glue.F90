@@ -94,6 +94,7 @@ module hycom_nuopc_glue
     type(ESMF_DistGridConnection), allocatable :: connectionList(:)
     type(ESMF_DistGrid)   :: dg
     type(ESMF_Array)      :: array_plon, array_plat, array_msk, array_area
+    type(ESMF_Array)      :: array_qlon, array_qlat
     
     real(kind=ESMF_KIND_R8) :: dump_lat(1500,1100)
     real(kind=ESMF_KIND_R8) :: dump_lon(1500,1100)
@@ -230,7 +231,7 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-      
+
     ! dress up "mask" array, considering HYCOM memory layout with halo + padding
     array_msk = ESMF_ArrayCreate(dg, farray=ip, &
       indexflag=ESMF_INDEX_DELOCAL, &
@@ -273,20 +274,50 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    ! set the corner stagger latitude coordinate Array
-    call ESMF_GridSetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
-      coordDim=1, array=array_plon, rc=rc)    
+
+    ! add the corner stagger (internal allocation w/ correct number of elements)
+    call ESMF_GridAddCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    ! set the center stagger latitude coordinate Array
-    call ESMF_GridSetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
-      coordDim=2, array=array_plat, rc=rc)    
+    ! access the corner stagger longitude coordinate Array
+    call ESMF_GridGetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
+      coordDim=1, array=array_qlon, rc=rc)    
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    ! access the corner stagger latitude coordinate Array
+    call ESMF_GridGetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
+      coordDim=2, array=array_qlat, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! fill the corner stagger arrays
+    call ESMF_ArrayGet(array_qlon, farrayPtr=farrayPtr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    do j=lbound(farrayPtr,2),ubound(farrayPtr,2)
+    do i=lbound(farrayPtr,1),ubound(farrayPtr,1)
+      farrayPtr(i,j)=ulon(i,j)
+    enddo
+    enddo
+    call ESMF_ArrayGet(array_qlat, farrayPtr=farrayPtr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    do j=lbound(farrayPtr,2),ubound(farrayPtr,2)
+    do i=lbound(farrayPtr,1),ubound(farrayPtr,1)
+      farrayPtr(i,j)=vlat(i,j)
+    enddo
+    enddo
+
     ! set the center stagger mask Array
     call ESMF_GridSetItem(glue%grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
       itemflag=ESMF_GRIDITEM_MASK, array=array_msk, rc=rc)    
@@ -485,7 +516,7 @@ module hycom_nuopc_glue
     
     do i=1, size(standardNames)
 
-      call ESMF_LogWrite(trim('Realize glue field: '//standardNames(i)), ESMF_LOGMSG_INFO, rc=rc)
+      call ESMF_LogWrite(trim('HYCOM_GlueFieldsRealize: '//standardNames(i)), ESMF_LOGMSG_INFO, rc=rc)
       if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
       call HYCOM_GlueFieldRealize(glue, state, &
@@ -544,7 +575,7 @@ module hycom_nuopc_glue
 #endif
     
     if (connected) then
-      call ESMF_LogWrite(trim('HYCOM: Create connected glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
+      call ESMF_LogWrite(trim('HYCOM_GlueFieldRealize: Create connected glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
       if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
       ! create the Field object
       field = ESMF_FieldCreate(glue%grid, ESMF_TYPEKIND_R8, name=fieldName, &
@@ -575,7 +606,7 @@ module hycom_nuopc_glue
 #endif
       ! add the Field to the correct glue FieldBundle
       if (stateIntent == ESMF_STATEINTENT_IMPORT) then
-        call ESMF_LogWrite(trim('HYCOM: Add connected import glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
+        call ESMF_LogWrite(trim('HYCOM_GlueFieldRealize: Add connected IMPORT glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
         if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
         ! import
         call ESMF_FieldBundleAdd(glue%importFields, fieldList=(/field/), rc=rc)
@@ -584,7 +615,7 @@ module hycom_nuopc_glue
           file=__FILE__)) &
           return  ! bail out
       else
-        call ESMF_LogWrite(trim('HYCOM: Add connected export glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
+        call ESMF_LogWrite(trim('HYCOM_GlueFieldsRealize: Add connected EXPORT glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
         if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
         ! export
         call ESMF_FieldBundleAdd(glue%exportFields, fieldList=(/field/), rc=rc)

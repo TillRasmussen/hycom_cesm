@@ -18,6 +18,8 @@
         ! grid
         public plon     ! lon at the p pts
         public plat     ! lat at the p pts
+        public ulon     ! lon at the u pts
+        public vlat     ! lat at the v pts
         public scp2     ! grid cell area at the p pts
         public scux     ! grid cell area at the p pts
         public scvy     ! grid cell area at the p pts
