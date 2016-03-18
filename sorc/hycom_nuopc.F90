@@ -215,6 +215,7 @@ module hycom
     ! exportable fields:
     call NUOPC_Advertise(exportState, &
       StandardNames=(/ &
+      "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
       "upward_sea_ice_basal_available_heat_flux ",    &
       "sea_lev                                  ",    &
@@ -498,6 +499,7 @@ module hycom
     !! exportable fields:
     call HYCOM_GlueFieldsRealize(is%wrap%glue, exportState, &
       StandardNames=(/ &
+      "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
       "upward_sea_ice_basal_available_heat_flux ",    &
       "sea_lev                                  ",    &

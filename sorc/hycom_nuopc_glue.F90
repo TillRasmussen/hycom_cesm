@@ -480,6 +480,19 @@ module hycom_nuopc_glue
     glue%rh_shadow2export_ready = .false.
 #endif
 
+#define WRITE_GRID_TO_VTK
+#ifdef WRITE_GRID_TO_VTK
+    ! No matter if with/without shadow, glue%grid now is the grid for
+    ! external interaction
+    call ESMF_LogWrite("writing VTK file.", ESMF_LOGMSG_INFO, rc=rc)
+    call ESMF_GridWriteVTK(glue%grid, staggerloc=ESMF_STAGGERLOC_CENTER, &
+      filename="hycom_glue_grid.vtk", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
     ! initialize coupling flags
     cpl_taux      =.false.
     cpl_tauy      =.false.
@@ -543,6 +556,7 @@ module hycom_nuopc_glue
     type(ESMF_Field)                  :: field, shadow
     type(ESMF_StateIntent_Flag)       :: stateIntent
     real(kind=ESMF_KIND_R8), pointer  :: farrayPtr(:,:)
+    type(ESMF_Array)                  :: array
     
     if (present(rc)) rc = ESMF_SUCCESS
     
@@ -577,20 +591,38 @@ module hycom_nuopc_glue
     if (connected) then
       call ESMF_LogWrite(trim('HYCOM_GlueFieldRealize: Create connected glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
       if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-      ! create the Field object
-      field = ESMF_FieldCreate(glue%grid, ESMF_TYPEKIND_R8, name=fieldName, &
-        rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
+      ! catch special case of ocean_mask
+      if (trim(fieldName) == "ocean_mask") then
+        ! ocean_mask exists as an Array in the Grid object -> use it
+        call ESMF_GridGetItem(glue%grid, itemflag=ESMF_GRIDITEM_MASK, &
+          array=array, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        field = ESMF_FieldCreate(glue%grid, array, name=fieldName, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      else
+        ! for all other fields, create the Field object with data allocation
+        field = ESMF_FieldCreate(glue%grid, ESMF_TYPEKIND_R8, name=fieldName, &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
 #ifdef HYCOM_IN_CESM
-      call ESMF_FieldGet(field, farrayPtr=farrayPtr, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-      return ! bail out
-      farrayPtr = -999999999999999999.9999999999999 
+        call ESMF_FieldGet(field, farrayPtr=farrayPtr, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+        return ! bail out
+        farrayPtr = -999999999999999999.9999999999999 
+#endif
+      endif
+#ifdef HYCOM_IN_CESM
       call ESMF_AttributeSet(field, name="StandardName", value=standardName, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -1276,6 +1308,9 @@ module hycom_nuopc_glue
       
       !call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
       !  trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
+      
+      ! Treat special case of ocean_mask export field
+      if (trim(fieldStdName) == "ocean_mask") cycle !nothing to do, values const
         
 #ifdef WORKAROUND_HOLES
       ! look for this field in the shadow_exportFields
