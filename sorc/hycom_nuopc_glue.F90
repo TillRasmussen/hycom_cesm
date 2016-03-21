@@ -1419,7 +1419,7 @@ module hycom_nuopc_glue
            endif
         enddo
         enddo
-      elseif (fieldStdName == "eastward_sea_surface_slope") then
+      elseif (fieldStdName == "sea_surface_slope_zonal") then
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then
@@ -1431,7 +1431,7 @@ module hycom_nuopc_glue
            endif
          enddo
         enddo
-      elseif (fieldStdName == "northward_sea_surface_slope") then
+      elseif (fieldStdName == "sea_surface_slope_merid") then
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 

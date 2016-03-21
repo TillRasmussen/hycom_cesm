@@ -221,8 +221,8 @@ module hycom
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
-      "eastward_sea_surface_slope               ",    &
-      "northward_sea_surface_slope              ",    &
+      "sea_surface_slope_zonal                  ",    &
+      "sea_surface_slope_merid                  ",    &
       "ocn_current_zonal                        ",    &
       "ocn_current_merid                        "/),  &
       rc=rc)
@@ -505,8 +505,8 @@ module hycom
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
-      "eastward_sea_surface_slope               ",    &
-      "northward_sea_surface_slope              ",    &
+      "sea_surface_slope_zonal                  ",    &
+      "sea_surface_slope_merid                  ",    &
       "ocn_current_zonal                        ",    &
       "ocn_current_merid                        "/),  &
       rc=rc)
@@ -2413,11 +2413,11 @@ module hycom
     hycom2cesm_table(4)%cesm_stdname  = "So_v"
     hycom2cesm_table(4)%unit          = "m/s"
 
-    hycom2cesm_table(5)%hycom_stdname = "eastward_sea_surface_slope"
+    hycom2cesm_table(5)%hycom_stdname = "sea_surface_slope_zonal"
     hycom2cesm_table(5)%cesm_stdname  = "So_dhdx"
     hycom2cesm_table(5)%unit          = ""
 
-    hycom2cesm_table(6)%hycom_stdname = "northward_sea_surface_slope"
+    hycom2cesm_table(6)%hycom_stdname = "sea_surface_slope_merid"
     hycom2cesm_table(6)%cesm_stdname  = "So_dhdy"
     hycom2cesm_table(6)%unit          = ""
 
@@ -3093,11 +3093,11 @@ module hycom
         return  ! bail out
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
-      "eastward_sea_surface_slope")) then
+      "sea_surface_slope_zonal")) then
       call esmfshr_FieldDictionaryAddEntry( &
-        standardName="eastward_sea_surface_slope", &
+        standardName="sea_surface_slope_zonal", &
         canonicalUnits="", &
-        defaultLongName="eastward sea surface slope", &
+        defaultLongName="zonal sea surface slope", &
         defaultShortName="dhdx", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3106,11 +3106,11 @@ module hycom
         return  ! bail out
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
-      "northward_sea_surface_slope")) then
+      "sea_surface_slope_merid")) then
       call esmfshr_FieldDictionaryAddEntry( &
-        standardName="northward_sea_surface_slope", &
+        standardName="sea_surface_slope_merid", &
         canonicalUnits="", &
-        defaultLongName="northward sea surface slope", &
+        defaultLongName="meridional sea surface slope", &
         defaultShortName="dhdy", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
