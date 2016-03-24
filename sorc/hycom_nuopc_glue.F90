@@ -220,6 +220,13 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#if 0
+    call ESMF_ArrayWrite(array_plon, "array_hycom_plon.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
       
     ! dress up "plat" array, considering HYCOM memory layout with halo + padding
     array_plat = ESMF_ArrayCreate(dg, farray=plat, &
@@ -231,6 +238,13 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#if 0
+    call ESMF_ArrayWrite(array_plat, "array_hycom_plat.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
 
     ! dress up "mask" array, considering HYCOM memory layout with halo + padding
     array_msk = ESMF_ArrayCreate(dg, farray=ip, &
@@ -255,7 +269,9 @@ module hycom_nuopc_glue
       return  ! bail out
       
     ! ready to create the HYCOM Grid from DistGrid and coordinate Arrays
-    glue%grid = ESMF_GridCreate(dg, coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
+    glue%grid = ESMF_GridCreate(dg, &
+      gridEdgeLWidth=(/0,0/), gridEdgeUWidth=(/0,1/), &
+      coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -307,6 +323,14 @@ module hycom_nuopc_glue
       farrayPtr(i,j)=ulon(i,j)
     enddo
     enddo
+#if 0
+    call ESMF_ArrayWrite(array_qlon, "array_hycom_qlon.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
     call ESMF_ArrayGet(array_qlat, farrayPtr=farrayPtr, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -317,6 +341,13 @@ module hycom_nuopc_glue
       farrayPtr(i,j)=vlat(i,j)
     enddo
     enddo
+#if 0
+    call ESMF_ArrayWrite(array_qlat, "array_hycom_qlat.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
 
     ! set the center stagger mask Array
     call ESMF_GridSetItem(glue%grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
@@ -480,13 +511,12 @@ module hycom_nuopc_glue
     glue%rh_shadow2export_ready = .false.
 #endif
 
-#define WRITE_GRID_TO_VTK
-#ifdef WRITE_GRID_TO_VTK
+#if 0
     ! No matter if with/without shadow, glue%grid now is the grid for
     ! external interaction
     call ESMF_LogWrite("writing VTK file.", ESMF_LOGMSG_INFO, rc=rc)
-    call ESMF_GridWriteVTK(glue%grid, staggerloc=ESMF_STAGGERLOC_CENTER, &
-      filename="hycom_glue_grid.vtk", rc=rc)
+    call ESMF_GridWriteVTK(glue%grid, staggerloc=ESMF_STAGGERLOC_CORNER, &
+      filename="hycom_glue_grid_corners", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
