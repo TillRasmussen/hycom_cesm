@@ -1106,11 +1106,7 @@ module hycom_nuopc_glue
         covice(i,j) = sic_import(i,j) !Sea Ice Concentration
         si_c  (i,j) = sic_import(i,j) !Sea Ice Concentration
         if (covice(i,j).gt.0.0) then
-          if (frzh(i,j).gt.0.0) then
-             flxice(i,j) = frzh(i,j)        !Sea Ice Heat Flux Freezing potential
-          else
-             flxice(i,j) = sifh_import(i,j) !Sea Ice Heat Flux Melting potential
-          endif
+          flxice(i,j) =  sifh_import(i,j) !Sea Ice Heat Flux Freezing/Melting potential
           si_tx (i,j) =  sitx_import(i,j) !Sea Ice X-Stress into ocean
           si_ty (i,j) =  sity_import(i,j) !Sea Ice Y-Stress into ocean
           fswice(i,j) =  siqs_import(i,j) !Solar Heat Flux thru Ice to Ocean already in swflx
