@@ -48,9 +48,16 @@ if ($MACH == "yellowstone") then
         echo "error copying hycom input data file, abort"
         exit 2
       endif
+  else if ($OCN_GRID == "hep20") then
+      if (-e /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_hep20/) then
+        cp -p -f /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_hep20/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
   endif
 ## NAVY Machines
-else  if ($MACH == "shepard") then
+else  if ($MACH == "shepard" || $MACH == "gordon") then
   echo "We are on" ${MACH}
   echo "Getting ocean input files"
 ## get the input file depending on the grid
@@ -64,6 +71,13 @@ else  if ($MACH == "shepard") then
   else if ($OCN_GRID == "gx1v6") then
       if (-e /p/work1/abozec/hycom/HYCOM_CESM/INPUT_h98/) then
         cp -p -f /p/work1/abozec/hycom/HYCOM_CESM/INPUT_h98/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
+  else if ($OCN_GRID == "hep20") then
+      if (-e /p/work1/abozec/hycom/HYCOM_CESM/INPUT_hep20/) then
+        cp -p -f /p/work1/abozec/hycom/HYCOM_CESM/INPUT_hep20/* .
       else
         echo "error copying hycom input data file, abort"
         exit 2
@@ -83,6 +97,13 @@ else  if ($MACH == "kilrain") then
   else if ($OCN_GRID == "gx1v6") then
       if (-e /scr/abozec/HYCOM_CESM/INPUT_h98/) then
         cp -p -f /scr/abozec/HYCOM_CESM/INPUT_h98/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
+  else if ($OCN_GRID == "hep20") then
+      if (-e /scr/abozec/hycom/HYCOM_CESM/INPUT_hep20/) then
+        cp -p -f /scr/abozec/hycom/HYCOM_CESM/INPUT_hep20/* .
       else
         echo "error copying hycom input data file, abort"
         exit 2

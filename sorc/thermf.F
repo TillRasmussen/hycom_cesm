@@ -1138,9 +1138,19 @@ c ---     over-ocean longwave correction to radfl (Qsw+Qlw).
             endif !natm
           endif
           !correction is blackbody radiation from tdif at tsur
+#ifdef NUOPC
+          if(.not.(cpl_swflx.and.cpl_lwmdnflx.and.cpl_lwmupflx)) then
+             radfl = radfl - (4.506+0.0554*tsur) * tdif
+             !count the correction as a relaxation term
+             sstflx(i,j) = - (4.506+0.0554*tsur) * tdif
+          else
+             sstflx(i,j) = 0.0
+          endif
+#else
           radfl = radfl - (4.506+0.0554*tsur) * tdif
           !count the correction as a relaxation term
           sstflx(i,j) = - (4.506+0.0554*tsur) * tdif
+#endif
         else
           sstflx(i,j) = 0.0
         endif
