@@ -614,7 +614,9 @@ c
         call psmooth_ice(salflx, 0,0, ishlf, util1)  !uses covice
       endif
 c
+#ifdef HYCOM_IN_CESM
 !!Alex Remove the horizontal mean of sssflx
+!!-> Make HYCOM behave more like POP
 !$OMP   PARALLEL DO PRIVATE(j,i)
 !$OMP&           SCHEDULE(STATIC,jblk)
       do j=1,jj
@@ -648,6 +650,7 @@ c
 !$OMP   END PARALLEL DO
 
 !!Alex
+#endif
 
         if (nstep.eq.nstep1+1 .or. diagno) then
         if (nstep.eq.nstep1+1) then

@@ -40,6 +40,7 @@ module hycom
   ! private internal state to keep instance data
   type InternalStateStruct
     type(hycom_nuopc_glue_type)   :: glue
+    type(ESMF_Time)               :: hycomRefTime
     integer                       :: slice
   end type
 
@@ -214,13 +215,14 @@ module hycom
     ! exportable fields:
     call NUOPC_Advertise(exportState, &
       StandardNames=(/ &
+      "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
       "upward_sea_ice_basal_available_heat_flux ",    &
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
-      "eastward_sea_surface_slope               ",    &
-      "northward_sea_surface_slope              ",    &
+      "sea_surface_slope_zonal                  ",    &
+      "sea_surface_slope_merid                  ",    &
       "ocn_current_zonal                        ",    &
       "ocn_current_merid                        "/),  &
       rc=rc)
@@ -289,7 +291,7 @@ module hycom
     type(ESMF_array)            :: array
     type(ESMF_VM)               :: vm
     integer                     :: mpiComm
-    TYPE(ESMF_Time)             :: startTime, stopTime, hycomRefTime, currTime
+    TYPE(ESMF_Time)             :: startTime, stopTime, currTime
     TYPE(ESMF_TimeInterval)     :: interval,timeStep
     real(ESMF_KIND_R8)          :: startTime_r8, stopTime_r8
     type(InternalState)         :: is
@@ -341,26 +343,33 @@ module hycom
       return  ! bail out
       
     ! Translate currTime and stopTime into HYCOM format
-    call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, rc=rc)
+    call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, &
+      calkindflag=calkind, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
     ! Define HYCOM Ref Time
-!!Alex    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
-    call ESMF_TimeSet(hycomRefTime, yy=0001, mm=01, dd=01, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
+#ifdef REAL_DATES
+    ! HYCOM starts time on Jan 1st, 1901
+    call ESMF_TimeSet(is%wrap%hycomRefTime, yy=1901, mm=01, dd=01, &
+      calkindflag=calkind, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    interval = currTime - hycomRefTime
+#else
+    ! not a simulation with real dates, just start at 0 with currTime
+    is%wrap%hycomRefTime = currTime
+#endif
+    interval = currTime - is%wrap%hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=startTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    interval = stopTime - hycomRefTime
+    interval = stopTime - is%wrap%hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=stopTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -490,13 +499,14 @@ module hycom
     !! exportable fields:
     call HYCOM_GlueFieldsRealize(is%wrap%glue, exportState, &
       StandardNames=(/ &
+      "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
       "upward_sea_ice_basal_available_heat_flux ",    &
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
-      "eastward_sea_surface_slope               ",    &
-      "northward_sea_surface_slope              ",    &
+      "sea_surface_slope_zonal                  ",    &
+      "sea_surface_slope_merid                  ",    &
       "ocn_current_zonal                        ",    &
       "ocn_current_merid                        "/),  &
       rc=rc)
@@ -749,14 +759,14 @@ module hycom
     return ! bail out
 
     !! Redist 1D Field to 2D Field and write result in .nc Files
-    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
+    !call RedistAndWriteField(is%wrap%glue%grid, exportState, fileNamePrefix="field_ocn_init_export_", &
     !  timeslice=1, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !  return  ! bail out
 
-    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_init_export_", &
+    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, fileNamePrefix="fieldbundle_ocn_init_export_", &
     !  timeslice=1, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -797,7 +807,6 @@ module hycom
     type(ESMF_State)            :: importState, exportState
     type(ESMF_Time)             :: currTime
     type(ESMF_TimeInterval)     :: timeStep_O
-    type(ESMF_Time)             :: hycomRefTime
     type(ESMF_TimeInterval)     :: interval
     real(ESMF_KIND_R8)          :: endTime_r8    ! end of coupling sequence
     type(InternalState)         :: is
@@ -836,18 +845,12 @@ module hycom
     ! automatically each time before entering ModelAdvance(), but the HYCOM
     ! model must be stepped forward within this method.
     
-    CALL ESMF_ClockGet(clock, currTime=currTime,  rc=rc)
+    CALL ESMF_ClockGet(clock, currTime=currTime,  calkindflag=calkind, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
     ! Translate currTime + timeStep into HYCOM format
-!!Alex    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
-    call ESMF_TimeSet(hycomRefTime, yy=0001, mm=01, dd=01, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
 
 #ifdef HYCOM_IN_CESM
     ! get endtime from driver coupling frequency ocn_cpl
@@ -875,7 +878,7 @@ module hycom
 #endif
 
     ! get endtime 
-    interval = currTime - hycomRefTime
+    interval = currTime - is%wrap%hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=endTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -924,7 +927,7 @@ module hycom
     enddo
 
     !! Redistribute 1D CESM import Fields to 2D Fields and write to .nc files
-    !call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
+    !call RedistAndWriteField(is%wrap%glue%grid, importState, fileNamePrefix="field_ocn_import_", &
     !  timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -932,7 +935,7 @@ module hycom
     !  return  ! bail out
 #else
     ! write out the Fields in the importState
-    call NUOPC_Write(importState, filePrefix="field_ocn_import_", &
+    call NUOPC_Write(importState, fileNamePrefix="field_ocn_import_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1046,14 +1049,14 @@ module hycom
     !  line=__LINE__, &
     !  file=__FILE__)) &
 
-    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_export_", &
+    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, fileNamePrefix="fieldbundle_ocn_export_", &
     !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !  return  ! bail out
 
-    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
+    !call RedistAndWriteField(is%wrap%glue%grid, exportState, fileNamePrefix="field_ocn_export_", &
     !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -1061,7 +1064,7 @@ module hycom
     !  return  ! bail out
 #else
     ! write out the Fields in the exportState
-    call NUOPC_Write(exportState, filePrefix="field_ocn_export_", &
+    call NUOPC_Write(exportState, fileNamePrefix="field_ocn_export_", &
       timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1307,12 +1310,12 @@ module hycom
 
   end subroutine
 
-  subroutine HYCOM_WriteFieldBundle(grid, fieldbundle, fieldNameList, filePrefix, overwrite, &
+  subroutine HYCOM_WriteFieldBundle(grid, fieldbundle, fieldNameList, fileNamePrefix, overwrite, &
     status, timeslice, relaxedflag, rc)
     type(ESMF_Grid),            intent(in)            :: grid
     type(ESMF_FieldBundle),     intent(in)            :: fieldbundle
     character(len=*),           intent(in),  optional :: fieldNameList(:)
-    character(len=*),           intent(in),  optional :: filePrefix
+    character(len=*),           intent(in),  optional :: fileNamePrefix
     logical,                    intent(in),  optional :: overwrite
     type(ESMF_FileStatus_Flag), intent(in),  optional :: status
     integer,                    intent(in),  optional :: timeslice
@@ -1356,8 +1359,8 @@ module hycom
         file=FILENAME)) &
         return  ! bail out
       ! -> output to file
-      if (present(filePrefix)) then
-        write (fileName,"(A)") filePrefix//trim(fieldNameList_loc(i))//".nc"
+      if (present(fileNamePrefix)) then
+        write (fileName,"(A)") fileNamePrefix//trim(fieldNameList_loc(i))//".nc"
       else
         write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
       endif
@@ -1387,12 +1390,12 @@ module hycom
 
   end subroutine
 
-  subroutine RedistAndWriteField(grid, state, fieldNameList, filePrefix, overwrite, &
+  subroutine RedistAndWriteField(grid, state, fieldNameList, fileNamePrefix, overwrite, &
     status, timeslice, relaxedflag, rc)
     type(ESMF_Grid),            intent(in)            :: grid
     type(ESMF_State),           intent(in)            :: state
     character(len=*),           intent(in),  optional :: fieldNameList(:)
-    character(len=*),           intent(in),  optional :: filePrefix
+    character(len=*),           intent(in),  optional :: fileNamePrefix
     logical,                    intent(in),  optional :: overwrite
     type(ESMF_FileStatus_Flag), intent(in),  optional :: status
     integer,                    intent(in),  optional :: timeslice
@@ -1451,8 +1454,8 @@ module hycom
           file=FILENAME)) &
           return  ! bail out
         ! -> output to file
-        if (present(filePrefix)) then
-          write (fileName,"(A)") filePrefix//trim(fieldNameList_loc(i))//".nc"
+        if (present(fileNamePrefix)) then
+          write (fileName,"(A)") fileNamePrefix//trim(fieldNameList_loc(i))//".nc"
         else
           write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
         endif
@@ -2410,11 +2413,11 @@ module hycom
     hycom2cesm_table(4)%cesm_stdname  = "So_v"
     hycom2cesm_table(4)%unit          = "m/s"
 
-    hycom2cesm_table(5)%hycom_stdname = "eastward_sea_surface_slope"
+    hycom2cesm_table(5)%hycom_stdname = "sea_surface_slope_zonal"
     hycom2cesm_table(5)%cesm_stdname  = "So_dhdx"
     hycom2cesm_table(5)%unit          = ""
 
-    hycom2cesm_table(6)%hycom_stdname = "northward_sea_surface_slope"
+    hycom2cesm_table(6)%hycom_stdname = "sea_surface_slope_merid"
     hycom2cesm_table(6)%cesm_stdname  = "So_dhdy"
     hycom2cesm_table(6)%unit          = ""
 
@@ -3090,11 +3093,11 @@ module hycom
         return  ! bail out
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
-      "eastward_sea_surface_slope")) then
+      "sea_surface_slope_zonal")) then
       call esmfshr_FieldDictionaryAddEntry( &
-        standardName="eastward_sea_surface_slope", &
+        standardName="sea_surface_slope_zonal", &
         canonicalUnits="", &
-        defaultLongName="eastward sea surface slope", &
+        defaultLongName="zonal sea surface slope", &
         defaultShortName="dhdx", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3103,11 +3106,11 @@ module hycom
         return  ! bail out
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
-      "northward_sea_surface_slope")) then
+      "sea_surface_slope_merid")) then
       call esmfshr_FieldDictionaryAddEntry( &
-        standardName="northward_sea_surface_slope", &
+        standardName="sea_surface_slope_merid", &
         canonicalUnits="", &
-        defaultLongName="northward sea surface slope", &
+        defaultLongName="meridional sea surface slope", &
         defaultShortName="dhdy", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

@@ -94,6 +94,7 @@ module hycom_nuopc_glue
     type(ESMF_DistGridConnection), allocatable :: connectionList(:)
     type(ESMF_DistGrid)   :: dg
     type(ESMF_Array)      :: array_plon, array_plat, array_msk, array_area
+    type(ESMF_Array)      :: array_qlon, array_qlat
     
     real(kind=ESMF_KIND_R8) :: dump_lat(1500,1100)
     real(kind=ESMF_KIND_R8) :: dump_lon(1500,1100)
@@ -219,6 +220,13 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+#if 0
+    call ESMF_ArrayWrite(array_plon, "array_hycom_plon.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
       
     ! dress up "plat" array, considering HYCOM memory layout with halo + padding
     array_plat = ESMF_ArrayCreate(dg, farray=plat, &
@@ -230,7 +238,14 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-      
+#if 0
+    call ESMF_ArrayWrite(array_plat, "array_hycom_plat.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
     ! dress up "mask" array, considering HYCOM memory layout with halo + padding
     array_msk = ESMF_ArrayCreate(dg, farray=ip, &
       indexflag=ESMF_INDEX_DELOCAL, &
@@ -254,7 +269,9 @@ module hycom_nuopc_glue
       return  ! bail out
       
     ! ready to create the HYCOM Grid from DistGrid and coordinate Arrays
-    glue%grid = ESMF_GridCreate(dg, coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
+    glue%grid = ESMF_GridCreate(dg, &
+      gridEdgeLWidth=(/0,0/), gridEdgeUWidth=(/0,1/), &
+      coordSys=ESMF_COORDSYS_SPH_DEG, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -273,20 +290,65 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    ! set the corner stagger latitude coordinate Array
-    call ESMF_GridSetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
-      coordDim=1, array=array_plon, rc=rc)    
+
+    ! add the corner stagger (internal allocation w/ correct number of elements)
+    call ESMF_GridAddCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    ! set the center stagger latitude coordinate Array
-    call ESMF_GridSetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
-      coordDim=2, array=array_plat, rc=rc)    
+    ! access the corner stagger longitude coordinate Array
+    call ESMF_GridGetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
+      coordDim=1, array=array_qlon, rc=rc)    
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    ! access the corner stagger latitude coordinate Array
+    call ESMF_GridGetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
+      coordDim=2, array=array_qlat, rc=rc)    
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    
+    ! fill the corner stagger arrays
+    call ESMF_ArrayGet(array_qlon, farrayPtr=farrayPtr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    do j=lbound(farrayPtr,2),ubound(farrayPtr,2)
+    do i=lbound(farrayPtr,1),ubound(farrayPtr,1)
+      farrayPtr(i,j)=ulon(i,j)
+    enddo
+    enddo
+#if 0
+    call ESMF_ArrayWrite(array_qlon, "array_hycom_qlon.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
+    call ESMF_ArrayGet(array_qlat, farrayPtr=farrayPtr, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    do j=lbound(farrayPtr,2),ubound(farrayPtr,2)
+    do i=lbound(farrayPtr,1),ubound(farrayPtr,1)
+      farrayPtr(i,j)=vlat(i,j)
+    enddo
+    enddo
+#if 0
+    call ESMF_ArrayWrite(array_qlat, "array_hycom_qlat.nc", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
     ! set the center stagger mask Array
     call ESMF_GridSetItem(glue%grid, staggerLoc=ESMF_STAGGERLOC_CENTER, &
       itemflag=ESMF_GRIDITEM_MASK, array=array_msk, rc=rc)    
@@ -449,6 +511,18 @@ module hycom_nuopc_glue
     glue%rh_shadow2export_ready = .false.
 #endif
 
+#if 0
+    ! No matter if with/without shadow, glue%grid now is the grid for
+    ! external interaction
+    call ESMF_LogWrite("writing VTK file.", ESMF_LOGMSG_INFO, rc=rc)
+    call ESMF_GridWriteVTK(glue%grid, staggerloc=ESMF_STAGGERLOC_CORNER, &
+      filename="hycom_glue_grid_corners", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+#endif
+
     ! initialize coupling flags
     cpl_taux      =.false.
     cpl_tauy      =.false.
@@ -485,7 +559,7 @@ module hycom_nuopc_glue
     
     do i=1, size(standardNames)
 
-      call ESMF_LogWrite(trim('Realize glue field: '//standardNames(i)), ESMF_LOGMSG_INFO, rc=rc)
+      call ESMF_LogWrite(trim('HYCOM_GlueFieldsRealize: '//standardNames(i)), ESMF_LOGMSG_INFO, rc=rc)
       if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
 
       call HYCOM_GlueFieldRealize(glue, state, &
@@ -512,6 +586,7 @@ module hycom_nuopc_glue
     type(ESMF_Field)                  :: field, shadow
     type(ESMF_StateIntent_Flag)       :: stateIntent
     real(kind=ESMF_KIND_R8), pointer  :: farrayPtr(:,:)
+    type(ESMF_Array)                  :: array
     
     if (present(rc)) rc = ESMF_SUCCESS
     
@@ -544,22 +619,40 @@ module hycom_nuopc_glue
 #endif
     
     if (connected) then
-      call ESMF_LogWrite(trim('HYCOM: Create connected glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
+      call ESMF_LogWrite(trim('HYCOM_GlueFieldRealize: Create connected glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
       if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
-      ! create the Field object
-      field = ESMF_FieldCreate(glue%grid, ESMF_TYPEKIND_R8, name=fieldName, &
-        rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-        return  ! bail out
+      ! catch special case of ocean_mask
+      if (trim(fieldName) == "ocean_mask") then
+        ! ocean_mask exists as an Array in the Grid object -> use it
+        call ESMF_GridGetItem(glue%grid, itemflag=ESMF_GRIDITEM_MASK, &
+          array=array, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+        field = ESMF_FieldCreate(glue%grid, array, name=fieldName, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
+      else
+        ! for all other fields, create the Field object with data allocation
+        field = ESMF_FieldCreate(glue%grid, ESMF_TYPEKIND_R8, name=fieldName, &
+          rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+          return  ! bail out
 #ifdef HYCOM_IN_CESM
-      call ESMF_FieldGet(field, farrayPtr=farrayPtr, rc=rc)
-      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-        line=__LINE__, &
-        file=__FILE__)) &
-      return ! bail out
-      farrayPtr = -999999999999999999.9999999999999 
+        call ESMF_FieldGet(field, farrayPtr=farrayPtr, rc=rc)
+        if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+          line=__LINE__, &
+          file=__FILE__)) &
+        return ! bail out
+        farrayPtr = -999999999999999999.9999999999999 
+#endif
+      endif
+#ifdef HYCOM_IN_CESM
       call ESMF_AttributeSet(field, name="StandardName", value=standardName, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -575,7 +668,7 @@ module hycom_nuopc_glue
 #endif
       ! add the Field to the correct glue FieldBundle
       if (stateIntent == ESMF_STATEINTENT_IMPORT) then
-        call ESMF_LogWrite(trim('HYCOM: Add connected import glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
+        call ESMF_LogWrite(trim('HYCOM_GlueFieldRealize: Add connected IMPORT glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
         if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
         ! import
         call ESMF_FieldBundleAdd(glue%importFields, fieldList=(/field/), rc=rc)
@@ -584,7 +677,7 @@ module hycom_nuopc_glue
           file=__FILE__)) &
           return  ! bail out
       else
-        call ESMF_LogWrite(trim('HYCOM: Add connected export glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
+        call ESMF_LogWrite(trim('HYCOM_GlueFieldsRealize: Add connected EXPORT glue field: '//standardName), ESMF_LOGMSG_INFO, rc=rc)
         if(rc /= ESMF_SUCCESS) call ESMF_Finalize(rc=rc, endflag=ESMF_END_ABORT)
         ! export
         call ESMF_FieldBundleAdd(glue%exportFields, fieldList=(/field/), rc=rc)
@@ -686,11 +779,11 @@ module hycom_nuopc_glue
 
     else
       ! remove a not connected Field from State
-      !call ESMF_StateRemove(state, (/fieldName/), rc=rc)
-      !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      !  line=__LINE__, &
-      !  file=__FILE__)) &
-      !  return  ! bail out
+      call ESMF_StateRemove(state, (/fieldName/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
     endif
   end subroutine
 
@@ -1241,6 +1334,9 @@ module hycom_nuopc_glue
       
       !call ESMF_LogWrite("HYCOM_GlueFieldsDataExport(): "// &
       !  trim(fieldStdName)//" - "//trim(fieldName), ESMF_LOGMSG_INFO)
+      
+      ! Treat special case of ocean_mask export field
+      if (trim(fieldStdName) == "ocean_mask") cycle !nothing to do, values const
         
 #ifdef WORKAROUND_HOLES
       ! look for this field in the shadow_exportFields
@@ -1349,7 +1445,7 @@ module hycom_nuopc_glue
            endif
         enddo
         enddo
-      elseif (fieldStdName == "eastward_sea_surface_slope") then
+      elseif (fieldStdName == "sea_surface_slope_zonal") then
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then
@@ -1361,7 +1457,7 @@ module hycom_nuopc_glue
            endif
          enddo
         enddo
-      elseif (fieldStdName == "northward_sea_surface_slope") then
+      elseif (fieldStdName == "sea_surface_slope_merid") then
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
