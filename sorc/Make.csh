@@ -23,9 +23,10 @@ cd $cwd
 #
 #module switch PrgEnv-cray PrgEnv-intel
 module list
-setenv ARCH Axc30-intel-sio-relo
+setenv ARCH intelrelo
 #
-setenv TYPE `echo $cwd | awk -F"_" '{print $NF}'`
+#setenv TYPE `echo $cwd | awk -F"_" '{print $NF}'`
+setenv TYPE mpi
 echo "ARCH = " $ARCH "  TYPE = " $TYPE
 #
 if (! -e ../config/${ARCH}_${TYPE}) then
