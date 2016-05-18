@@ -349,11 +349,23 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+    call ESMF_TimePrint(currTime, options="string", &
+      preString="CurrTime: ", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_TimePrint(stopTime, options="string", &
+      preString="stopTime: ", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
 
     ! Define HYCOM Ref Time
 #ifdef REAL_DATES
-    ! HYCOM starts time on Jan 1st, 1901
-    call ESMF_TimeSet(is%wrap%hycomRefTime, yy=1901, mm=01, dd=01, &
+    ! HYCOM starts time on Dec 31, 1900
+    call ESMF_TimeSet(is%wrap%hycomRefTime, yy=1900, mm=12, dd=31, &
       calkindflag=calkind, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
