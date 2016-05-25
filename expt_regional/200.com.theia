@@ -1,0 +1,32 @@
+#!/bin/sh -l
+
+#PBS -o out
+#PBS -e err
+#PBS -N rt_12114_1
+#PBS -A nems
+#PBS -q debug
+#PBS -l procs=136
+#PBS -l walltime=00:20:00
+
+set -x
+export MPI_TYPE_DEPTH=20
+export OMP_NUM_THREADS=1
+export ESMF_RUNTIME_COMPLIANCECHECK=ON:depth=4
+#ulimit -s unlimited
+
+#source /apps/lmod/lmod/init/sh
+source /home/Fei.Liu/noscrub/NEMS/Regional-Nest_0419/NEMS/src/conf/modules.nems
+module list
+
+cd $PBS_O_WORKDIR
+
+pwd 
+
+echo "Model started:  " `date`
+
+#mpirun -prepend-rank -np $PBS_NP ./NEMS.x
+mpirun  -prepend-rank -np $PBS_NP ./NEMS.x
+
+echo "Model ended:    " `date`
+
+exit

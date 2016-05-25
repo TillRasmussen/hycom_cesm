@@ -1,0 +1,54 @@
+#! /bin/sh -l
+
+#PBS -o out
+#PBS -e err
+#PBS -N rt_regional_hycom
+#PBS -A nems
+#PBS -q debug
+#PBS -l procs=144
+#PBS -l walltime=00:30:00
+
+### PATH
+export I=/scratch4/NCEPDEV/ocean/noscrub/Fei.Liu/NEMS/INPUT_hep20/
+export E=100
+export E1=10.0
+
+export W=~/scratch/rt_regional_hycom_new
+export SRC=/scratch4/NCEPDEV/ocean/noscrub/Fei.Liu/NEMS/regional_hycom/hycom_cesm/sorc/
+
+rm -rf ${W}
+mkdir -p ${W}/
+cp ${I}/* ${W}/
+cp ${SRC}/hycom ${W}/
+
+echo "Enter working directory: ${W}"
+cd ${W}
+
+## run the model
+export NOMP=1
+export NMPI=144
+cp patch_input.144 patch.input
+export OMP_NUM_THREADS=$NOMP
+export MPI_COLL_OPT_ON=1
+export MPICH_RANK_REORDER_METHOD=1
+export MPICH_MAX_SHORT_MSG_SIZE=65536
+export MPICH_UNEX_BUFFER_SIZE=90M
+export MPICH_VERSION_DISPLAY=1
+export MPICH_ENV_DISPLAY=1
+export NO_STOP_MESSAGE
+
+set -x
+export MPI_TYPE_DEPTH=20
+export OMP_NUM_THREADS=1
+export ESMF_RUNTIME_COMPLIANCECHECK=ON:depth=4
+
+source /home/Fei.Liu/noscrub/NEMS/Regional-Nest_0419/NEMS/src/conf/modules.nems
+module list
+
+cd ${W}
+
+pwd 
+
+echo "Model started:  " `date`
+
+mpirun  -prepend-rank -np $PBS_NP ./hycom
