@@ -122,10 +122,6 @@ c --- initialize SPMD processsing !!Alex
           call xcspmd
       endif
 
-      if(mnproc .eq. 1) then 
-        print *, 'HYCOM_Init input: ', hycom_start_dtg,hycom_end_dtg
-      endif
-
 c
 c --- initialize timer names.
 c
@@ -884,9 +880,9 @@ c ---   only two fields are used (linear interpolation in time).
           if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
      &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip))
      &         then
-c              if (linit) then
+              if (linit) then
                   call forfunh(dtime0)
-c              endif 
+              endif 
           endif
 
 #if defined (ARCTIC)          
@@ -1007,12 +1003,12 @@ c ---   read in rivers field for 4 consecutive months
          lr3=4
 #ifdef NUOPC
          if (.not. (cpl_orivers .and. cpl_irivers)) then
-c            if (linit) then 
+            if (linit) then 
                call rdrivr(mr0,lr0)
                call rdrivr(mr1,lr1)
                call rdrivr(mr2,lr2)
                call rdrivr(mr3,lr3)
-c            endif 
+            endif 
          endif 
 #else
          call rdrivr(mr0,lr0)

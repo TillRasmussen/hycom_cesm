@@ -73,6 +73,12 @@ module hycom
   type(HYCOM_CESM_FIELD_TABLE_ENTRY):: hycom2cesm_table(number_export_fields)
 
 #endif
+
+  ! When true, hycom will do a restart and read atmospheric forcing data during
+  ! initialization in HYCOM_Init in coupled mode.
+  ! By default, it will be set to .false.
+  logical                           :: RestartColdstart = .false.
+ 
   
   !-----------------------------------------------------------------------------
   contains
@@ -156,6 +162,9 @@ module hycom
     type(ESMF_Clock)      :: clock
     integer, intent(out)  :: rc
 
+    character(len=10)     :: value
+    logical               :: isPresent
+
     rc = ESMF_SUCCESS
 
     ! Switch to IPDv01 by filtering all other phaseMap entries
@@ -165,6 +174,26 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    call ESMF_AttributeGet(gcomp, name="RestartColdstart", &
+      isPresent=isPresent, &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(gcomp, name="RestartColdstart", &
+      value=value, defaultValue="false", &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    RestartColdstart=(trim(value)=="true")
+
+    print *, 'RestartColdstart (Att isPresent) = ', &
+      RestartColdstart, isPresent
 
   end subroutine
 
@@ -447,8 +476,7 @@ module hycom
        pointer_filename=pointer_filename,  restart_write=restart_write)
 #else
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
-       !hycom_start_dtg=startTime_r8, hycom_end_dtg=stopTime_r8)
-       hycom_start_dtg=41931.5_ESMF_KIND_R8, hycom_end_dtg=41933.5_ESMF_KIND_R8)
+       hycom_start_dtg=startTime_r8, hycom_end_dtg=stopTime_r8)
 #endif
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
