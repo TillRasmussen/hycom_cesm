@@ -92,7 +92,7 @@ c
 
       subroutine HYCOM_Init(mpiCommunicator,
      &                      hycom_start_dtg,hycom_end_dtg,
-     &                      pointer_filename,restart_write
+     &                      pointer_filename,restart_write, 
      &                      atm_initype )
 c
 c --- Initialize (before the 1st time step).

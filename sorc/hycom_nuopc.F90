@@ -165,12 +165,26 @@ module hycom
 
     character(len=10)     :: value
     logical               :: isPresent
+    type(ESMF_VM)         :: vm
+    integer               :: lpet
 
     rc = ESMF_SUCCESS
 
     ! Switch to IPDv01 by filtering all other phaseMap entries
     call NUOPC_CompFilterPhaseMap(gcomp, ESMF_METHOD_INITIALIZE, &
       acceptStringList=(/"IPDv01p"/), rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_VMGet(vm, localPet=lpet, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -193,7 +207,8 @@ module hycom
       return  ! bail out
     Restart=(trim(value)=="true")
 
-    print *, 'Restart (Att isPresent) = ', Restart, isPresent
+    if(lpet == 0) &
+      print *, 'Restart (Att isPresent) = ', Restart, isPresent
 
     call ESMF_AttributeGet(gcomp, name="Atm_init", &
       isPresent=isPresent, &
@@ -212,7 +227,8 @@ module hycom
       return  ! bail out
     Atm_init=(trim(value)/="false")
 
-    print *, 'Atm_init (Att isPresent) = ', Atm_init, isPresent
+    if(lpet == 0) &
+      print *, 'Atm_init (Att isPresent) = ', Atm_init, isPresent
 
   end subroutine
 
@@ -359,8 +375,8 @@ module hycom
     integer                     :: maxIndex(2, 1)
     integer, pointer            :: fptrSeqIndex(:)
     character(len=32)           :: starttype                 ! infodata start type
-    real(ESMF_KIND_R8)          :: l_startTime_r8
 #endif
+    real(ESMF_KIND_R8)          :: l_startTime_r8
     
     rc = ESMF_SUCCESS
     
