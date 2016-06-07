@@ -92,7 +92,8 @@ c
 
       subroutine HYCOM_Init(mpiCommunicator,
      &                      hycom_start_dtg,hycom_end_dtg,
-     &                      pointer_filename,restart_write)
+     &                      pointer_filename,restart_write
+     &                      atm_initype )
 c
 c --- Initialize (before the 1st time step).
 c
@@ -111,6 +112,9 @@ c
       real :: dp1,usur1,vsur1,psur1,dp2,usur2,vsur2,psur2,thksur,
      &        utot,vtot
 
+!!Alex add variable for NEMS
+      logical,      intent(in), optional :: atm_initype
+      
       include 'stmt_fns.h'
 c
 c
@@ -875,12 +879,12 @@ c ---   only two fields are used (linear interpolation in time).
           w1=-99.0
           w2=0.0
           w3=0.0
-!!Alex no file flux on restart
+!!Alex no file flux on restart except if atm_initype
 #ifdef NUOPC
           if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
      &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip))
      &         then
-              if (linit) then
+              if (linit .or. atm_initype) then
                   call forfunh(dtime0)
               endif 
           endif
@@ -1003,7 +1007,7 @@ c ---   read in rivers field for 4 consecutive months
          lr3=4
 #ifdef NUOPC
          if (.not. (cpl_orivers .and. cpl_irivers)) then
-            if (linit) then 
+            if (linit .or. atm_initype) then 
                call rdrivr(mr0,lr0)
                call rdrivr(mr1,lr1)
                call rdrivr(mr2,lr2)
