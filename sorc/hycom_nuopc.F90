@@ -447,7 +447,8 @@ module hycom
        pointer_filename=pointer_filename,  restart_write=restart_write)
 #else
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
-       hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
+       !hycom_start_dtg=startTime_r8, hycom_end_dtg=stopTime_r8)
+       hycom_start_dtg=41931.5_ESMF_KIND_R8, hycom_end_dtg=41933.5_ESMF_KIND_R8)
 #endif
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
