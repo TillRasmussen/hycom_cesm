@@ -74,10 +74,11 @@ module hycom
 
 #endif
 
-  ! When true, hycom will do a restart and read atmospheric forcing data during
+  ! When both are true, hycom will do a restart and read atmospheric forcing data during
   ! initialization in HYCOM_Init in coupled mode.
-  ! By default, it will be set to .false.
-  logical                           :: RestartColdstart = .false.
+  ! By default, Restart is set to false and Atm_init is set to true
+  logical                           :: Restart = .false.
+  logical                           :: Atm_init = .true.
  
   
   !-----------------------------------------------------------------------------
@@ -175,7 +176,7 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
-    call ESMF_AttributeGet(gcomp, name="RestartColdstart", &
+    call ESMF_AttributeGet(gcomp, name="Restart", &
       isPresent=isPresent, &
       convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -183,17 +184,35 @@ module hycom
       file=__FILE__)) &
       return  ! bail out
 
-    call ESMF_AttributeGet(gcomp, name="RestartColdstart", &
+    call ESMF_AttributeGet(gcomp, name="Restart", &
       value=value, defaultValue="false", &
       convention="NUOPC", purpose="Instance", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    RestartColdstart=(trim(value)=="true")
+    Restart=(trim(value)=="true")
 
-    print *, 'RestartColdstart (Att isPresent) = ', &
-      RestartColdstart, isPresent
+    print *, 'Restart (Att isPresent) = ', Restart, isPresent
+
+    call ESMF_AttributeGet(gcomp, name="Atm_init", &
+      isPresent=isPresent, &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(gcomp, name="Atm_init", &
+      value=value, defaultValue="true", &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    Atm_init=(trim(value)/="false")
+
+    print *, 'Atm_init (Att isPresent) = ', Atm_init, isPresent
 
   end subroutine
 
@@ -461,6 +480,12 @@ module hycom
 #else
     ! NON-CESM use of this cap requires different way to
     ! manage cold start and restart runs
+    if (Restart) then
+       l_startTime_r8= startTime_r8  ! restart
+    else
+       l_startTime_r8=-startTime_r8  ! cold start
+    endif
+
     pointer_filename = 'rpointer.ocn' 
     restart_write = .false.
 #endif
@@ -476,7 +501,8 @@ module hycom
        pointer_filename=pointer_filename,  restart_write=restart_write)
 #else
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
-       hycom_start_dtg=startTime_r8, hycom_end_dtg=stopTime_r8)
+       hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8, &
+       atm_initype=Atm_init)
 #endif
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
