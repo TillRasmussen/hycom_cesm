@@ -251,10 +251,10 @@ module hycom
       "mean_net_sw_flx                        ",    & ! from ATM
 !      "mean_down_lw_flx                       ",    & ! from ATM
 !      "mean_up_lw_flx                         ",    & ! from ATM
-      "mean_lat_flx                           ",    & ! from ATM
-      "mean_sens_flx                          ",    & ! from ATM
+!      "mean_lat_flx                           ",    & ! from ATM
+!      "mean_sens_flx                          ",    & ! from ATM
 !      "inst_temp_height2m                     ",    & ! from ATM
-      "mean_prec_rate                         ",    & ! from ATM
+      "mean_prec_rate                         "    & ! from ATM
 !      "inst_spec_humid_height2m               ",    & ! from ATM
 !      "sea_surface_temperature                ",    & ! from ATM
 !      "water_flux_into_sea_water              ",    & ! from ATM
@@ -268,8 +268,9 @@ module hycom
 !      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
 !      "sea_ice_temperature                    ",    & ! from SEA-ICE
 !      "sea_ice_thickness                      ",    & ! from SEA-ICE
-      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-      "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
+!      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+!      "sea_ice_y_velocity                     "
+      /),  & ! from SEA-ICE
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -281,12 +282,12 @@ module hycom
       StandardNames=(/ &
       "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
-!      "upward_sea_ice_basal_available_heat_flux ",    &
-!      "sea_lev                                  ",    &
-!      "mixed_layer_depth                        ",    &
-!      "s_surf                                   ",    &
-!      "sea_surface_slope_zonal                  ",    &
-!      "sea_surface_slope_merid                  ",    &
+      "upward_sea_ice_basal_available_heat_flux ",    &
+      "sea_lev                                  ",    &
+      "mixed_layer_depth                        ",    &
+      "s_surf                                   ",    &
+      "sea_surface_slope_zonal                  ",    &
+      "sea_surface_slope_merid                  ",    &
       "ocn_current_zonal                        ",    &
       "ocn_current_merid                        "/),  &
       rc=rc)
@@ -557,7 +558,7 @@ module hycom
 !      "mean_lat_flx                           ",    & ! from ATM
 !      "mean_sens_flx                          ",    & ! from ATM
 !      "inst_temp_height2m                     ",    & ! from ATM
-      "mean_prec_rate                         ",    & ! from ATM
+      "mean_prec_rate                         "    & ! from ATM
 !      "inst_spec_humid_height2m               ",    & ! from ATM
 !      "sea_surface_temperature                ",    & ! from ATM
 !      "water_flux_into_sea_water              ",    & ! from ATM
@@ -571,8 +572,9 @@ module hycom
 !      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
 !      "sea_ice_temperature                    ",    & ! from SEA-ICE
 !      "sea_ice_thickness                      ",    & ! from SEA-ICE
-      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-      "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
+!      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+!      "sea_ice_y_velocity                     "
+      /),  & ! from SEA-ICE
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -584,12 +586,12 @@ module hycom
       StandardNames=(/ &
       "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
-!      "upward_sea_ice_basal_available_heat_flux ",    &
-!      "sea_lev                                  ",    &
-!      "mixed_layer_depth                        ",    &
-!      "s_surf                                   ",    &
-!      "sea_surface_slope_zonal                  ",    &
-!      "sea_surface_slope_merid                  ",    &
+      "upward_sea_ice_basal_available_heat_flux ",    &
+      "sea_lev                                  ",    &
+      "mixed_layer_depth                        ",    &
+      "s_surf                                   ",    &
+      "sea_surface_slope_zonal                  ",    &
+      "sea_surface_slope_merid                  ",    &
       "ocn_current_zonal                        ",    &
       "ocn_current_merid                        "/),  &
       rc=rc)
