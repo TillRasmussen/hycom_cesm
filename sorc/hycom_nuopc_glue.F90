@@ -13,6 +13,8 @@ module hycom_nuopc_glue
   implicit none
 
   integer :: jja, jtdma 
+  ! When cpl_regional_badvalue is detected, keep current static value
+  real    :: cpl_regional_badvalue = -99999999.
   
   private
   
@@ -778,6 +780,12 @@ module hycom_nuopc_glue
 #endif
 
     else
+      call ESMF_LogWrite(trim('HYCOM_GlueFieldRealize: Remove disconnected glue field: '//fieldName), ESMF_LOGMSG_INFO, rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
       ! remove a not connected Field from State
       call ESMF_StateRemove(state, (/fieldName/), rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -803,6 +811,7 @@ module hycom_nuopc_glue
     real(kind=ESMF_KIND_R8), pointer  :: farrayPtr(:,:)
     real(kind=ESMF_KIND_R8), pointer  :: impPtr(:,:), impPtr2(:,:,:)
     integer                           :: i,j
+    integer                           :: ii,jj
     logical                           :: twoLevel
     real, parameter                   :: sstmin = -1.8 ! Celsius
     real, parameter                   :: sstmax = 35.0 ! Celsius
@@ -1006,7 +1015,9 @@ module hycom_nuopc_glue
           ! initial condition set #2 to initial
           do j=1,jja
           do i=1,ii
-            impPtr2(i,j,2) = farrayPtr(i,j)
+            if(farrayPtr(i,j) == cpl_regional_badvalue) then
+              impPtr2(i,j,2) = farrayPtr(i,j)
+            endif
           enddo
           enddo
         else
@@ -1020,7 +1031,9 @@ module hycom_nuopc_glue
         ! fill #1
         do j=1,jja
         do i=1,ii
-          impPtr2(i,j,1) = farrayPtr(i,j)
+          if(farrayPtr(i,j) == cpl_regional_badvalue) then
+            impPtr2(i,j,1) = farrayPtr(i,j)
+          endif
         enddo
         enddo
         

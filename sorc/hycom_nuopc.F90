@@ -208,7 +208,7 @@ module hycom
     Restart=(trim(value)=="true")
 
     if(lpet == 0) &
-      print *, 'Restart (Att isPresent) = ', Restart, isPresent
+      print *, 'HYCOM Restart (Attribute isPresent) = ', Restart, isPresent
 
     call ESMF_AttributeGet(gcomp, name="Atm_init", &
       isPresent=isPresent, &
@@ -228,7 +228,7 @@ module hycom
     Atm_init=(trim(value)/="false")
 
     if(lpet == 0) &
-      print *, 'Atm_init (Att isPresent) = ', Atm_init, isPresent
+      print *, 'HYCOM Atm_init (Attribute isPresent) = ', Atm_init, isPresent
 
   end subroutine
 
