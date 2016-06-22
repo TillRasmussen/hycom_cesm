@@ -1015,7 +1015,7 @@ module hycom_nuopc_glue
           ! initial condition set #2 to initial
           do j=1,jja
           do i=1,ii
-            if(farrayPtr(i,j) == cpl_regional_badvalue) then
+            if(farrayPtr(i,j) /= cpl_regional_badvalue) then
               impPtr2(i,j,2) = farrayPtr(i,j)
             endif
           enddo
@@ -1031,7 +1031,7 @@ module hycom_nuopc_glue
         ! fill #1
         do j=1,jja
         do i=1,ii
-          if(farrayPtr(i,j) == cpl_regional_badvalue) then
+          if(farrayPtr(i,j) /= cpl_regional_badvalue) then
             impPtr2(i,j,1) = farrayPtr(i,j)
           endif
         enddo
