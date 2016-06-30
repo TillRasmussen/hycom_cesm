@@ -244,15 +244,15 @@ module hycom
     ! importable fields:
     call NUOPC_Advertise(importState, &
       StandardNames=(/ &
-!      "surface_downward_eastward_stress       ",    & ! from ATM
-!      "surface_downward_northward_stress      ",    & ! from ATM
+      "surface_downward_eastward_stress       ",    & ! from ATM
+      "surface_downward_northward_stress      ",    & ! from ATM
 !      "wind_speed_height10m                   ",    & ! from ATM
 !      "friction_speed                         ",    & ! from ATM
       "mean_net_sw_flx                        ",    & ! from ATM
 !      "mean_down_lw_flx                       ",    & ! from ATM
 !      "mean_up_lw_flx                         ",    & ! from ATM
-!      "mean_lat_flx                           ",    & ! from ATM
-!      "mean_sens_flx                          ",    & ! from ATM
+      "mean_lat_flx                           ",    & ! from ATM
+      "mean_sens_flx                          ",    & ! from ATM
 !      "inst_temp_height2m                     ",    & ! from ATM
       "mean_prec_rate                         "    & ! from ATM
 !      "inst_spec_humid_height2m               ",    & ! from ATM
@@ -548,15 +548,15 @@ module hycom
     ! importable fields:
     call HYCOM_GlueFieldsRealize(is%wrap%glue, importState, &
       StandardNames=(/ &
-!      "surface_downward_eastward_stress       ",    & ! from ATM
-!      "surface_downward_northward_stress      ",    & ! from ATM
+      "surface_downward_eastward_stress       ",    & ! from ATM
+      "surface_downward_northward_stress      ",    & ! from ATM
 !      "wind_speed_height10m                   ",    & ! from ATM
 !      "friction_speed                         ",    & ! from ATM
       "mean_net_sw_flx                        ",    & ! from ATM
 !      "mean_down_lw_flx                       ",    & ! from ATM
 !      "mean_up_lw_flx                         ",    & ! from ATM
-!      "mean_lat_flx                           ",    & ! from ATM
-!      "mean_sens_flx                          ",    & ! from ATM
+      "mean_lat_flx                           ",    & ! from ATM
+      "mean_sens_flx                          ",    & ! from ATM
 !      "inst_temp_height2m                     ",    & ! from ATM
       "mean_prec_rate                         "    & ! from ATM
 !      "inst_spec_humid_height2m               ",    & ! from ATM
