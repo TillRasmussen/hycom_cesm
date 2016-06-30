@@ -860,18 +860,19 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
     return ! bail out
-    call ESMF_TimePrint(currTime, &
-      "--------------> HYCOM_Run() advancing from: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    call ESMF_TimePrint(currTime + timeStep_O, &
-      "--------------> HYCOM_Run() advancing to: ", rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+!!Alex incompatibility with ESMF 7.0.0
+!    call ESMF_TimePrint(currTime, &
+!      "--------------> HYCOM_Run() advancing from: ", rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
+!    call ESMF_TimePrint(currTime + timeStep_O, &
+!      "--------------> HYCOM_Run() advancing to: ", rc=rc)
+!    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+!      line=__LINE__, &
+!      file=__FILE__)) &
+!      return  ! bail out
 #endif
 
     ! get endtime 
@@ -1373,8 +1374,10 @@ module hycom
       !  line=__LINE__, &
       !  file=__FILE__)) &
       !return ! bail out
-
-      call ESMF_FieldWrite(field, file=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
+!!Alex incompatibility ESMF 7.0.0
+!      call ESMF_FieldWrite(field, file=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
+!        overwrite=overwrite, status=status, timeslice=timeslice, rc=rc)
+     call ESMF_FieldWrite(field, fileName=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
         overwrite=overwrite, status=status, timeslice=timeslice, rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
         line=__LINE__, &
@@ -1490,7 +1493,10 @@ module hycom
         !  file=__FILE__)) &
         !return ! bail out
 
-        call ESMF_FieldWrite(dst2DField, file=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
+!!Alex incompatibility ESMF 7.0.0        
+!        call ESMF_FieldWrite(dst2DField, file=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
+!          overwrite=overwrite, status=status, timeslice=timeslice, rc=rc)
+        call ESMF_FieldWrite(dst2DField, fileName=trim(fileName), variableName=trim(fieldNameList_loc(i)), &
           overwrite=overwrite, status=status, timeslice=timeslice, rc=rc)
         if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
           line=__LINE__, &
