@@ -35,8 +35,9 @@ c
             if (SEA_P) then
               if     (ishlf(i,j).eq.1) then  !standard ocean point
 #ifdef NUOPC
-                if ( cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
-     &                          .and. cpl_precip    ) then
+                  if ( cpl_swflx  .and.
+     &               ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)                  
+     &                              .and. cpl_precip    ) then
 
                     sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
                     surflx(i,j) = surflx(i,j) + flxice(i,j)       !cell average
@@ -80,8 +81,9 @@ c
             if (SEA_P) then
                 
 #ifdef NUOPC
-                if ( cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
-     &                          .and. cpl_precip     ) then
+                  if ( cpl_swflx  .and.
+     &               ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)                  
+     &                              .and. cpl_precip    ) then
 
                     sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
                     surflx(i,j) = surflx(i,j) + flxice(i,j)       !cell average
@@ -1064,7 +1066,10 @@ c ---   existing radfl is the diurnal Qsw correction only
            if(cpl_swflx .and. cpl_lwmdnflx .and. cpl_lwmupflx) then
                radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
      &               +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
-     &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
+     &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3
+           elseif (cpl_swflx .and. cpl_lwflx) then
+               radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
+     &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
            else
                radfl=radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1)
            endif
@@ -1077,6 +1082,9 @@ c ---   existing radfl is the diurnal Qsw correction only
                radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
      &               +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
      &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
+           elseif (cpl_swflx .and. cpl_lwflx) then
+               radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
+     &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
            else
                radfl=radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
      &                     +  radflx(i,j,l2)*w2+radflx(i,j,l3)*w3)
@@ -1095,6 +1103,9 @@ c ---     input radflx is Qlwdn, convert to Qlw + Qsw
      &               +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
 !!Alex     &               - sb_cst*(temp(i,j,1,n)+tzero)**4
      &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
+           elseif (cpl_swflx .and. cpl_lwflx) then
+               radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
+     &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
            else
                radfl = radfl - sb_cst*(temp(i,j,1,n)+tzero)**4 + swfl
            endif 
@@ -1142,7 +1153,8 @@ c ---     over-ocean longwave correction to radfl (Qsw+Qlw).
           endif
           !correction is blackbody radiation from tdif at tsur
 #ifdef NUOPC
-          if(.not.(cpl_swflx.and.cpl_lwmdnflx.and.cpl_lwmupflx)) then
+          if(.not.(cpl_swflx.and.
+     &           ((cpl_lwmdnflx.and.cpl_lwmupflx) .or. cpl_lwflx)) then
              radfl = radfl - (4.506+0.0554*tsur) * tdif
              !count the correction as a relaxation term
              sstflx(i,j) = - (4.506+0.0554*tsur) * tdif

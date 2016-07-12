@@ -881,8 +881,9 @@ c ---   only two fields are used (linear interpolation in time).
           w3=0.0
 !!Alex no file flux on restart except if atm_initype
 #ifdef NUOPC
-          if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
-     &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip))
+          if (.not. (cpl_swflx  .and.
+     &             ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)
+     &        .and.  cpl_taux     .and. cpl_tauy     .and. cpl_precip))
      &         then
               if (linit .or. atm_initype) then
                   call forfunh(dtime0)
@@ -1311,8 +1312,9 @@ c
 c ---   set weights and fields for high frequency atmospheric forcing.
 c ---   only two fields are used (linear interpolation in time).
 #ifdef NUOPC
-          if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
-     &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip)) 
+          if (.not. (cpl_swflx  .and.
+     &             ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)
+     &        .and.  cpl_taux     .and. cpl_tauy     .and. cpl_precip)) 
      &        then
                call forfunh(dtime)
           endif

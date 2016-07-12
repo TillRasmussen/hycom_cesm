@@ -34,6 +34,7 @@
         public cpl_airtmp,  imp_airtmp    ! air temperature [K]
         public cpl_vapmix,  imp_vapmix    ! specific humidity [kg kg-1]
         public cpl_swflx,   imp_swflx     ! shortwave net flux [W m-2]
+        public cpl_lwflx,   imp_lwflx     ! longwave net  flux [W m-2]
         public cpl_lwmdnflx,imp_lwdflx    ! longwave down flux [W m-2]
         public cpl_lwmupflx,imp_lwuflx    ! longwave up   flux [W m-2]
         public cpl_precip,  imp_precip    ! precipitation [m s-1]

@@ -813,7 +813,8 @@ c==>  import from coupler
 c==>  import from atm
       real nstep1_cpl,nstep2_cpl
       logical cpl_taux, cpl_tauy, cpl_wndspd, cpl_ustara,
-     & cpl_airtmp, cpl_vapmix, cpl_swflx, cpl_lwmdnflx, cpl_lwmupflx,
+     & cpl_airtmp, cpl_vapmix, cpl_swflx, cpl_lwflx,
+     & cpl_lwmdnflx, cpl_lwmupflx,
      & cpl_latflx, cpl_sensflx,
      & cpl_precip, cpl_surtmp, cpl_seatmp,
      & cpl_orivers,cpl_irivers
@@ -825,7 +826,8 @@ c==>  import from atm
 #if defined(RELO)
       real, target, allocatable,dimension (:,:,:) ::
      & imp_taux, imp_tauy, imp_taue, imp_taun, imp_wndspd, imp_ustara,
-     & imp_airtmp, imp_vapmix, imp_swflx, imp_lwdflx, imp_lwuflx,
+     & imp_airtmp, imp_vapmix, imp_swflx, imp_lwflx,
+     & imp_lwdflx, imp_lwuflx,
      & imp_latflx, imp_sensflx,
      & imp_precip, imp_surtmp, imp_seatmp,
      & imp_orivers,imp_irivers 
@@ -833,7 +835,8 @@ c==>  import from atm
 #else
       real, target, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) ::
      & imp_taux, imp_tauy, imp_taue, imp_taun, imp_wndspd, imp_ustara,
-     & imp_airtmp, imp_vapmix, imp_swflx, imp_lwdflx, imp_lwuflx,
+     & imp_airtmp, imp_vapmix, imp_swflx, imp_lwflx,
+     & imp_lwdflx, imp_lwuflx,
      & imp_latflx, imp_sensflx,
      & imp_precip, imp_surtmp, imp_seatmp,
      & imp_orivers,imp_irivers
@@ -1563,6 +1566,7 @@ c
      &           imp_airtmp(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_vapmix(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &            imp_swflx(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
+     &            imp_lwflx(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_lwdflx(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_lwuflx(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_latflx(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
@@ -1572,7 +1576,7 @@ c
      &          imp_orivers(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_surtmp(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_seatmp(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) )
-      call mem_stat_add( 16*(idm+2*nbdy)*(jdm+2*nbdy)*(2) )
+      call mem_stat_add( 17*(idm+2*nbdy)*(jdm+2*nbdy)*(2) )
 #endif
       
                 imp_taux = 0.d0
@@ -1584,6 +1588,7 @@ c
                 imp_airtmp = 0.d0
                 imp_vapmix = 0.d0
                  imp_swflx = 0.d0
+                 imp_lwflx = 0.d0
                 imp_lwdflx = 0.d0
                 imp_lwuflx = 0.d0
                 imp_latflx = 0.d0
