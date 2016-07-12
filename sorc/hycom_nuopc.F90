@@ -249,6 +249,7 @@ module hycom
 !      "wind_speed_height10m                   ",    & ! from ATM
 !      "friction_speed                         ",    & ! from ATM
       "mean_net_sw_flx                        ",    & ! from ATM
+      "mean_net_lw_flx                        ",    & ! from ATM
 !      "mean_down_lw_flx                       ",    & ! from ATM
 !      "mean_up_lw_flx                         ",    & ! from ATM
       "mean_lat_flx                           ",    & ! from ATM
@@ -553,6 +554,7 @@ module hycom
 !      "wind_speed_height10m                   ",    & ! from ATM
 !      "friction_speed                         ",    & ! from ATM
       "mean_net_sw_flx                        ",    & ! from ATM
+      "mean_net_lw_flx                        ",    & ! from ATM
 !      "mean_down_lw_flx                       ",    & ! from ATM
 !      "mean_up_lw_flx                         ",    & ! from ATM
       "mean_lat_flx                           ",    & ! from ATM

@@ -533,6 +533,7 @@ module hycom_nuopc_glue
     cpl_airtmp    =.false.
     cpl_vapmix    =.false.
     cpl_swflx     =.false.
+    cpl_lwflx     =.false.
     cpl_lwmdnflx  =.false.
     cpl_lwmupflx  =.false.
     cpl_latflx    =.false.
@@ -919,6 +920,10 @@ module hycom_nuopc_glue
       elseif (fieldStdName == "mean_net_sw_flx") then
         cpl_swflx = .not.initFlag
         impPtr2 => imp_swflx
+        twoLevel = .true. 
+      elseif (fieldStdName == "mean_net_lw_flx") then
+        cpl_lwflx = .not.initFlag
+        impPtr2 => imp_lwflx
         twoLevel = .true. 
       elseif (fieldStdName == "mean_down_lw_flx") then
         cpl_lwmdnflx = .not.initFlag
