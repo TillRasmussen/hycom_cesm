@@ -62,6 +62,11 @@ c
      &        airt,vpmx,wndx,wndy,wind,cdw,pair,rair,
      &        sumdp,sumth,thksur
       integer i,j,k,kl,l,margin,mbdy,hlstep
+
+!!Alex merge flux
+      logical :: merge_flux
+      real, parameter :: cpl_regional_badvalue = 1.E-8
+
 c     &,iffstep
 c	  data iffstep/0/
 c      save iffstep
@@ -388,6 +393,8 @@ cjc   weights for the coupled forcing
 
         do j=1-margin,jj+margin
           do i=1-margin,ii+margin
+!!Alex merge_flux
+            merge_flux = .false.
             if (SEA_P) then
               if     (wndflg.eq.4 .or. wndflg.eq.5 .or.
      &                (iceflg.eq.2 .and. si_c(i,j).gt.0.0)) then
@@ -429,6 +436,12 @@ c
                   else    
                       surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
                   endif 
+!!Alex merge flux 
+                  if (surtx(i,j) .eq. cpl_regional_badvalue) then
+                      surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
+                      merge_flux = .true.
+                  endif
+
 #else
                   surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
 #endif
@@ -439,6 +452,10 @@ c
                   else    
                       surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
                   endif 
+!!Alex merge flux
+                  if (merge_flux .eq. .true.) then
+                      surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
+                  endif
 #else
                   surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
 #endif
@@ -452,6 +469,12 @@ c
                       surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
      &                           + taux(i,j,l2)*w2+taux(i,j,l3)*w3 
                   endif
+!!Alex merge flux
+                  if (surtx(i,j) .eq. cpl_regional_badvalue) then
+                      surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
+     &                           + taux(i,j,l2)*w2+taux(i,j,l3)*w3
+                      merge_flux = .true.
+                  endif
 #else
                   surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
      &                       + taux(i,j,l2)*w2+taux(i,j,l3)*w3 
@@ -461,6 +484,11 @@ c
                       surty(i,j) = imp_tauy(i,j,1)*cpl_w2
      &                           + imp_tauy(i,j,2)*cpl_w3
                   else    
+                      surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
+     &                           + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3
+                  endif
+!!Alex merge flux
+                  if (merge_flux .eq. .true.) then
                       surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
      &                           + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3
                   endif

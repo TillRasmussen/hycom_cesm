@@ -881,14 +881,15 @@ c ---   only two fields are used (linear interpolation in time).
           w3=0.0
 !!Alex no file flux on restart except if atm_initype
 #ifdef NUOPC
-          if (.not. (cpl_swflx  .and.
-     &             ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)
-     &        .and.  cpl_taux     .and. cpl_tauy     .and. cpl_precip))
-     &         then
-              if (linit .or. atm_initype) then
+!!Alex merge flux
+!          if (.not. (cpl_swflx  .and.
+!     &             ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)
+!     &        .and.  cpl_taux     .and. cpl_tauy     .and. cpl_precip))
+!     &         then
+!              if (linit .or. atm_initype) then
                   call forfunh(dtime0)
-              endif 
-          endif
+!              endif 
+!          endif
 
 #if defined (ARCTIC)          
           ltripolar=.true.
@@ -1007,14 +1008,15 @@ c ---   read in rivers field for 4 consecutive months
          lr2=3
          lr3=4
 #ifdef NUOPC
-         if (.not. (cpl_orivers .and. cpl_irivers)) then
-            if (linit .or. atm_initype) then 
+!!Alex merge flux
+!         if (.not. (cpl_orivers .and. cpl_irivers)) then
+!            if (linit .or. atm_initype) then 
                call rdrivr(mr0,lr0)
                call rdrivr(mr1,lr1)
                call rdrivr(mr2,lr2)
                call rdrivr(mr3,lr3)
-            endif 
-         endif 
+!            endif 
+!         endif 
 #else
          call rdrivr(mr0,lr0)
          call rdrivr(mr1,lr1)
@@ -1312,12 +1314,13 @@ c
 c ---   set weights and fields for high frequency atmospheric forcing.
 c ---   only two fields are used (linear interpolation in time).
 #ifdef NUOPC
-          if (.not. (cpl_swflx  .and.
-     &             ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)
-     &        .and.  cpl_taux     .and. cpl_tauy     .and. cpl_precip)) 
-     &        then
+!!Alex merge flux
+!          if (.not. (cpl_swflx  .and.
+!     &             ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)
+!     &        .and.  cpl_taux     .and. cpl_tauy     .and. cpl_precip)) 
+!     &        then
                call forfunh(dtime)
-          endif
+!          endif
 
 #if defined(ARCTIC)
 c
