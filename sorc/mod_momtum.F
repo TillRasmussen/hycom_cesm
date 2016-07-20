@@ -453,7 +453,7 @@ c
                       surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
                   endif 
 !!Alex merge flux
-                  if (merge_flux .eq. .true.) then
+                  if (merge_flux) then
                       surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
                   endif
 #else
@@ -488,7 +488,7 @@ c
      &                           + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3
                   endif
 !!Alex merge flux
-                  if (merge_flux .eq. .true.) then
+                  if (merge_flux) then
                       surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
      &                           + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3
                   endif
