@@ -908,6 +908,7 @@ module hycom
     character(len=32)           :: starttype            ! infodata start type
     logical                     :: restFlag = .false.
     character(len=128)          :: msg
+    integer                     :: initStep
 
     rc = ESMF_SUCCESS
     
@@ -1054,9 +1055,23 @@ module hycom
 
     !TODO: don't need the additional initialization step once data-dependency
     !TODO: is taken care of during initialize.
+    !In Regional-Nest, HYCOM begins to get NMMB input on 2nd time step.
+    !There is no input from NMMB on HYCOM 1st time step due to run sequence
+    !setup. HYCOM is scheduled to advance first.
     initFlag = .false.
-    if (is%wrap%slice==1 .and. (.not. restFlag)) initFlag = .true.
-    
+    initStep = 1
+    if(Atm_init) initStep = 2
+    if (is%wrap%slice .eq. initStep .and. (.not. restFlag)) initFlag = .true.
+#ifdef DEBUG_FLUX    
+    print *, 'HYCOM ModelAdvance: slice = ', is%wrap%slice, ' restFlag = ', &
+      restFlag, ' initFlag = ', initFlag
+    print *, 'cpl_lwfx = ', cpl_lwflx
+    print *, 'cpl_swfx = ', cpl_swflx
+    print *, 'cpl_latflx = ', cpl_latflx
+    print *, 'cpl_sensflx = ', cpl_sensflx
+    print *, 'cpl_taux = ', cpl_taux
+    print *, 'cpl_tauy = ', cpl_tauy
+#endif
     
     ! Import data to HYCOM native structures through glue fields.
     call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
@@ -1064,7 +1079,6 @@ module hycom
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
     
     !call ESMF_VMLogMemInfo('MEMORY Usage BEFORE HYCOM_RUN', rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

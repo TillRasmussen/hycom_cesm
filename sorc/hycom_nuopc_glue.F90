@@ -812,7 +812,6 @@ module hycom_nuopc_glue
     real(kind=ESMF_KIND_R8), pointer  :: farrayPtr(:,:)
     real(kind=ESMF_KIND_R8), pointer  :: impPtr(:,:), impPtr2(:,:,:)
     integer                           :: i,j
-    integer                           :: ii,jj
     logical                           :: twoLevel
     real, parameter                   :: sstmin = -1.8 ! Celsius
     real, parameter                   :: sstmax = 35.0 ! Celsius
@@ -1012,7 +1011,21 @@ module hycom_nuopc_glue
         impPtr2 => imp_irivers
         twoLevel = .true.
       endif
-      
+     
+#ifdef DEBUG_FLUX
+      if(mnproc == 45) then
+        print *, 'fieldStdName, twoLevel, initFlag => ', trim(fieldStdName), twoLevel, initFlag
+        print *, lbound(impPtr2,1), ubound(impPtr2,1), lbound(impPtr2,2), ubound(impPtr2,2)
+        print *, lbound(farrayPtr,1), ubound(farrayPtr,1), lbound(farrayPtr,2), ubound(farrayPtr,2)
+        print *, ii, jja
+        print *, 'before assignment min(impPtr2) = ', minval(impPtr2)
+        print *, 'before assignment max(impPtr2) = ', maxval(impPtr2)
+        print *, 'before assignment mean(impPtr2) = ', sum(impPtr2)/(max(1,size(impPtr2)))
+        print *, 'before assignment min(farrayPtr) = ', minval(farrayPtr)
+        print *, 'before assignment max(farrayPtr) = ', maxval(farrayPtr)
+        print *, 'before assignment mean(farrayPtr) = ', sum(farrayPtr)/(max(1,size(farrayPtr)))
+      endif
+#endif
       
       ! copy the data into the right import location
       if (twoLevel) then
@@ -1192,7 +1205,14 @@ module hycom_nuopc_glue
         enddo
         enddo
       endif
-      
+#ifdef DEBUG_FLUX
+      if(mnproc == 45) then
+        print *, 'fieldStdName, twoLevel, initFlag => ', trim(fieldStdName), twoLevel, initFlag
+        print *, 'after assignment min(impPtr2) = ', minval(impPtr2)
+        print *, 'after assignment max(impPtr2) = ', maxval(impPtr2)
+        print *, 'after assignment mean(impPtr2) = ', sum(impPtr2)/(max(1,size(impPtr2)))
+      endif
+#endif
     enddo
 
     ! Rotate the wind stress to local grid    
