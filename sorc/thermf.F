@@ -957,7 +957,7 @@ c --- temperature relaxation coefficient
 
 !!Alex merge flux
       logical :: merge_flux
-      real, parameter :: cpl_regional_badvalue = 1.E-8
+      real, parameter :: cpl_regional_badvalue = -99999999.
 
 c
 c --- ------------------------------------------------------
@@ -1002,25 +1002,25 @@ c ---          i.e. it already allows for sea-ice&snow where it is observed.
 #ifdef NUOPC
             if(cpl_swflx) then 
               swfl=imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
-!!Alex debug flux
+#ifdef DEBUG_FLUX
               if (mnproc.eq.1) then
                  print*,'cpl_swfl .eq.T in thermf'
               endif
               if (i.eq.i0+itest .and. j.eq.j0+jtest) then
                  print*,'dtime,swflx (T)=',dtime,swfl
               endif
-!!Alex debug flux
+#endif
   
             else
               swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
-!!Alex debug flux
+#ifdef DEBUG_FLUX
               if (mnproc.eq.1) then
                  print*,'cpl_swfl .eq.F in thermf'
               endif
               if (i.eq.i0+itest .and. j.eq.j0+jtest) then
                  print*,'dtime,swflx (F)=',dtime,swfl
               endif
-!!Alex debug flux
+#endif
             endif
 !!Alex merge flux
             if (swfl.eq.cpl_regional_badvalue) then
@@ -1104,18 +1104,18 @@ c ---   existing radfl is the diurnal Qsw correction only
                radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
      &               +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
      &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3
-!!Alex debug flux
+#ifdef DEBUG_FLUX
               if (mnproc.eq.1) then
             print*,'cpl_swfl,cpl_lwmdnflx,cpl_lwmupflx .eq.T in thermf'
               endif
               if (i.eq.i0+itest .and. j.eq.j0+jtest) then
                      print*,'dtime,radfl(3T)=',dtime,radfl
               endif
-!!Alex debug flux
+#endif
            elseif (cpl_swflx .and. cpl_lwflx) then
                radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
      &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
-!!Alex debug flux
+#ifdef DEBUG_FLUX
               if (mnproc.eq.1) then
                  print*,'cpl_swfl,cpl_lwflx .eq.T in thermf'
               endif
@@ -1123,17 +1123,17 @@ c ---   existing radfl is the diurnal Qsw correction only
                      print*,'dtime,radfl (2T)=',dtime,radfl
                  endif
               
-!!Alex debug flux
+#endif
            else
                radfl=radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1)
-!!Alex debug flux
+#ifdef DEBUG_FLUX
               if (mnproc.eq.1) then
                  print*,'cpl_* .eq.F in thermf'
               endif   
               if (i.eq.i0+itest .and. j.eq.j0+jtest) then
                      print*,'dtime,radfl (1T)=',dtime,radfl
               endif
-!!Alex debug flux
+#endif
            endif
 !!Alex merge flux
            if (merge_flux) then
@@ -1940,6 +1940,10 @@ c ---   in shallow water this is (dpmixl(i,j,n)/p(i,j,kk+1)  )/rmut
               sstdif = ( seatmp(i,j,l0)*w0+seatmp(i,j,l1)*w1) -
      &                   temp(i,j,1,n)
             endif
+            if(merge_flux) then
+              sstdif = ( seatmp(i,j,l0)*w0+seatmp(i,j,l1)*w1) -
+     &                   temp(i,j,1,n)
+            endif
 #else
             sstdif = ( seatmp(i,j,l0)*w0+seatmp(i,j,l1)*w1) -
      &                 temp(i,j,1,n)
@@ -1950,6 +1954,11 @@ c ---   in shallow water this is (dpmixl(i,j,n)/p(i,j,kk+1)  )/rmut
               sstdif = ( imp_seatmp(i,j,1)*cpl_w2
      &                  +imp_seatmp(i,j,2)*cpl_w3) - temp(i,j,1,n)
             else
+              sstdif = ( seatmp(i,j,l0)*w0+seatmp(i,j,l1)*w1
+     &                  +seatmp(i,j,l2)*w2+seatmp(i,j,l3)*w3) -
+     &                   temp(i,j,1,n)
+            endif
+            if(merge_flux) then
               sstdif = ( seatmp(i,j,l0)*w0+seatmp(i,j,l1)*w1
      &                  +seatmp(i,j,l2)*w2+seatmp(i,j,l3)*w3) -
      &                   temp(i,j,1,n)

@@ -908,7 +908,6 @@ module hycom
     character(len=32)           :: starttype            ! infodata start type
     logical                     :: restFlag = .false.
     character(len=128)          :: msg
-    integer                     :: initStep
 
     rc = ESMF_SUCCESS
     
@@ -1059,14 +1058,13 @@ module hycom
     !There is no input from NMMB on HYCOM 1st time step due to run sequence
     !setup. HYCOM is scheduled to advance first.
     initFlag = .false.
-    initStep = 1
-    if(Atm_init) initStep = 2
-    if (is%wrap%slice .eq. initStep .and. (.not. restFlag)) initFlag = .true.
-#ifdef DEBUG_FLUX    
+    if (is%wrap%slice .eq. 1 .and. (.not. restFlag)) initFlag = .true.
+    initFlag = .true.
+#ifndef DEBUG_FLUX    
     print *, 'HYCOM ModelAdvance: slice = ', is%wrap%slice, ' restFlag = ', &
       restFlag, ' initFlag = ', initFlag
-    print *, 'cpl_lwfx = ', cpl_lwflx
-    print *, 'cpl_swfx = ', cpl_swflx
+    print *, 'cpl_lwflx = ', cpl_lwflx
+    print *, 'cpl_swflx = ', cpl_swflx
     print *, 'cpl_latflx = ', cpl_latflx
     print *, 'cpl_sensflx = ', cpl_sensflx
     print *, 'cpl_taux = ', cpl_taux

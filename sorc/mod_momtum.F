@@ -65,7 +65,7 @@ c
 
 !!Alex merge flux
       logical :: merge_flux
-      real, parameter :: cpl_regional_badvalue = 1.E-8
+      real, parameter :: cpl_regional_badvalue = -99999999.
 
 c     &,iffstep
 c	  data iffstep/0/
