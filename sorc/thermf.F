@@ -1263,7 +1263,8 @@ c ---     note that if empflg==3, this is actually P-E
                prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
             endif
 !!Alex merge flux
-           if (merge_flux) then
+           if (imp_precip(i,j,1) .eq. cpl_regional_badvalue .or.
+     &         imp_precip(i,j,2) .eq. cpl_regional_badvalue) then
              prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
            endif
 #else
@@ -1278,7 +1279,8 @@ c ---     note that if empflg==3, this is actually P-E
      &             +precip(i,j,l2)*w2+precip(i,j,l3)*w3
            endif
 !!Alex merge flux
-           if (merge_flux) then
+           if (imp_precip(i,j,1) .eq. cpl_regional_badvalue .or.
+     &         imp_precip(i,j,2) .eq. cpl_regional_badvalue) then
              prcp=  precip(i,j,l0)*w0+precip(i,j,l1)*w1
      &             +precip(i,j,l2)*w2+precip(i,j,l3)*w3
            endif

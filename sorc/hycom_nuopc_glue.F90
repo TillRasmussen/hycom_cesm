@@ -513,12 +513,18 @@ module hycom_nuopc_glue
     glue%rh_shadow2export_ready = .false.
 #endif
 
-#if 0
+#ifdef DEBUG_GRID
     ! No matter if with/without shadow, glue%grid now is the grid for
     ! external interaction
     call ESMF_LogWrite("writing VTK file.", ESMF_LOGMSG_INFO, rc=rc)
     call ESMF_GridWriteVTK(glue%grid, staggerloc=ESMF_STAGGERLOC_CORNER, &
       filename="hycom_glue_grid_corners", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_GridWriteVTK(glue%grid, staggerloc=ESMF_STAGGERLOC_CENTER, &
+      filename="hycom_glue_grid_centers", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
@@ -1026,6 +1032,13 @@ module hycom_nuopc_glue
         print *, 'before assignment mean(farrayPtr) = ', sum(farrayPtr)/(max(1,size(farrayPtr)))
       endif
 #endif
+      cpl_swflx = .false.
+      cpl_lwflx = .false.
+      cpl_taux = .false.
+      cpl_tauy = .false.
+      cpl_latflx = .false.
+      cpl_sensflx = .false.
+      !cpl_precip = .false.
       
       ! copy the data into the right import location
       if (twoLevel) then

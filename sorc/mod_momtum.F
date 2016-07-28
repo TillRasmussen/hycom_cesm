@@ -66,6 +66,7 @@ c
 !!Alex merge flux
       logical :: merge_flux
       real, parameter :: cpl_regional_badvalue = -99999999.
+      real, parameter :: cpl_missing = 1.e15
 
 c     &,iffstep
 c	  data iffstep/0/
@@ -404,6 +405,21 @@ c ---           average currents over top thkcdw meters
                 vsur   = 0.0
                 psur   = 0.0
                 do k= 1,kk
+
+!      if(mnproc.eq.14 .and. i.eq.215 .and. j.eq.51 .and. k.eq.1) then
+!        print *,"momtum.F,nstep1_cpl=",nstep1_cpl,nstep2_cpl,nstep
+!        print *,"momtum.F, cpl_w2,cpl_w3=",cpl_w2,cpl_w3
+!        print *,"momtum.F", wndflg, natm
+!        print *,"cpl_taux,cpl_tauy=",cpl_taux,cpl_tauy
+!        print *,"w0,w1=",w0,w1
+!        print *,'cpl x', imp_taux(i,j,1), imp_taux(i,j,2)
+!        print *,'cpl y', imp_tauy(i,j,1), imp_tauy(i,j,2)
+!        print *,'forcing x',taux(i,j,l0), w0,taux(i,j,l1),w1,
+!     &                           taux(i,j,l2),w2,taux(i,j,l3),w3
+!        print *,'forcing y',tauy(i,j,l0), w0,tauy(i,j,l1),w1,
+!     &                           tauy(i,j,l2),w2,tauy(i,j,l3),w3
+!      endif
+
                   dpsur = min( dpo(i,j,k,n), max( 0.0, thksur-psur ) )
 #if defined(STOKES)
                   usur  = usur + dpsur*(u(i,j,k,n)+u(i+1,j,k,n)+
@@ -437,7 +453,10 @@ c
                       surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
                   endif 
 !!Alex merge flux 
-                  if (surtx(i,j) .eq. cpl_regional_badvalue) then
+                  if (imp_taux(i,j,1) .eq. cpl_regional_badvalue .or.
+     &                imp_taux(i,j,2) .eq. cpl_regional_badvalue .or.
+     &                abs(imp_taux(i,j,1)) .gt. cpl_missing       .or.
+     &                abs(imp_taux(i,j,2)) .gt. cpl_missing) then
                       surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
                       merge_flux = .true.
                   endif
@@ -453,7 +472,10 @@ c
                       surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
                   endif 
 !!Alex merge flux
-                  if (merge_flux) then
+                  if (imp_tauy(i,j,1) .eq. cpl_regional_badvalue .or.
+     &                imp_tauy(i,j,2) .eq. cpl_regional_badvalue .or.
+     &                abs(imp_tauy(i,j,1)) .gt. cpl_missing       .or.
+     &                abs(imp_tauy(i,j,2)) .gt. cpl_missing) then
                       surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
                   endif
 #else
@@ -470,7 +492,10 @@ c
      &                           + taux(i,j,l2)*w2+taux(i,j,l3)*w3 
                   endif
 !!Alex merge flux
-                  if (surtx(i,j) .eq. cpl_regional_badvalue) then
+                  if (imp_taux(i,j,1) .eq. cpl_regional_badvalue .or.
+     &                imp_taux(i,j,2) .eq. cpl_regional_badvalue .or.
+     &                abs(imp_taux(i,j,1)) .gt. cpl_missing       .or.
+     &                abs(imp_taux(i,j,2)) .gt. cpl_missing) then
                       surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
      &                           + taux(i,j,l2)*w2+taux(i,j,l3)*w3
                       merge_flux = .true.
@@ -488,7 +513,10 @@ c
      &                           + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3
                   endif
 !!Alex merge flux
-                  if (merge_flux) then
+                  if (imp_tauy(i,j,1) .eq. cpl_regional_badvalue .or.
+     &                imp_tauy(i,j,2) .eq. cpl_regional_badvalue .or.
+     &                abs(imp_tauy(i,j,1)) .gt. cpl_missing       .or.
+     &                abs(imp_tauy(i,j,2)) .gt. cpl_missing) then
                       surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
      &                           + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3
                   endif

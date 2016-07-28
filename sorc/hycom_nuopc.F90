@@ -1059,7 +1059,6 @@ module hycom
     !setup. HYCOM is scheduled to advance first.
     initFlag = .false.
     if (is%wrap%slice .eq. 1 .and. (.not. restFlag)) initFlag = .true.
-    initFlag = .true.
 #ifndef DEBUG_FLUX    
     print *, 'HYCOM ModelAdvance: slice = ', is%wrap%slice, ' restFlag = ', &
       restFlag, ' initFlag = ', initFlag
@@ -1069,6 +1068,7 @@ module hycom
     print *, 'cpl_sensflx = ', cpl_sensflx
     print *, 'cpl_taux = ', cpl_taux
     print *, 'cpl_tauy = ', cpl_tauy
+    print *, 'cpl_precip = ', cpl_precip
 #endif
     
     ! Import data to HYCOM native structures through glue fields.
