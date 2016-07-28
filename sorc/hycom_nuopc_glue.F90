@@ -822,7 +822,9 @@ module hycom_nuopc_glue
     real, parameter                   :: sstmin = -1.8 ! Celsius
     real, parameter                   :: sstmax = 35.0 ! Celsius
     logical                           :: isConnected
-    
+    logical                           :: write_rmask = .true.
+    real(kind=ESMF_KIND_R8), allocatable :: tmp_rmask(:,:)
+
     if (present(rc)) rc = ESMF_SUCCESS
     
     ! access the members inside of the importFields FieldBundle
@@ -1036,7 +1038,7 @@ module hycom_nuopc_glue
       cpl_lwflx = .false.
       cpl_taux = .false.
       cpl_tauy = .false.
-      cpl_latflx = .false.
+      !cpl_latflx = .false.
       cpl_sensflx = .false.
       !cpl_precip = .false.
       
@@ -1046,9 +1048,12 @@ module hycom_nuopc_glue
           ! initial condition set #2 to initial
           do j=1,jja
           do i=1,ii
-!            if(farrayPtr(i,j) /= cpl_regional_badvalue) then
+            if(farrayPtr(i,j) /= cpl_regional_badvalue) then
               impPtr2(i,j,2) = farrayPtr(i,j)
-!            endif
+              imp_rmask(i,j) = 1.
+            else
+              imp_rmask(i,j) = 0.
+            endif
           enddo
           enddo
         else
@@ -1062,9 +1067,12 @@ module hycom_nuopc_glue
         ! fill #1
         do j=1,jja
         do i=1,ii
-!          if(farrayPtr(i,j) /= cpl_regional_badvalue) then
+          if(farrayPtr(i,j) /= cpl_regional_badvalue) then
             impPtr2(i,j,1) = farrayPtr(i,j)
-!          endif
+            imp_rmask(i,j) = 1.
+          else
+            imp_rmask(i,j) = 0.
+          endif
         enddo
         enddo
         
@@ -1303,6 +1311,29 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    if(cpl_precip .and. write_rmask) then
+      print *, cpl_precip, write_rmask, lbound(imp_rmask), ubound(imp_rmask)
+      allocate(tmp_rmask(ii,jja))
+      do j = 1, jja
+        do i = 1, ii
+          tmp_rmask(i,j) = imp_rmask(i,j)
+        enddo
+      enddo
+      field = ESMF_FieldCreate(grid=glue%grid, farray=tmp_rmask, &
+      indexflag=ESMF_INDEX_DELOCAL, name='rmask', rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      call ESMF_FieldWrite(field,'hycom_rmask.nc',overwrite=.true.,rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      write_rmask = .false.
+      deallocate(tmp_rmask)
+    endif
 
   end subroutine
 

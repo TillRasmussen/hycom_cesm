@@ -44,7 +44,7 @@
         public cpl_sensflx, imp_sensflx   ! sensible heat flux [W m-2]
         public cpl_orivers, imp_orivers   ! ocean runoffs [kg m-2 s-1]
         public cpl_irivers, imp_irivers   ! ice   runoffs [kg m-2 s-1]
-        
+        public              imp_rmask 
         
         ! import from SEA-ICE
         public cpl_sic,     sic_import    ! Sea Ice Concentration

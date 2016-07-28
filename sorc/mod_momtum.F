@@ -445,7 +445,7 @@ c
               if     (wndflg.eq.2 .or. wndflg.eq.3) then ! tau on p grid
                 if     (natm.eq.2) THEN
 #ifdef NUOPC
-                  if (cpl_taux) then
+                  if (cpl_taux .and. imp_rmask(i,j).eq.1) then
                       surtx(i,j) = imp_taux(i,j,1)*cpl_w2
      &                           + imp_taux(i,j,2)*cpl_w3
                       
@@ -453,38 +453,38 @@ c
                       surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
                   endif 
 !!Alex merge flux 
-                  if (imp_taux(i,j,1) .eq. cpl_regional_badvalue .or.
-     &                imp_taux(i,j,2) .eq. cpl_regional_badvalue .or.
-     &                abs(imp_taux(i,j,1)) .gt. cpl_missing       .or.
-     &                abs(imp_taux(i,j,2)) .gt. cpl_missing) then
-                      surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
-                      merge_flux = .true.
-                  endif
+!                  if (imp_taux(i,j,1) .eq. cpl_regional_badvalue .or.
+!     &                imp_taux(i,j,2) .eq. cpl_regional_badvalue .or.
+!     &                abs(imp_taux(i,j,1)) .gt. cpl_missing       .or.
+!     &                abs(imp_taux(i,j,2)) .gt. cpl_missing) then
+!                      surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
+!                      merge_flux = .true.
+!                  endif
 
 #else
                   surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
 #endif
 #ifdef NUOPC
-                  if (cpl_tauy) then
+                  if (cpl_tauy .and. imp_rmask(i,j).eq.1) then
                       surty(i,j) = imp_tauy(i,j,1)*cpl_w2
      &                           + imp_tauy(i,j,2)*cpl_w3
                   else    
                       surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
                   endif 
 !!Alex merge flux
-                  if (imp_tauy(i,j,1) .eq. cpl_regional_badvalue .or.
-     &                imp_tauy(i,j,2) .eq. cpl_regional_badvalue .or.
-     &                abs(imp_tauy(i,j,1)) .gt. cpl_missing       .or.
-     &                abs(imp_tauy(i,j,2)) .gt. cpl_missing) then
-                      surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
-                  endif
+!                  if (imp_tauy(i,j,1) .eq. cpl_regional_badvalue .or.
+!     &                imp_tauy(i,j,2) .eq. cpl_regional_badvalue .or.
+!     &                abs(imp_tauy(i,j,1)) .gt. cpl_missing       .or.
+!     &                abs(imp_tauy(i,j,2)) .gt. cpl_missing) then
+!                      surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
+!                  endif
 #else
                   surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
 #endif
 
                 else
 #ifdef NUOPC
-                  if (cpl_taux) then
+                  if (cpl_taux.and.imp_rmask(i,j).eq.1) then
                       surtx(i,j) = imp_taux(i,j,1)*cpl_w2
      &                           + imp_taux(i,j,2)*cpl_w3
                   else    
@@ -492,20 +492,20 @@ c
      &                           + taux(i,j,l2)*w2+taux(i,j,l3)*w3 
                   endif
 !!Alex merge flux
-                  if (imp_taux(i,j,1) .eq. cpl_regional_badvalue .or.
-     &                imp_taux(i,j,2) .eq. cpl_regional_badvalue .or.
-     &                abs(imp_taux(i,j,1)) .gt. cpl_missing       .or.
-     &                abs(imp_taux(i,j,2)) .gt. cpl_missing) then
-                      surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
-     &                           + taux(i,j,l2)*w2+taux(i,j,l3)*w3
-                      merge_flux = .true.
-                  endif
+!                  if (imp_taux(i,j,1) .eq. cpl_regional_badvalue .or.
+!     &                imp_taux(i,j,2) .eq. cpl_regional_badvalue .or.
+!     &                abs(imp_taux(i,j,1)) .gt. cpl_missing       .or.
+!     &                abs(imp_taux(i,j,2)) .gt. cpl_missing) then
+!                      surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
+!     &                           + taux(i,j,l2)*w2+taux(i,j,l3)*w3
+!                      merge_flux = .true.
+!                  endif
 #else
                   surtx(i,j) = taux(i,j,l0)*w0+taux(i,j,l1)*w1
      &                       + taux(i,j,l2)*w2+taux(i,j,l3)*w3 
 #endif
 #ifdef NUOPC
-                  if (cpl_tauy) then
+                  if (cpl_tauy.and.imp_rmask(i,j).eq.1) then
                       surty(i,j) = imp_tauy(i,j,1)*cpl_w2
      &                           + imp_tauy(i,j,2)*cpl_w3
                   else    
@@ -513,13 +513,13 @@ c
      &                           + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3
                   endif
 !!Alex merge flux
-                  if (imp_tauy(i,j,1) .eq. cpl_regional_badvalue .or.
-     &                imp_tauy(i,j,2) .eq. cpl_regional_badvalue .or.
-     &                abs(imp_tauy(i,j,1)) .gt. cpl_missing       .or.
-     &                abs(imp_tauy(i,j,2)) .gt. cpl_missing) then
-                      surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
-     &                           + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3
-                  endif
+!                  if (imp_tauy(i,j,1) .eq. cpl_regional_badvalue .or.
+!     &                imp_tauy(i,j,2) .eq. cpl_regional_badvalue .or.
+!     &                abs(imp_tauy(i,j,1)) .gt. cpl_missing       .or.
+!     &                abs(imp_tauy(i,j,2)) .gt. cpl_missing) then
+!                      surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
+!     &                           + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3
+!                  endif
 #else
                   surty(i,j) = tauy(i,j,l0)*w0+tauy(i,j,l1)*w1
      &                       + tauy(i,j,l2)*w2+tauy(i,j,l3)*w3 

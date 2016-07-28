@@ -1257,33 +1257,38 @@ c ---     prcp = precipitation (m/sec; positive into ocean)
 c ---     note that if empflg==3, this is actually P-E
           if     (natm.eq.2) then
 #ifdef NUOPC
-            if(cpl_precip) then
+            if(cpl_precip .and. imp_rmask(i,j).eq.1.) then
+!               print *, 'imp:', i,j,imp_precip(i,j,1), cpl_w2, 
+!     & imp_precip(i,j,2), cpl_w3, precip(i,j,l0),w0,precip(i,j,l1),w1
                prcp=imp_precip(i,j,1)*cpl_w2+imp_precip(i,j,2)*cpl_w3
             else
                prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
             endif
 !!Alex merge flux
-           if (imp_precip(i,j,1) .eq. cpl_regional_badvalue .or.
-     &         imp_precip(i,j,2) .eq. cpl_regional_badvalue) then
-             prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
-           endif
+!           if (imp_precip(i,j,1) .eq. cpl_regional_badvalue .or.
+!     &         imp_precip(i,j,2) .eq. cpl_regional_badvalue) then
+!             prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
+!           endif
 #else
             prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
 #endif
           else
 #ifdef NUOPC
-            if(cpl_precip) then
+            if(cpl_precip .and. imp_rmask(i,j).eq.1.) then
+!               print *, 'imp2:', i,j,imp_precip(i,j,1), cpl_w2, 
+!     & imp_precip(i,j,2), cpl_w3, precip(i,j,l0),w0,precip(i,j,l1),w1,
+!     & precip(i,j,l2),w2,precip(i,j,l3),w3
                prcp=imp_precip(i,j,1)*cpl_w2+imp_precip(i,j,2)*cpl_w3
             else
                prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
      &             +precip(i,j,l2)*w2+precip(i,j,l3)*w3
            endif
 !!Alex merge flux
-           if (imp_precip(i,j,1) .eq. cpl_regional_badvalue .or.
-     &         imp_precip(i,j,2) .eq. cpl_regional_badvalue) then
-             prcp=  precip(i,j,l0)*w0+precip(i,j,l1)*w1
-     &             +precip(i,j,l2)*w2+precip(i,j,l3)*w3
-           endif
+!           if (imp_precip(i,j,1) .eq. cpl_regional_badvalue .or.
+!     &         imp_precip(i,j,2) .eq. cpl_regional_badvalue) then
+!             prcp=  precip(i,j,l0)*w0+precip(i,j,l1)*w1
+!     &             +precip(i,j,l2)*w2+precip(i,j,l3)*w3
+!           endif
 #else
             prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
      &          +precip(i,j,l2)*w2+precip(i,j,l3)*w3
@@ -1443,17 +1448,17 @@ c ---   snsibl = sensible heat flux  into atmos from ocean.
         endif
 c ---   Latent Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx .and. imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=ctl*airdns*evaplh*wind*
      &           max(0.,0.97*qsatur(temp(i,j,1,n))-vpmx)
         endif 
 !!Alex merge flux
-        if (merge_flux ) then
-            evap=ctl*airdns*evaplh*wind*
-     &           max(0.,0.97*qsatur(temp(i,j,1,n))-vpmx)
-        endif
+!        if (merge_flux ) then
+!            evap=ctl*airdns*evaplh*wind*
+!     &           max(0.,0.97*qsatur(temp(i,j,1,n))-vpmx)
+!        endif
 #else
         evap=ctl*airdns*evaplh*wind*
      &       max(0.,0.97*qsatur(temp(i,j,1,n))-vpmx)
@@ -1501,15 +1506,15 @@ c ---   surflx = thermal energy flux (W/m^2) into ocean
         endif
 c ---   Latent Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx.and.imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
         endif
 !!Alex merge flux
-        if (merge_flux) then
-            evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
-        endif
+!        if (merge_flux) then
+!            evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
+!        endif
 #else
         evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
 #endif
@@ -1620,15 +1625,15 @@ c ---   surflx = thermal energy flux (W/m^2) into ocean
         endif
 c ---   Latent Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx.and.imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
         endif
 !!Alex merge flux
-        if (merge_flux) then
-            evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
-        endif
+!        if (merge_flux) then
+!            evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
+!        endif
 #else
         evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
 #endif 
@@ -1742,15 +1747,15 @@ c ---   evap = evaporation (W/m^2) into atmos from ocean.
         endif
 c ---   Latent Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx.and.imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=slat*clh*wind*(qsatur6(temp(i,j,1,n),pair,sssf)-vpmx)
         endif
 !!Alex merge flux
-        if ( merge_flux ) then
-            evap=slat*clh*wind*(qsatur6(temp(i,j,1,n),pair,sssf)-vpmx)
-        endif
+!        if ( merge_flux ) then
+!            evap=slat*clh*wind*(qsatur6(temp(i,j,1,n),pair,sssf)-vpmx)
+!        endif
 #else
         evap=slat*clh*wind*(qsatur6(temp(i,j,1,n),pair,sssf)-vpmx)
 #endif
@@ -1866,15 +1871,15 @@ c ---  Latent Heat flux
           evape = slat*ce10*wind*(qsatur5(esst,qrair)-vpmx)
         endif
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx.and.imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=slat*ce10*wind*(qsatur5(temp(i,j,1,n),qrair)-vpmx)
         endif
 !!Alex merge flux
-        if (merge_flux ) then
-            evap=slat*ce10*wind*(qsatur5(temp(i,j,1,n),qrair)-vpmx)
-        endif
+!        if (merge_flux ) then
+!            evap=slat*ce10*wind*(qsatur5(temp(i,j,1,n),qrair)-vpmx)
+!        endif
 
 #else
         evap=slat*ce10*wind*(qsatur5(temp(i,j,1,n),qrair)-vpmx)

@@ -830,7 +830,9 @@ c==>  import from atm
      & imp_lwdflx, imp_lwuflx,
      & imp_latflx, imp_sensflx,
      & imp_precip, imp_surtmp, imp_seatmp,
-     & imp_orivers,imp_irivers 
+     & imp_orivers,imp_irivers
+      real, target, allocatable,dimension (:,:) ::
+     & imp_rmask
      
 #else
       real, target, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) ::
@@ -839,7 +841,9 @@ c==>  import from atm
      & imp_lwdflx, imp_lwuflx,
      & imp_latflx, imp_sensflx,
      & imp_precip, imp_surtmp, imp_seatmp,
-     & imp_orivers,imp_irivers
+     & imp_orivers,imp_irivers 
+      real, target, dimension (1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
+     & imp_rmask
 #endif
       
 c==>  import from ice
@@ -1574,6 +1578,7 @@ c
      &           imp_precip(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &          imp_irivers(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &          imp_orivers(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
+     &          imp_rmask(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &           imp_surtmp(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2),
      &           imp_seatmp(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy,2) )
       call mem_stat_add( 17*(idm+2*nbdy)*(jdm+2*nbdy)*(2) )
@@ -1598,6 +1603,7 @@ c
                 imp_seatmp = 0.d0
                 imp_irivers = 0.d0
                 imp_orivers = 0.d0
+                imp_rmask = 0.d0
 
 #if defined(RELO)
       allocate(
