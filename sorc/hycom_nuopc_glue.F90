@@ -1036,8 +1036,8 @@ module hycom_nuopc_glue
 #endif
       !cpl_swflx = .false.
       !cpl_lwflx = .false.
-      cpl_taux = .false.
-      cpl_tauy = .false.
+      !cpl_taux = .false.
+      !cpl_tauy = .false.
       !cpl_latflx = .false.
       !cpl_sensflx = .false.
       !cpl_precip = .false.
@@ -1048,7 +1048,8 @@ module hycom_nuopc_glue
           ! initial condition set #2 to initial
           do j=1,jja
           do i=1,ii
-            if(farrayPtr(i,j) /= cpl_regional_badvalue) then
+            if(farrayPtr(i,j) /= cpl_regional_badvalue .and. &
+               abs(farrayPtr(i,j)) .lt. 1.e25) then
               impPtr2(i,j,2) = farrayPtr(i,j)
               imp_rmask(i,j) = 1.
             else
@@ -1067,7 +1068,8 @@ module hycom_nuopc_glue
         ! fill #1
         do j=1,jja
         do i=1,ii
-          if(farrayPtr(i,j) /= cpl_regional_badvalue) then
+          if(farrayPtr(i,j) /= cpl_regional_badvalue .and. &
+             abs(farrayPtr(i,j)) .lt. 1.e25) then
             impPtr2(i,j,1) = farrayPtr(i,j)
             imp_rmask(i,j) = 1.
           else
