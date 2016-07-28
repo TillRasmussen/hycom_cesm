@@ -1034,8 +1034,8 @@ module hycom_nuopc_glue
         print *, 'before assignment mean(farrayPtr) = ', sum(farrayPtr)/(max(1,size(farrayPtr)))
       endif
 #endif
-      cpl_swflx = .false.
-      cpl_lwflx = .false.
+      !cpl_swflx = .false.
+      !cpl_lwflx = .false.
       cpl_taux = .false.
       cpl_tauy = .false.
       !cpl_latflx = .false.

@@ -1000,7 +1000,7 @@ c ---          Qsw includes the atmos. model's surface albedo,
 c ---          i.e. it already allows for sea-ice&snow where it is observed.
         if     (natm.eq.2) then
 #ifdef NUOPC
-            if(cpl_swflx) then 
+            if(cpl_swflx.and.imp_rmask(i,j).eq.1.) then 
               swfl=imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
 #ifdef DEBUG_FLUX
               if (mnproc.eq.1) then
@@ -1023,28 +1023,28 @@ c ---          i.e. it already allows for sea-ice&snow where it is observed.
 #endif
             endif
 !!Alex merge flux
-            if (swfl.eq.cpl_regional_badvalue) then
-               swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
-               merge_flux=.true.
-            endif
+!            if (swfl.eq.cpl_regional_badvalue) then
+!               swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
+!               merge_flux=.true.
+!            endif
 
 #else 
               swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
 #endif
         else
 #ifdef NUOPC
-            if(cpl_swflx) then 
+            if(cpl_swflx.and.imp_rmask(i,j).eq.1.) then 
               swfl=imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
             else
               swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
      &            +swflx (i,j,l2)*w2+swflx (i,j,l3)*w3
             endif
 !!Alex merge flux
-            if (swfl.eq.cpl_regional_badvalue) then
-              swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
-     &            +swflx (i,j,l2)*w2+swflx (i,j,l3)*w3
-              merge_flux=.true.
-            endif
+!            if (swfl.eq.cpl_regional_badvalue) then
+!              swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
+!     &            +swflx (i,j,l2)*w2+swflx (i,j,l3)*w3
+!              merge_flux=.true.
+!            endif
             
 #else 
           swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
@@ -1069,7 +1069,7 @@ c ---     daily to diurnal shortwave correction to swfl and radfl.
      &                 xhr *(1.0-xlat)*diurnl(ihr+1,ilat  ) +
      &                 xhr *     xlat *diurnl(ihr+1,ilat+1)
 #ifdef NUOPC
-           if(cpl_swflx) THEN
+           if(cpl_swflx.and.imp_rmask(i,j).eq.1.) THEN
                radfl=(imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3)
      &              *(swscl-1.0)
                swfl =(imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3)
@@ -1112,7 +1112,8 @@ c ---   existing radfl is the diurnal Qsw correction only
                      print*,'dtime,radfl(3T)=',dtime,radfl
               endif
 #endif
-           elseif (cpl_swflx .and. cpl_lwflx) then
+           elseif (cpl_swflx .and. cpl_lwflx
+     &             .and.imp_rmask(i,j).eq.1.) then
                radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
      &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
 #ifdef DEBUG_FLUX
@@ -1136,9 +1137,9 @@ c ---   existing radfl is the diurnal Qsw correction only
 #endif
            endif
 !!Alex merge flux
-           if (merge_flux) then
-            radfl = radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1)
-           endif
+!           if (merge_flux) then
+!            radfl = radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1)
+!           endif
 #else
           radfl=radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1)
 #endif
@@ -1148,7 +1149,8 @@ c ---   existing radfl is the diurnal Qsw correction only
                radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
      &               +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
      &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
-           elseif (cpl_swflx .and. cpl_lwflx) then
+           elseif (cpl_swflx .and. cpl_lwflx
+     &             .and.imp_rmask(i,j).eq.1.) then
                radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
      &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
            else
@@ -1157,10 +1159,10 @@ c ---   existing radfl is the diurnal Qsw correction only
            endif
 
 !!Alex merge flux
-           if (merge_flux ) then
-                radfl = radfl+ (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
-     &                       + radflx(i,j,l2)*w2+radflx(i,j,l3)*w3)
-           endif
+!           if (merge_flux ) then
+!                radfl = radfl+ (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
+!     &                       + radflx(i,j,l2)*w2+radflx(i,j,l3)*w3)
+!           endif
 
 #else
 
@@ -1176,16 +1178,17 @@ c ---     input radflx is Qlwdn, convert to Qlw + Qsw
      &               +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
 !!Alex     &               - sb_cst*(temp(i,j,1,n)+tzero)**4
      &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
-           elseif (cpl_swflx .and. cpl_lwflx) then
+           elseif (cpl_swflx .and. cpl_lwflx
+     &             .and.imp_rmask(i,j).eq.1.) then
                radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
      &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
            else
                radfl = radfl - sb_cst*(temp(i,j,1,n)+tzero)**4 + swfl
            endif
 !!Alex merge flux
-           if (merge_flux ) then
-                radfl = radfl - sb_cst*(temp(i,j,1,n)+tzero)**4 + swfl
-           endif 
+!           if (merge_flux ) then
+!                radfl = radfl - sb_cst*(temp(i,j,1,n)+tzero)**4 + swfl
+!           endif 
 #else
            radfl = radfl - sb_cst*(temp(i,j,1,n)+tzero)**4 + swfl
 #endif
@@ -1231,7 +1234,8 @@ c ---     over-ocean longwave correction to radfl (Qsw+Qlw).
           !correction is blackbody radiation from tdif at tsur
 #ifdef NUOPC
           if(.not.(cpl_swflx.and.
-     &           ((cpl_lwmdnflx.and.cpl_lwmupflx) .or. cpl_lwflx))) then
+     &           ((cpl_lwmdnflx.and.cpl_lwmupflx) .or. cpl_lwflx).and.
+     &           imp_rmask(i,j).eq.1.)) then
              radfl = radfl - (4.506+0.0554*tsur) * tdif
              !count the correction as a relaxation term
              sstflx(i,j) = - (4.506+0.0554*tsur) * tdif
@@ -1239,11 +1243,11 @@ c ---     over-ocean longwave correction to radfl (Qsw+Qlw).
              sstflx(i,j) = 0.0
           endif
 !!Alex merge flux
-           if (merge_flux ) then
-                radfl = radfl - (4.506+0.0554*tsur) * tdif
-             !count the correction as a relaxation term
-             sstflx(i,j) = - (4.506+0.0554*tsur) * tdif
-           endif
+!           if (merge_flux ) then
+!                radfl = radfl - (4.506+0.0554*tsur) * tdif
+!             !count the correction as a relaxation term
+!             sstflx(i,j) = - (4.506+0.0554*tsur) * tdif
+!           endif
 #else
           radfl = radfl - (4.506+0.0554*tsur) * tdif
           !count the correction as a relaxation term
