@@ -1039,7 +1039,7 @@ module hycom_nuopc_glue
       cpl_taux = .false.
       cpl_tauy = .false.
       !cpl_latflx = .false.
-      cpl_sensflx = .false.
+      !cpl_sensflx = .false.
       !cpl_precip = .false.
       
       ! copy the data into the right import location

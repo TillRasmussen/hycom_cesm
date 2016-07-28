@@ -1465,15 +1465,15 @@ c ---   Latent Heat flux (W/m2)
 #endif
 c ---   Sensible Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
         endif
 !!Alex merge flux
-        if (merge_flux ) then
-            snsibl=csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
-        endif 
+!        if (merge_flux ) then
+!            snsibl=csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
+!        endif 
 #else
         snsibl=csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
 #endif
@@ -1521,15 +1521,15 @@ c ---   Latent Heat flux (W/m2)
 
 c ---   Sensible Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=ssen*csh*wind* tdif
         endif
 !!Alex merge flux
-        if (merge_flux) then
-            snsibl=ssen*csh*wind* tdif
-        endif
+!        if (merge_flux) then
+!            snsibl=ssen*csh*wind* tdif
+!        endif
 #else
         snsibl=ssen*csh*wind* tdif
 #endif
@@ -1639,15 +1639,15 @@ c ---   Latent Heat flux (W/m2)
 #endif 
 c ---   Sensible Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=ssen*csh*wind* tdif
         endif
 !!Alex merge flux
-        if (merge_flux ) then
-            snsibl=ssen*csh*wind* tdif
-        endif
+!        if (merge_flux ) then
+!            snsibl=ssen*csh*wind* tdif
+!        endif
 #else
         snsibl=ssen*csh*wind* tdif
 #endif
@@ -1764,15 +1764,15 @@ c ---   snsibl = sensible heat flux  (W/m^2) into atmos from ocean.
 c ---   surflx = thermal energy flux (W/m^2) into ocean
 c ---   Sensible Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=ssen*csh*wind* tdif         !wind=samo
         endif
 !!Alex merge flux
-        if ( merge_flux ) then
-            snsibl=ssen*csh*wind* tdif         !wind=samo
-        endif
+!        if ( merge_flux ) then
+!            snsibl=ssen*csh*wind* tdif         !wind=samo
+!        endif
 
 #else
         snsibl=ssen*csh*wind* tdif         !wind=samo
@@ -1887,15 +1887,15 @@ c ---  Latent Heat flux
 c --- Sensible Heat flux
         ssen   = cpcore*rair
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=ssen*ch10*wind*(temp(i,j,1,n)-airt)
         endif
 !!Alex merge flux
-        if (merge_flux ) then
-            snsibl=ssen*ch10*wind*(temp(i,j,1,n)-airt)
-        endif
+!        if (merge_flux ) then
+!            snsibl=ssen*ch10*wind*(temp(i,j,1,n)-airt)
+!        endif
 #else
         snsibl=ssen*ch10*wind*(temp(i,j,1,n)-airt)
 #endif
