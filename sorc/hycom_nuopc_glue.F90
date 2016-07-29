@@ -201,13 +201,20 @@ module hycom_nuopc_glue
       return  ! bail out
     
     ! ready to create the HYCOM DistGrid from deBlockList with periodic connect.
+#ifndef GLOBAL
+    dg = ESMF_DistGridCreate(minIndex=(/1,1/), maxIndex=(/itdm,jtdma/), &
+      deBlockList=deBlockList, &
+      indexflag=ESMF_INDEX_GLOBAL, rc=rc)
+#else
     dg = ESMF_DistGridCreate(minIndex=(/1,1/), maxIndex=(/itdm,jtdma/), &
       deBlockList=deBlockList, connectionList=connectionList, &
       indexflag=ESMF_INDEX_GLOBAL, rc=rc)
+#endif
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
       
     deallocate(connectionList)
     deallocate(deBlockList)
@@ -513,7 +520,7 @@ module hycom_nuopc_glue
     glue%rh_shadow2export_ready = .false.
 #endif
 
-#ifdef DEBUG_GRID
+#ifndef DEBUG_GRID
     ! No matter if with/without shadow, glue%grid now is the grid for
     ! external interaction
     call ESMF_LogWrite("writing VTK file.", ESMF_LOGMSG_INFO, rc=rc)
