@@ -1944,14 +1944,11 @@ c ---   in shallow water this is (dpmixl(i,j,n)/p(i,j,kk+1)  )/rmut
         else  !synoptic sst
           if     (natm.eq.2) then
 #ifdef NUOPC
-            if(cpl_seatmp .and. sstflg.ne.3) then
+              if(cpl_seatmp .and. sstflg.ne.3
+     &                      .and. imp_rmask(i,j).eq.1) then
               sstdif = ( imp_seatmp(i,j,1)*cpl_w2
      &                  +imp_seatmp(i,j,2)*cpl_w3) - temp(i,j,1,n)
             else
-              sstdif = ( seatmp(i,j,l0)*w0+seatmp(i,j,l1)*w1) -
-     &                   temp(i,j,1,n)
-            endif
-            if(merge_flux) then
               sstdif = ( seatmp(i,j,l0)*w0+seatmp(i,j,l1)*w1) -
      &                   temp(i,j,1,n)
             endif
@@ -1961,15 +1958,11 @@ c ---   in shallow water this is (dpmixl(i,j,n)/p(i,j,kk+1)  )/rmut
 #endif
           else
 #ifdef NUOPC
-            if(cpl_seatmp .and. sstflg.ne.3) then
+              if(cpl_seatmp .and. sstflg.ne.3
+     &                      .and. imp_rmask(i,j).eq.1) then
               sstdif = ( imp_seatmp(i,j,1)*cpl_w2
      &                  +imp_seatmp(i,j,2)*cpl_w3) - temp(i,j,1,n)
             else
-              sstdif = ( seatmp(i,j,l0)*w0+seatmp(i,j,l1)*w1
-     &                  +seatmp(i,j,l2)*w2+seatmp(i,j,l3)*w3) -
-     &                   temp(i,j,1,n)
-            endif
-            if(merge_flux) then
               sstdif = ( seatmp(i,j,l0)*w0+seatmp(i,j,l1)*w1
      &                  +seatmp(i,j,l2)*w2+seatmp(i,j,l3)*w3) -
      &                   temp(i,j,1,n)
@@ -2007,7 +2000,7 @@ c --- allow for rivers as a precipitation bogas
 #ifdef NUOPC
         
 c --- rivers (ocean/ice contribution ; pcp_fact taken care of in cpl) 
-        if(cpl_orivers.and.cpl_irivers) then
+        if(cpl_orivers.and.cpl_irivers.and.imp_rmask(i,j).eq.1) then
             rivflx(i,j) = -
      &                  ((imp_orivers(i,j,1)+imp_irivers(i,j,1))*cpl_w2
      &                  +(imp_orivers(i,j,2)+imp_irivers(i,j,2))*cpl_w3)
@@ -2017,13 +2010,6 @@ c --- rivers (ocean/ice contribution ; pcp_fact taken care of in cpl)
      &                       +rivers(i,j,lr2)*wr2+rivers(i,j,lr3)*wr3) *
      &                      (saln(i,j,1,n)*qthref)*pcp_facth
         endif
-!!Alex merge flux
-        if (merge_flux ) then
-            rivflx(i,j) = - ( rivers(i,j,lr0)*wr0+rivers(i,j,lr1)*wr1
-     &                       +rivers(i,j,lr2)*wr2+rivers(i,j,lr3)*wr3) *
-     &                      (saln(i,j,1,n)*qthref)*pcp_facth
-        endif
-
 #else
             rivflx(i,j) = - ( rivers(i,j,lr0)*wr0+rivers(i,j,lr1)*wr1
      &                       +rivers(i,j,lr2)*wr2+rivers(i,j,lr3)*wr3) *
