@@ -800,8 +800,23 @@ c
       real, save, dimension(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
 #endif 
      & dhde,dhdn,              ! sea-surface height slope for CICE
-     & umxl,vmxl               ! surface u and v for CICE  
+     & umxl,vmxl,              ! surface u and v for CICE  
+     & tml,sml                 ! surface T and S for CICE
 
+
+! --- Average array for export
+#if defined(RELO)
+      real, save, allocatable, dimension(:,:) ::
+#else
+      real, save, dimension(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy) ::
+#endif
+     & sshm,               ! sea-surface height averaged over 1 coupling sequence
+     & um,vm,              ! surface u and v 
+     & ubm,vbm,            ! surface ubaro and vbaro
+     & tavgm,savgm        ! surface T and S 
+
+
+      
 #if defined(NUOPC)
 c
 c --- NUOPC glue code structures
@@ -1541,15 +1556,42 @@ c
      &             dhde(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &             dhdn(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
      &             umxl(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
-     &             vmxl(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy))
-      call mem_stat_add( 4*(idm+2*nbdy)*(jdm+2*nbdy) )
+     &             vmxl(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &              tml(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy), !!Alex
+     &              sml(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy)) !!Alex
+      call mem_stat_add( 6*(idm+2*nbdy)*(jdm+2*nbdy) )
 #endif
 
                 dhde = 0.d0
                 dhdn = 0.d0
                 umxl = 0.d0
                 vmxl = 0.d0
+                 tml = 0.d0
+                 sml = 0.d0
 c
+!!Alex averaged fields for export
+#if defined(RELO)
+      allocate(
+     &            sshm(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &              um(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &              vm(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &             ubm(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &             vbm(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &           tavgm(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy),
+     &           savgm(1-nbdy:idm+nbdy,1-nbdy:jdm+nbdy))
+      call mem_stat_add( 7*(idm+2*nbdy)*(jdm+2*nbdy) )
+#endif
+
+                sshm = 0.d0
+                  um = 0.d0
+                  vm = 0.d0
+                 ubm = 0.d0
+                 vbm = 0.d0
+               tavgm = 0.d0
+               savgm = 0.d0
+
+
+
 #if defined(NUOPC)
 
 #if defined(RELO)

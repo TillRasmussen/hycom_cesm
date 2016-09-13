@@ -86,6 +86,10 @@ c --- tfrz_n = nominal ice melting point (degC) for ice mask
      &       vol, sai
       integer iyear_new,iday
       real    dtime_new
+
+c --- ntavg number of time step between coupling sequence (CESM)
+      integer :: ntavg
+      
 c
       contains
 
@@ -877,6 +881,7 @@ c ---   only two fields are used (linear interpolation in time).
           w3=0.0
 !!Alex no file flux on restart
 #ifdef NUOPC
+
           if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
      &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip))
      &         then
@@ -1002,6 +1007,7 @@ c ---   read in rivers field for 4 consecutive months
          lr2=3
          lr3=4
 #ifdef NUOPC
+
          if (.not. (cpl_orivers .and. cpl_irivers)) then
             if (linit) then 
                call rdrivr(mr0,lr0)
@@ -1009,7 +1015,8 @@ c ---   read in rivers field for 4 consecutive months
                call rdrivr(mr2,lr2)
                call rdrivr(mr3,lr3)
             endif 
-         endif 
+         endif
+        
 #else
          call rdrivr(mr0,lr0)
          call rdrivr(mr1,lr1)
@@ -1190,6 +1197,41 @@ c ---       average currents over top thkcdw meters
         enddo
 !$OMP END PARALLEL DO
 
+
+        if (linit) then 
+!!Alex initialization of time averaged export fields
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+            do j=1-nbdy,jj+nbdy
+              do i=1-nbdy,ii+nbdy
+                if (SEA_P) then
+                    tml(i,j) = 0.5*(temp(i,j,1,1)+temp(i,j,1,2))
+                    sml(i,j) = 0.5*(saln(i,j,1,1)+saln(i,j,1,2)) 
+                    sshm(i,j) = srfhgt(i,j)
+                endif
+              enddo
+            enddo
+!$OMP END PARALLEL DO
+        else
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+            do j=1-nbdy,jj+nbdy
+              do i=1-nbdy,ii+nbdy
+                if (SEA_P) then
+                    if (sml(i,j).eq.0.) then ! tml and sml not initialized in the restart
+                        tml(i,j) = 0.5*(temp(i,j,1,1)+temp(i,j,1,2))
+                        sml(i,j) = 0.5*(saln(i,j,1,1)+saln(i,j,1,2)) 
+                        sshm(i,j) = srfhgt(i,j)
+                    endif 
+                endif
+              enddo
+            enddo
+!$OMP END PARALLEL DO
+        endif
+
+!$OMP END PARALLEL DO       
+        ntavg = 0 ! initialization of the counter for time averaging
+ 
       endif 
       
 c
@@ -1214,6 +1256,7 @@ c
       real :: maskn,masks,maske,maskw
       real :: dp1,usur1,vsur1,psur1,dp2,usur2,vsur2,psur2,thksur,
      &        utot,vtot
+      real :: inv_cplifq
 
       real          nstep2_cpl
       logical       restrt_cpl
@@ -1307,6 +1350,7 @@ c
 c ---   set weights and fields for high frequency atmospheric forcing.
 c ---   only two fields are used (linear interpolation in time).
 #ifdef NUOPC
+
           if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
      &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip)) 
      &        then
@@ -1385,6 +1429,7 @@ c
 c --- set weights for quasi-hermite time interpolation for rivers.
       if     (priver) then
 #ifdef NUOPC
+
          if (.not. (cpl_orivers .and. cpl_irivers)) then
 c ---   monthly fields.
             x=1.+mod(dtime+dyear0,dyear)/dmonth
@@ -1407,6 +1452,7 @@ c ---   monthly fields.
             wr0=-.5*x *x1*x1
             wr3=-.5*x1*x *x
          endif
+
 #else
 c ---   monthly fields.
          x=1.+mod(dtime+dyear0,dyear)/dmonth
@@ -2621,8 +2667,41 @@ c
           end_of_run_cpl = .false.
         endif
 
+!!Alex
+!! add mean field
+        inv_cplifq= 1./icefrq
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+            if (SEA_P) then
+               sshm(i,j) = sshm(i,j) + srfhgt(i,j)*inv_cplifq
+
+               um(i,j)  = um(i,j)  + 0.5*(    u(i,j,1,1)+    u(i,j,1,2))
+     &                             * inv_cplifq
+               ubm(i,j) = ubm(i,j) + 0.5*(ubavg(i,j,  1)+ubavg(i,j,  2))
+     &                             * inv_cplifq
+
+               vm(i,j)  = vm(i,j)  + 0.5*(    v(i,j,1,1)+    v(i,j,1,2))
+     &                             * inv_cplifq
+               vbm(i,j) = vbm(i,j) + 0.5*(vbavg(i,j,  1)+vbavg(i,j,  2))
+     &                             * inv_cplifq
+
+               tavgm(i,j) = tavgm(i,j) + 0.5*(temp(i,j,1,1)
+     &                                       +temp(i,j,1,2))* inv_cplifq
+               savgm(i,j) = savgm(i,j) + 0.5*(saln(i,j,1,1)
+     &                                       +saln(i,j,1,2))* inv_cplifq
+               
+            endif
+         enddo
+        enddo
+!$OMP END PARALLEL DO
+        ntavg = ntavg + 1
+
+
         if (end_of_run_cpl) then 
 
+          sshm(:,:)=srfhgt(:,:)
 !Alex  calculation of seas surface slope for export to CICE (NUOPC)
 !$OMP     PARALLEL DO PRIVATE(j,i)
 !$OMP&             SCHEDULE(STATIC,jblk)
@@ -2677,40 +2756,45 @@ c
 !!Alex calculation of u and v surf for export to CICE
 !$OMP     PARALLEL DO PRIVATE(j,i)
 !$OMP&             SCHEDULE(STATIC,jblk)
-          do j=1-nbdy,jj+nbdy
-            do i=1-nbdy,ii+nbdy
-            if (SEA_P) then
-c ---       average currents over top thkcdw meters
-            thksur = onem*min( thkcdw, depths(i,j) )
-            usur1  = 0.0
-            vsur1  = 0.0
-            psur1  = 0.0
-            usur2  = 0.0
-            vsur2  = 0.0
-            psur2  = 0.0
-            do k= 1,kk
-              dp1   = min( dp(i,j,k,1), max( 0.0, thksur-psur1 ) )
-              usur1 = usur1 + dp1*(u(i,j,k,1)+u(i+1,j,k,1))
-              vsur1 = vsur1 + dp1*(v(i,j,k,1)+v(i,j+1,k,1))
-              psur1 = psur1 + dp1
+!          do j=1-nbdy,jj+nbdy
+!            do i=1-nbdy,ii+nbdy
+!            if (SEA_P) then
+!c ---       average currents over top thkcdw meters
+!            thksur = onem*min( thkcdw, depths(i,j) )
+!            usur1  = 0.0
+!            vsur1  = 0.0
+!            psur1  = 0.0
+!            usur2  = 0.0
+!            vsur2  = 0.0
+!            psur2  = 0.0
+!            do k= 1,kk
+!              dp1   = min( dp(i,j,k,1), max( 0.0, thksur-psur1 ) )
+!              usur1 = usur1 + dp1*(u(i,j,k,1)+u(i+1,j,k,1))
+!              vsur1 = vsur1 + dp1*(v(i,j,k,1)+v(i,j+1,k,1))
+!              psur1 = psur1 + dp1
+!
+!              dp2   = min( dp(i,j,k,2), max( 0.0, thksur-psur2 ) )
+!              usur2 = usur2 + dp2*(u(i,j,k,2)+u(i+1,j,k,2))
+!              vsur2 = vsur2 + dp2*(v(i,j,k,2)+v(i,j+1,k,2))
+!              psur2 = psur2 + dp2
+!
+!              if     (min(psur1,psur2).ge.thksur) then
+!                exit
+!              endif
+!            enddo
+!            utot = 0.25*( usur1/psur1 + ubavg(i,  j,1) +
+!     &                                  ubavg(i+1,j,1) +
+!     &                    usur2/psur2 + ubavg(i,  j,2) +
+!     &                                  ubavg(i+1,j,2)  )
+!            vtot = 0.25*( vsur1/psur1 + vbavg(i,j,  1) +
+!     &                                  vbavg(i,j+1,1) +
+!     &                    vsur2/psur2 + vbavg(i,j,  2) +
+!     &                                  vbavg(i,j+1,2)  )
 
-              dp2   = min( dp(i,j,k,2), max( 0.0, thksur-psur2 ) )
-              usur2 = usur2 + dp2*(u(i,j,k,2)+u(i+1,j,k,2))
-              vsur2 = vsur2 + dp2*(v(i,j,k,2)+v(i,j+1,k,2))
-              psur2 = psur2 + dp2
-
-              if     (min(psur1,psur2).ge.thksur) then
-                exit
-              endif
-            enddo
-            utot = 0.25*( usur1/psur1 + ubavg(i,  j,1) +
-     &                                  ubavg(i+1,j,1) +
-     &                    usur2/psur2 + ubavg(i,  j,2) +
-     &                                  ubavg(i+1,j,2)  )
-            vtot = 0.25*( vsur1/psur1 + vbavg(i,j,  1) +
-     &                                  vbavg(i,j+1,1) +
-     &                    vsur2/psur2 + vbavg(i,j,  2) +
-     &                                  vbavg(i,j+1,2)  )
+             utot = 0.5*(um(i  ,j) + ubm(i  ,j) +
+     &                   um(i+1,j) + ubm(i+1,j))
+             vtot = 0.5*(vm(i,j  ) + vbm(i,j  ) +
+     &                   vm(i,j+1) + vbm(i,j+1))
 
              umxl(i,j)=utot*cos(pang(i,j)) + vtot*sin(-pang(i,j))
              vmxl(i,j)=vtot*cos(pang(i,j)) - utot*sin(-pang(i,j))
@@ -2719,6 +2803,50 @@ c ---       average currents over top thkcdw meters
         enddo
 !$OMP END PARALLEL DO
 
+!!Alex calculation of tmxl,smxl
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+            if (SEA_P) then
+                tml(i,j) = tavgm(i,j)
+                sml(i,j) = savgm(i,j)
+           endif
+         enddo
+        enddo
+!$OMP END PARALLEL DO
+       if (ntavg.ne.icefrq) then
+          if (ntavg.ne.0) then
+          tml(:,:)=tml(:,:)*(icefrq/ntavg)
+          sml(:,:)=sml(:,:)*(icefrq/ntavg)
+          umxl(:,:)=umxl(:,:)*(icefrq/ntavg)
+          vmxl(:,:)=vmxl(:,:)*(icefrq/ntavg)
+          endif
+          if (mnproc.eq.1) print*, 'ntavg different from icefrq:',ntavg
+       endif
+
+c --- reset average fields
+         ntavg = 0  
+!$OMP     PARALLEL DO PRIVATE(j,i)
+!$OMP&             SCHEDULE(STATIC,jblk)
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+            if (SEA_P) then
+               sshm(i,j) = 0.0 
+
+               um(i,j)  = 0.0
+               ubm(i,j) = 0.0
+
+               vm(i,j)  = 0.0
+               vbm(i,j) = 0.0
+
+               tavgm(i,j) = 0.0
+               savgm(i,j) = 0.0
+            endif
+         enddo
+        enddo
+!$OMP END PARALLEL DO
+       
         endif ! end_of_run_cpl 
 
       endif

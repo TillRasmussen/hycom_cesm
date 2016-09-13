@@ -313,6 +313,18 @@ c
      &                             2*kdm, ip, 'tracer  ')
         enddo
       endif
+
+#ifdef NUOPC
+      call zagetc(cline,ios, uoff+11)
+      if (cline(1:8).eq. 'tml     ') then
+!!Alex average export fields
+          call restart_in3d(tml ,    1, ip, 'tml     ')
+          call restart_in3d(sml ,    1, ip, 'sml     ')
+          call restart_in3d(umxl,    1, ip, 'umxl    ')
+          call restart_in3d(vmxl,    1, ip, 'vmxl    ')
+      endif 
+#endif
+
 !!Alex add pcpadj
       if (pcpadj) then
           if (mnproc.eq.1) then
@@ -819,6 +831,51 @@ c
       endif !trcout
 
 c
+#ifdef NUOPC
+!!Alex averaged export fields
+      call zaiowr3(tml,     1, ip,.false., xmin,xmax, iunta,.true.)
+      call xctilr( tml,   1,1, nbdy,nbdy, halo_ps)
+        if     (mnproc.eq.1) then
+        do l= 1,1
+          do k= 0,0
+            write(iunit,4100) 'tml     ',k,l,  xmin(l),xmax(l)
+          enddo
+        enddo
+        call flush(iunit)
+        endif !1st tile
+      call zaiowr3(sml,     1, ip,.false., xmin,xmax, iunta,.true.)
+      call xctilr( sml,   1,1, nbdy,nbdy, halo_ps)
+        if     (mnproc.eq.1) then
+        do l= 1,1
+          do k= 0,0
+            write(iunit,4100) 'sml     ',k,l,  xmin(l),xmax(l)
+          enddo
+        enddo
+        call flush(iunit)
+        endif !1st tile
+      call zaiowr3(umxl,     1, ip,.false., xmin,xmax, iunta,.true.)
+      call xctilr( umxl,   1,1, nbdy,nbdy, halo_ps)
+        if     (mnproc.eq.1) then
+        do l= 1,1
+          do k= 0,0
+            write(iunit,4100) 'umxl    ',k,l,  xmin(l),xmax(l)
+          enddo
+        enddo
+        call flush(iunit)
+        endif !1st tile
+      call zaiowr3(vmxl,     1, ip,.false., xmin,xmax, iunta,.true.)
+      call xctilr( vmxl,   1,1, nbdy,nbdy, halo_ps)
+        if     (mnproc.eq.1) then
+        do l= 1,1
+          do k= 0,0
+            write(iunit,4100) 'vmxl    ',k,l,  xmin(l),xmax(l)
+          enddo
+        enddo
+        call flush(iunit)
+        endif !1st tile
+!!Alex
+#endif
+
 !!Alex add pcpadj
       if (pcpadj) then
           if     (mnproc.eq.1) then

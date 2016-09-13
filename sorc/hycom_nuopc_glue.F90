@@ -1286,8 +1286,11 @@ module hycom_nuopc_glue
               hfrz = min( thkfrz*onem, dpbl(i,j) )
               t2f  = (spcifh*hfrz)/(baclin*cplfrq*g)
               ! ---     average both available time steps, to avoid time splitting.
-              smxl = 0.5*(saln(i,j,1,2)+saln(i,j,1,1))
-              tmxl = 0.5*(temp(i,j,1,2)+temp(i,j,1,1))
+!              smxl = 0.5*(saln(i,j,1,2)+saln(i,j,1,1)) !!Alex calculated in mod_hycom.F
+!              tmxl = 0.5*(temp(i,j,1,2)+temp(i,j,1,1)) !!Alex calculated in mod_hycom.F 
+              smxl = sml(i,j)
+              tmxl = tml(i,j)
+
               tfrz = tfrz_0 + smxl*tfrz_s  !salinity dependent freezing point
               ssfi = (tfrz-tmxl)*t2f       !W/m^2 into ocean
         
@@ -1303,7 +1306,8 @@ module hycom_nuopc_glue
         do j=1,jja
         do i=1,ii
            if (.not. initFlag) then 
-              farrayPtr(i,j) = srfhgt(i,j)/g   ! convert ssh to m
+!!Alex              farrayPtr(i,j) = srfhgt(i,j)/g   ! convert ssh to m
+              farrayPtr(i,j) = sshm(i,j)/g   ! convert ssh to m
            else
               farrayPtr(i,j) = 0.
            endif
@@ -1322,7 +1326,8 @@ module hycom_nuopc_glue
       elseif (fieldStdName == "s_surf") then
         do j=1,jja
         do i=1,ii
-          farrayPtr(i,j) = 0.5d0 * (saln(i,j,1,2)+saln(i,j,1,1))
+!!Alex          farrayPtr(i,j) = 0.5d0 * (saln(i,j,1,2)+saln(i,j,1,1))
+          farrayPtr(i,j) = sml(i,j)
         enddo
         enddo
       elseif (fieldStdName == "ocn_current_zonal") then
