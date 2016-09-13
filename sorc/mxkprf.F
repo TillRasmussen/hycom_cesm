@@ -754,6 +754,27 @@ c
       endif
       uold (ka)=.5*(u(i,j,k,n)+u(i+1,j  ,k,n))
       vold (ka)=.5*(v(i,j,k,n)+v(i  ,j+1,k,n))
+
+!!Alex fix from Alan 
+      if     (thold(ka).lt.thold(k) .and. dp(i,j,k,n).gt.onemm) then
+c
+c       layer klist+1 is unstable, homogenize with layer klist
+c
+        told( k)  = (told(k)*dp(i,j,k,n) + told(ka)*dp(i,j,ka,n)) /
+     &              (        dp(i,j,k,n) +          dp(i,j,ka,n))
+        sold( k)  = (sold(k)*dp(i,j,k,n) + sold(ka)*dp(i,j,ka,n)) /
+     &              (        dp(i,j,k,n) +          dp(i,j,ka,n))
+        told( ka) = told( k)
+        sold( ka) = sold( k)
+        thold(ka) = thold(k)
+c
+        temp(i,j,k, n)=told(k)
+        saln(i,j,k, n)=sold(k)
+        th3d(i,j,k, n)=sig(temp(i,j,k,n),saln(i,j,k,n))-thbase
+        temp(i,j,ka,n)=temp(i,j,k,n)
+        saln(i,j,ka,n)=saln(i,j,k,n)
+        th3d(i,j,ka,n)=th3d(i,j,k,n)
+      endif !unstable
 c
 c --- calculate z at vertical grid levels - this array is the z values in m
 c --- at the mid-depth of each micom layer except for index klist+1, where it
@@ -3698,3 +3719,4 @@ c> Oct. 2013 - added jerlv0=-1 and calls to swfrac_ij and swfrml_ij
 c> Jan. 2014 - homogenize the bottom 10 cm velocities
 c> May  2014 - use land/sea masks (e.g. ip) to skip land
 c> Sep  2014 - added 3 new options for langmr
+c> Aug. 2016 - KPP: if layer klist+1 is unstable, homogenize with layer klist
