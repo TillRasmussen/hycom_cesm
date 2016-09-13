@@ -881,15 +881,18 @@ c ---   only two fields are used (linear interpolation in time).
           w3=0.0
 !!Alex no file flux on restart except if atm_initype
 #ifdef NUOPC
-!!Alex merge flux
-!          if (.not. (cpl_swflx  .and.
-!     &             ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)
-!     &        .and.  cpl_taux     .and. cpl_tauy     .and. cpl_precip))
-!     &         then
-!              if (linit .or. atm_initype) then
+          
+#ifdef HYCOM_IN_CESM
+          if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
+     &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip))
+     &         then
+              if (linit) then
                   call forfunh(dtime0)
-!              endif 
-!          endif
+              endif 
+          endif
+#else
+          call forfunh(dtime0)
+#endif
 
 #if defined (ARCTIC)          
           ltripolar=.true.
@@ -1008,15 +1011,23 @@ c ---   read in rivers field for 4 consecutive months
          lr2=3
          lr3=4
 #ifdef NUOPC
-!!Alex merge flux
-!         if (.not. (cpl_orivers .and. cpl_irivers)) then
-!            if (linit .or. atm_initype) then 
+
+#ifdef HYCOM_IN_CESM
+         if (.not. (cpl_orivers .and. cpl_irivers)) then
+            if (linit) then 
                call rdrivr(mr0,lr0)
                call rdrivr(mr1,lr1)
                call rdrivr(mr2,lr2)
                call rdrivr(mr3,lr3)
-!            endif 
-!         endif 
+            endif 
+         endif
+#else
+         call rdrivr(mr0,lr0)
+         call rdrivr(mr1,lr1)
+         call rdrivr(mr2,lr2)
+         call rdrivr(mr3,lr3)
+#endif
+
 #else
          call rdrivr(mr0,lr0)
          call rdrivr(mr1,lr1)
@@ -1314,13 +1325,17 @@ c
 c ---   set weights and fields for high frequency atmospheric forcing.
 c ---   only two fields are used (linear interpolation in time).
 #ifdef NUOPC
-!!Alex merge flux
-!          if (.not. (cpl_swflx  .and.
-!     &             ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)
-!     &        .and.  cpl_taux     .and. cpl_tauy     .and. cpl_precip)) 
-!     &        then
+
+#ifdef HYCOM_IN_CESM
+          if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
+     &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip)) 
+     &        then
                call forfunh(dtime)
-!          endif
+          endif
+#else
+          call forfunh(dtime)
+#endif
+
 
 #if defined(ARCTIC)
 c
@@ -1394,6 +1409,8 @@ c
 c --- set weights for quasi-hermite time interpolation for rivers.
       if     (priver) then
 #ifdef NUOPC
+
+#ifdef HYCOM_IN_CESM
          if (.not. (cpl_orivers .and. cpl_irivers)) then
 c ---   monthly fields.
             x=1.+mod(dtime+dyear0,dyear)/dmonth
@@ -1416,6 +1433,30 @@ c ---   monthly fields.
             wr0=-.5*x *x1*x1
             wr3=-.5*x1*x *x
          endif
+#else
+c ---   monthly fields.
+         x=1.+mod(dtime+dyear0,dyear)/dmonth
+         if (int(x).ne.mr1) then
+             mr1=x
+             mr0=mod(mr1+10,12)+1
+             mr2=mod(mr1,   12)+1
+             mr3=mod(mr2,   12)+1
+             lt =lr0
+             lr0=lr1
+             lr1=lr2
+             lr2=lr3
+             lr3=lt
+             call rdrivr(mr3,lr3)
+         endif
+         x=mod(x,1.)
+         x1=1.-x
+         wr1=x1*(1.+x *(1.-1.5*x ))
+         wr2=x *(1.+x1*(1.-1.5*x1))
+         wr0=-.5*x *x1*x1
+         wr3=-.5*x1*x *x
+#endif         
+
+
 #else
 c ---   monthly fields.
          x=1.+mod(dtime+dyear0,dyear)/dmonth
