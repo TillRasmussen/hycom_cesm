@@ -882,6 +882,7 @@ c ---   only two fields are used (linear interpolation in time).
 !!Alex no file flux on restart
 #ifdef NUOPC
 
+#ifdef HYCOM_IN_CESM
           if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
      &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip))
      &         then
@@ -889,6 +890,10 @@ c ---   only two fields are used (linear interpolation in time).
                   call forfunh(dtime0)
               endif 
           endif
+#else
+          call forfunh(dtime0)
+#endif
+          
 
 #if defined (ARCTIC)          
           ltripolar=.true.
@@ -1008,6 +1013,7 @@ c ---   read in rivers field for 4 consecutive months
          lr3=4
 #ifdef NUOPC
 
+#ifdef HYCOM_IN_CESM
          if (.not. (cpl_orivers .and. cpl_irivers)) then
             if (linit) then 
                call rdrivr(mr0,lr0)
@@ -1016,6 +1022,12 @@ c ---   read in rivers field for 4 consecutive months
                call rdrivr(mr3,lr3)
             endif 
          endif
+#else
+         call rdrivr(mr0,lr0)
+         call rdrivr(mr1,lr1)
+         call rdrivr(mr2,lr2)
+         call rdrivr(mr3,lr3)
+#endif
         
 #else
          call rdrivr(mr0,lr0)
@@ -1351,11 +1363,15 @@ c ---   set weights and fields for high frequency atmospheric forcing.
 c ---   only two fields are used (linear interpolation in time).
 #ifdef NUOPC
 
+#ifdef HYCOM_IN_CESM
           if (.not. (cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
      &        .and.  cpl_taux   .and. cpl_tauy     .and. cpl_precip)) 
      &        then
                call forfunh(dtime)
           endif
+#else
+          call forfunh(dtime)
+#endif
 
 #if defined(ARCTIC)
 c
@@ -1430,6 +1446,7 @@ c --- set weights for quasi-hermite time interpolation for rivers.
       if     (priver) then
 #ifdef NUOPC
 
+#ifdef HYCOM_IN_CESM
          if (.not. (cpl_orivers .and. cpl_irivers)) then
 c ---   monthly fields.
             x=1.+mod(dtime+dyear0,dyear)/dmonth
@@ -1452,6 +1469,28 @@ c ---   monthly fields.
             wr0=-.5*x *x1*x1
             wr3=-.5*x1*x *x
          endif
+#else
+c ---   monthly fields.
+         x=1.+mod(dtime+dyear0,dyear)/dmonth
+         if (int(x).ne.mr1) then
+             mr1=x
+             mr0=mod(mr1+10,12)+1
+             mr2=mod(mr1,   12)+1
+             mr3=mod(mr2,   12)+1
+             lt =lr0
+             lr0=lr1
+             lr1=lr2
+             lr2=lr3
+             lr3=lt
+             call rdrivr(mr3,lr3)
+         endif
+         x=mod(x,1.)
+         x1=1.-x
+         wr1=x1*(1.+x *(1.-1.5*x ))
+         wr2=x *(1.+x1*(1.-1.5*x1))
+         wr0=-.5*x *x1*x1
+         wr3=-.5*x1*x *x
+#endif         
 
 #else
 c ---   monthly fields.
@@ -2756,10 +2795,10 @@ c
 !!Alex calculation of u and v surf for export to CICE
 !$OMP     PARALLEL DO PRIVATE(j,i)
 !$OMP&             SCHEDULE(STATIC,jblk)
-!          do j=1-nbdy,jj+nbdy
-!            do i=1-nbdy,ii+nbdy
-!            if (SEA_P) then
-!c ---       average currents over top thkcdw meters
+          do j=1-nbdy,jj+nbdy
+            do i=1-nbdy,ii+nbdy
+            if (SEA_P) then
+c ---       average currents over top thkcdw meters
 !            thksur = onem*min( thkcdw, depths(i,j) )
 !            usur1  = 0.0
 !            vsur1  = 0.0
