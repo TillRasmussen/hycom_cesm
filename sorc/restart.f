@@ -318,11 +318,41 @@ c
       call zagetc(cline,ios, uoff+11)
       if (cline(1:8).eq. 'tml     ') then
 !!Alex average export fields
+c ---     reposition file for ice input
+c
+          if     (lold) then
+            kskip = 12*kdm+14+2*kapnum
+          else
+            kskip = 10*kdm+14+2*kapnum
+          endif
+          if     (lmyin) then
+            kskip = kskip + 7*kdm+14
+          endif
+          if     (ltidin) then
+            kskip = kskip + 2*nhrly
+          endif
+          call restart_inrw(kskip)
           call restart_in3d(tml ,    1, ip, 'tml     ')
           call restart_in3d(sml ,    1, ip, 'sml     ')
           call restart_in3d(umxl,    1, ip, 'umxl    ')
           call restart_in3d(vmxl,    1, ip, 'vmxl    ')
+      else
+c ---     reposition file for ice input
+c
+          if     (lold) then
+            kskip = 12*kdm+14+2*kapnum
+          else
+            kskip = 10*kdm+14+2*kapnum
+          endif
+          if     (lmyin) then
+            kskip = kskip + 7*kdm+14
+          endif
+          if     (ltidin) then
+            kskip = kskip + 2*nhrly
+          endif
+          call restart_inrw(kskip)
       endif 
+
 #endif
 
 !!Alex add pcpadj
