@@ -520,7 +520,7 @@ module hycom_nuopc_glue
     glue%rh_shadow2export_ready = .false.
 #endif
 
-#ifndef DEBUG_GRID
+#ifdef DEBUG_GRID
     ! No matter if with/without shadow, glue%grid now is the grid for
     ! external interaction
     call ESMF_LogWrite("writing VTK file.", ESMF_LOGMSG_INFO, rc=rc)

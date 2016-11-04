@@ -79,6 +79,7 @@ module hycom
   ! By default, Restart is set to false and Atm_init is set to true
   logical                           :: Restart = .false.
   logical                           :: Atm_init = .true.
+  logical                           :: write_diagnostics = .false.
  
   
   !-----------------------------------------------------------------------------
@@ -229,6 +230,17 @@ module hycom
 
     if(lpet == 0) &
       print *, 'HYCOM Atm_init (Attribute isPresent) = ', Atm_init, isPresent
+
+    call ESMF_AttributeGet(gcomp, name="DumpFields", value=value, defaultValue="false", &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    write_diagnostics=(trim(value)=="true")
+
+    if(lpet == 0) &
+      print *, 'HYCOM DumpFields = ', write_diagnostics
 
   end subroutine
 
@@ -1022,12 +1034,14 @@ module hycom
     !  return  ! bail out
 #else
     ! write out the Fields in the importState
-    call NUOPC_Write(importState, fileNamePrefix="field_ocn_import_", &
-      timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if(write_diagnostics) then
+      call NUOPC_Write(importState, fileNamePrefix="field_ocn_import_", &
+        timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
 #endif
     
 #ifdef HYCOM_IN_CESM
@@ -1059,7 +1073,7 @@ module hycom
     !setup. HYCOM is scheduled to advance first.
     initFlag = .false.
     if (is%wrap%slice .eq. 1 .and. (.not. restFlag)) initFlag = .true.
-#ifndef DEBUG_FLUX    
+#ifdef DEBUG_FLUX    
     print *, 'HYCOM ModelAdvance: slice = ', is%wrap%slice, ' restFlag = ', &
       restFlag, ' initFlag = ', initFlag
     print *, 'cpl_lwflx = ', cpl_lwflx
@@ -1163,12 +1177,14 @@ module hycom
     !  return  ! bail out
 #else
     ! write out the Fields in the exportState
-    call NUOPC_Write(exportState, fileNamePrefix="field_ocn_export_", &
-      timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if(write_diagnostics) then
+      call NUOPC_Write(exportState, fileNamePrefix="field_ocn_export_", &
+        timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
 #endif
     
     ! advance the time slice counter
