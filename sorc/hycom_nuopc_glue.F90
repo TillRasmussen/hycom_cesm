@@ -21,6 +21,7 @@ module hycom_nuopc_glue
   type hycom_nuopc_glue_type
     ! native grid:
     type(ESMF_Grid)         :: grid
+    logical                 :: regional
     ! native mesh:
     type(ESMF_Mesh)         :: mesh           ! from Grid center stagger 
     ! import fields:
@@ -190,33 +191,41 @@ module hycom_nuopc_glue
     enddo
     close(unit=dumpUnit)
 #endif
-
-    ! prepare a single connection for periodicity along i-axis (longitude)
-    allocate(connectionList(1))
-    call ESMF_DistGridConnectionSet(connectionList(1), tileIndexA=1, &
-      tileIndexB=1, positionVector=(/itdm, 0/), rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
-    
     ! ready to create the HYCOM DistGrid from deBlockList with periodic connect.
-#ifndef GLOBAL
-    dg = ESMF_DistGridCreate(minIndex=(/1,1/), maxIndex=(/itdm,jtdma/), &
-      deBlockList=deBlockList, &
-      indexflag=ESMF_INDEX_GLOBAL, rc=rc)
-#else
-    dg = ESMF_DistGridCreate(minIndex=(/1,1/), maxIndex=(/itdm,jtdma/), &
-      deBlockList=deBlockList, connectionList=connectionList, &
-      indexflag=ESMF_INDEX_GLOBAL, rc=rc)
-#endif
+    if(glue%regional) then
+      print *, 'Regional DG'
+      ! For regional regrid, no periodic boundary is present
+      dg = ESMF_DistGridCreate(minIndex=(/1,1/), maxIndex=(/itdm,jtdma/), &
+        deBlockList=deBlockList, &
+        indexflag=ESMF_INDEX_GLOBAL, rc=rc)
+    else
+      print *, 'Global DG'
+      ! 2 connections for tri-polar global grid
+      allocate(connectionList(2))
+      call ESMF_DistGridConnectionSet(connectionList(1), tileIndexA=1, &
+        tileIndexB=1, positionVector=(/itdm+1, 2*jtdma+1/), &
+        orientationVector=(/-1, -2/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+
+      call ESMF_DistGridConnectionSet(connectionList(2), tileIndexA=1, &
+        tileIndexB=1, positionVector=(/itdm, 0/), rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+      dg = ESMF_DistGridCreate(minIndex=(/1,1/), maxIndex=(/itdm,jtdma/), &
+        deBlockList=deBlockList, connectionList=connectionList, &
+        indexflag=ESMF_INDEX_GLOBAL, rc=rc)
+      deallocate(connectionList)
+    endif
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-
       
-    deallocate(connectionList)
     deallocate(deBlockList)
     
     ! dress up "plon" array, considering HYCOM memory layout with halo + padding

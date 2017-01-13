@@ -79,6 +79,7 @@ module hycom
   ! By default, Restart is set to false and Atm_init is set to true
   logical                           :: Restart = .false.
   logical                           :: Atm_init = .true.
+  logical                           :: Regional = .false.
   logical                           :: write_diagnostics = .false.
  
   
@@ -241,6 +242,26 @@ module hycom
 
     if(lpet == 0) &
       print *, 'HYCOM DumpFields = ', write_diagnostics
+
+    call ESMF_AttributeGet(gcomp, name="Regional", &
+      isPresent=isPresent, &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(gcomp, name="Regional", &
+      value=value, defaultValue="false", &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    Regional=(trim(value)=="true")
+
+    if(lpet == 0) &
+      print *, 'HYCOM Regional (Attribute isPresent) = ', Regional, isPresent
 
   end subroutine
 
@@ -538,6 +559,7 @@ module hycom
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
     ! Fill in the glue structure.
+    is%wrap%glue%regional = Regional
     call HYCOM_GlueInitialize(is%wrap%glue, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
