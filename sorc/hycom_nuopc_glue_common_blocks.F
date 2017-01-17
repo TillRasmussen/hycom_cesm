@@ -18,6 +18,8 @@
         ! grid
         public plon     ! lon at the p pts
         public plat     ! lat at the p pts
+        public ulon     ! lon at the u pts
+        public vlat     ! lat at the v pts
         public scp2     ! grid cell area at the p pts
         public scux     ! grid cell area at the p pts
         public scvy     ! grid cell area at the p pts
@@ -32,6 +34,7 @@
         public cpl_airtmp,  imp_airtmp    ! air temperature [K]
         public cpl_vapmix,  imp_vapmix    ! specific humidity [kg kg-1]
         public cpl_swflx,   imp_swflx     ! shortwave net flux [W m-2]
+        public cpl_lwflx,   imp_lwflx     ! longwave net  flux [W m-2]
         public cpl_lwmdnflx,imp_lwdflx    ! longwave down flux [W m-2]
         public cpl_lwmupflx,imp_lwuflx    ! longwave up   flux [W m-2]
         public cpl_precip,  imp_precip    ! precipitation [m s-1]
@@ -41,7 +44,7 @@
         public cpl_sensflx, imp_sensflx   ! sensible heat flux [W m-2]
         public cpl_orivers, imp_orivers   ! ocean runoffs [kg m-2 s-1]
         public cpl_irivers, imp_irivers   ! ice   runoffs [kg m-2 s-1]
-        
+        public              imp_rmask 
         
         ! import from SEA-ICE
         public cpl_sic,     sic_import    ! Sea Ice Concentration

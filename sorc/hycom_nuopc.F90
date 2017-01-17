@@ -247,6 +247,7 @@ module ocn_comp_nuopc_mod
   ! private internal state to keep instance data
   type InternalStateStruct
     type(hycom_nuopc_glue_type)   :: glue
+    type(ESMF_Time)               :: hycomRefTime
     integer                       :: slice
   end type
 
@@ -279,6 +280,15 @@ module ocn_comp_nuopc_mod
   type(HYCOM_CESM_FIELD_TABLE_ENTRY):: hycom2cesm_table(number_export_fields)
 
 #endif
+
+  ! When both are true, hycom will do a restart and read atmospheric forcing data during
+  ! initialization in HYCOM_Init in coupled mode.
+  ! By default, Restart is set to false and Atm_init is set to true
+  logical                           :: Restart = .false.
+  logical                           :: Atm_init = .true.
+  logical                           :: Regional = .false.
+  logical                           :: write_diagnostics = .false.
+ 
   
   !-----------------------------------------------------------------------------
   contains
@@ -379,6 +389,11 @@ module ocn_comp_nuopc_mod
     type(ESMF_Clock)      :: clock
     integer, intent(out)  :: rc
 
+    character(len=10)     :: value
+    logical               :: isPresent
+    type(ESMF_VM)         :: vm
+    integer               :: lpet
+
     rc = ESMF_SUCCESS
 
     ! Switch to IPDv01 by filtering all other phaseMap entries
@@ -388,6 +403,89 @@ module ocn_comp_nuopc_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    call ESMF_GridCompGet(gcomp, vm=vm, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_VMGet(vm, localPet=lpet, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(gcomp, name="Restart", &
+      isPresent=isPresent, &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(gcomp, name="Restart", &
+      value=value, defaultValue="false", &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    Restart=(trim(value)=="true")
+
+    if(lpet == 0) &
+      print *, 'HYCOM Restart (Attribute isPresent) = ', Restart, isPresent
+
+    call ESMF_AttributeGet(gcomp, name="Atm_init", &
+      isPresent=isPresent, &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(gcomp, name="Atm_init", &
+      value=value, defaultValue="true", &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    Atm_init=(trim(value)/="false")
+
+    if(lpet == 0) &
+      print *, 'HYCOM Atm_init (Attribute isPresent) = ', Atm_init, isPresent
+
+    call ESMF_AttributeGet(gcomp, name="DumpFields", value=value, defaultValue="false", &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    write_diagnostics=(trim(value)=="true")
+
+    if(lpet == 0) &
+      print *, 'HYCOM DumpFields = ', write_diagnostics
+
+    call ESMF_AttributeGet(gcomp, name="Regional", &
+      isPresent=isPresent, &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+
+    call ESMF_AttributeGet(gcomp, name="Regional", &
+      value=value, defaultValue="false", &
+      convention="NUOPC", purpose="Instance", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    Regional=(trim(value)=="true")
+
+    if(lpet == 0) &
+      print *, 'HYCOM Regional (Attribute isPresent) = ', Regional, isPresent
 
   end subroutine
 
@@ -415,30 +513,32 @@ module ocn_comp_nuopc_mod
       StandardNames=(/ &
       "surface_downward_eastward_stress       ",    & ! from ATM
       "surface_downward_northward_stress      ",    & ! from ATM
-      "wind_speed_height10m                   ",    & ! from ATM
-      "friction_speed                         ",    & ! from ATM
+!      "wind_speed_height10m                   ",    & ! from ATM
+!      "friction_speed                         ",    & ! from ATM
       "mean_net_sw_flx                        ",    & ! from ATM
-      "mean_down_lw_flx                       ",    & ! from ATM
-      "mean_up_lw_flx                         ",    & ! from ATM
+      "mean_net_lw_flx                        ",    & ! from ATM
+!      "mean_down_lw_flx                       ",    & ! from ATM
+!      "mean_up_lw_flx                         ",    & ! from ATM
       "mean_lat_flx                           ",    & ! from ATM
       "mean_sens_flx                          ",    & ! from ATM
-      "inst_temp_height2m                     ",    & ! from ATM
-      "mean_prec_rate                         ",    & ! from ATM
-      "inst_spec_humid_height2m               ",    & ! from ATM
-      "sea_surface_temperature                ",    & ! from ATM
-      "water_flux_into_sea_water              ",    & ! from ATM
-      "frozen_water_flux_into_sea_water       ",    & ! from ATM
-      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
-      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
-      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
-      "sea_ice_temperature                    ",    & ! from SEA-ICE
-      "sea_ice_thickness                      ",    & ! from SEA-ICE
-      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-      "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
+!      "inst_temp_height2m                     ",    & ! from ATM
+      "mean_prec_rate                         "    & ! from ATM
+!      "inst_spec_humid_height2m               ",    & ! from ATM
+!      "sea_surface_temperature                ",    & ! from ATM
+!      "water_flux_into_sea_water              ",    & ! from ATM
+!      "frozen_water_flux_into_sea_water       ",    & ! from ATM
+!      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
+!      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+!      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+!      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
+!      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
+!      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
+!      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
+!      "sea_ice_temperature                    ",    & ! from SEA-ICE
+!      "sea_ice_thickness                      ",    & ! from SEA-ICE
+!      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+!      "sea_ice_y_velocity                     "
+      /),  & ! from SEA-ICE
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -448,13 +548,14 @@ module ocn_comp_nuopc_mod
     ! exportable fields:
     call NUOPC_Advertise(exportState, &
       StandardNames=(/ &
+      "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
       "upward_sea_ice_basal_available_heat_flux ",    &
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
-      "eastward_sea_surface_slope               ",    &
-      "northward_sea_surface_slope              ",    &
+      "sea_surface_slope_zonal                  ",    &
+      "sea_surface_slope_merid                  ",    &
       "ocn_current_zonal                        ",    &
       "ocn_current_merid                        "/),  &
       rc=rc)
@@ -532,7 +633,7 @@ module ocn_comp_nuopc_mod
     type(ESMF_array)            :: array
     type(ESMF_VM)               :: vm
     integer                     :: mpiComm
-    TYPE(ESMF_Time)             :: startTime, stopTime, hycomRefTime, currTime
+    TYPE(ESMF_Time)             :: startTime, stopTime, currTime
     TYPE(ESMF_TimeInterval)     :: interval,timeStep
     real(ESMF_KIND_R8)          :: startTime_r8, stopTime_r8
     type(InternalState)         :: is
@@ -552,8 +653,8 @@ module ocn_comp_nuopc_mod
     integer                     :: maxIndex(2, 1)
     integer, pointer            :: fptrSeqIndex(:)
     character(len=32)           :: starttype                 ! infodata start type
-    real(ESMF_KIND_R8)          :: l_startTime_r8
 #endif
+    real(ESMF_KIND_R8)          :: l_startTime_r8
     
     rc = ESMF_SUCCESS
     
@@ -584,26 +685,45 @@ module ocn_comp_nuopc_mod
       return  ! bail out
       
     ! Translate currTime and stopTime into HYCOM format
-    call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, rc=rc)
+    call ESMF_ClockGet(clock, currTime=currTime, stopTime=stopTime, &
+      calkindflag=calkind, rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_TimePrint(currTime, options="string", &
+      preString="CurrTime: ", rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+    call ESMF_TimePrint(stopTime, options="string", &
+      preString="stopTime: ", rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
 
     ! Define HYCOM Ref Time
-!!Alex    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
-    call ESMF_TimeSet(hycomRefTime, yy=0001, mm=01, dd=01, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
+#ifdef REAL_DATES
+    ! HYCOM starts time on Dec 31, 1900
+    call ESMF_TimeSet(is%wrap%hycomRefTime, yy=1900, mm=12, dd=31, &
+      calkindflag=calkind, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    interval = currTime - hycomRefTime
+#else
+    ! not a simulation with real dates, just start at 0 with currTime
+    is%wrap%hycomRefTime = currTime
+#endif
+    interval = currTime - is%wrap%hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=startTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    interval = stopTime - hycomRefTime
+    interval = stopTime - is%wrap%hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=stopTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -654,6 +774,12 @@ module ocn_comp_nuopc_mod
 #else
     ! NON-CESM use of this cap requires different way to
     ! manage cold start and restart runs
+    if (Restart) then
+       l_startTime_r8= startTime_r8  ! restart
+    else
+       l_startTime_r8=-startTime_r8  ! cold start
+    endif
+
     pointer_filename = 'rpointer.ocn' 
     restart_write = .false.
 #endif
@@ -669,12 +795,14 @@ module ocn_comp_nuopc_mod
        pointer_filename=pointer_filename,  restart_write=restart_write)
 #else
     call HYCOM_Init(mpiComm, & ! -->> call into HYCOM <<--
-       hycom_start_dtg=-startTime_r8, hycom_end_dtg=stopTime_r8)
+       hycom_start_dtg=l_startTime_r8, hycom_end_dtg=stopTime_r8, &
+       atm_initype=Atm_init)
 #endif
 
     call ESMF_LOGWRITE("AFTER HYCOM_INIT", ESMF_LOGMSG_INFO, rc=rc)
     
     ! Fill in the glue structure.
+    is%wrap%glue%regional = Regional
     call HYCOM_GlueInitialize(is%wrap%glue, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -700,30 +828,32 @@ module ocn_comp_nuopc_mod
       StandardNames=(/ &
       "surface_downward_eastward_stress       ",    & ! from ATM
       "surface_downward_northward_stress      ",    & ! from ATM
-      "wind_speed_height10m                   ",    & ! from ATM
-      "friction_speed                         ",    & ! from ATM
+!      "wind_speed_height10m                   ",    & ! from ATM
+!      "friction_speed                         ",    & ! from ATM
       "mean_net_sw_flx                        ",    & ! from ATM
-      "mean_down_lw_flx                       ",    & ! from ATM
-      "mean_up_lw_flx                         ",    & ! from ATM
+      "mean_net_lw_flx                        ",    & ! from ATM
+!      "mean_down_lw_flx                       ",    & ! from ATM
+!      "mean_up_lw_flx                         ",    & ! from ATM
       "mean_lat_flx                           ",    & ! from ATM
       "mean_sens_flx                          ",    & ! from ATM
-      "inst_temp_height2m                     ",    & ! from ATM
-      "mean_prec_rate                         ",    & ! from ATM
-      "inst_spec_humid_height2m               ",    & ! from ATM
-      "sea_surface_temperature                ",    & ! from ATM
-      "water_flux_into_sea_water              ",    & ! from ATM
-      "frozen_water_flux_into_sea_water       ",    & ! from ATM
-      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
-      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
-      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
-      "sea_ice_temperature                    ",    & ! from SEA-ICE
-      "sea_ice_thickness                      ",    & ! from SEA-ICE
-      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-      "sea_ice_y_velocity                     "/),  & ! from SEA-ICE
+!      "inst_temp_height2m                     ",    & ! from ATM
+      "mean_prec_rate                         "    & ! from ATM
+!      "inst_spec_humid_height2m               ",    & ! from ATM
+!      "sea_surface_temperature                ",    & ! from ATM
+!      "water_flux_into_sea_water              ",    & ! from ATM
+!      "frozen_water_flux_into_sea_water       ",    & ! from ATM
+!      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
+!      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+!      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+!      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
+!      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
+!      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
+!      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
+!      "sea_ice_temperature                    ",    & ! from SEA-ICE
+!      "sea_ice_thickness                      ",    & ! from SEA-ICE
+!      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+!      "sea_ice_y_velocity                     "
+      /),  & ! from SEA-ICE
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -733,13 +863,14 @@ module ocn_comp_nuopc_mod
     !! exportable fields:
     call HYCOM_GlueFieldsRealize(is%wrap%glue, exportState, &
       StandardNames=(/ &
+      "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
       "upward_sea_ice_basal_available_heat_flux ",    &
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
-      "eastward_sea_surface_slope               ",    &
-      "northward_sea_surface_slope              ",    &
+      "sea_surface_slope_zonal                  ",    &
+      "sea_surface_slope_merid                  ",    &
       "ocn_current_zonal                        ",    &
       "ocn_current_merid                        "/),  &
       rc=rc)
@@ -992,14 +1123,14 @@ module ocn_comp_nuopc_mod
     return ! bail out
 
     !! Redist 1D Field to 2D Field and write result in .nc Files
-    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_init_export_", &
+    !call RedistAndWriteField(is%wrap%glue%grid, exportState, fileNamePrefix="field_ocn_init_export_", &
     !  timeslice=1, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !  return  ! bail out
 
-    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_init_export_", &
+    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, fileNamePrefix="fieldbundle_ocn_init_export_", &
     !  timeslice=1, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -1044,7 +1175,6 @@ module ocn_comp_nuopc_mod
     type(ESMF_State)            :: importState, exportState
     type(ESMF_Time)             :: currTime
     type(ESMF_TimeInterval)     :: timeStep_O
-    type(ESMF_Time)             :: hycomRefTime
     type(ESMF_TimeInterval)     :: interval
     real(ESMF_KIND_R8)          :: endTime_r8    ! end of coupling sequence
     type(InternalState)         :: is
@@ -1083,18 +1213,12 @@ module ocn_comp_nuopc_mod
     ! automatically each time before entering ModelAdvance(), but the HYCOM
     ! model must be stepped forward within this method.
     
-    CALL ESMF_ClockGet(clock, currTime=currTime,  rc=rc)
+    CALL ESMF_ClockGet(clock, currTime=currTime,  calkindflag=calkind, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
     ! Translate currTime + timeStep into HYCOM format
-!!Alex    call ESMF_TimeSet(hycomRefTime, yy=1901, mm=01, dd=01, calkindflag=ESMF_CALKIND_GREGORIAN, rc=rc)
-    call ESMF_TimeSet(hycomRefTime, yy=0001, mm=01, dd=01, calkindflag=ESMF_CALKIND_NOLEAP, rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
 
 #ifdef HYCOM_IN_CESM
     ! get endtime from driver coupling frequency ocn_cpl
@@ -1123,7 +1247,7 @@ module ocn_comp_nuopc_mod
 #endif
 
     ! get endtime 
-    interval = currTime - hycomRefTime
+    interval = currTime - is%wrap%hycomRefTime
     call ESMF_TimeIntervalGet(interval, d_r8=endTime_r8, rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
@@ -1172,7 +1296,7 @@ module ocn_comp_nuopc_mod
     enddo
 
     !! Redistribute 1D CESM import Fields to 2D Fields and write to .nc files
-    !call RedistAndWriteField(is%wrap%glue%grid, importState, filePrefix="field_ocn_import_", &
+    !call RedistAndWriteField(is%wrap%glue%grid, importState, fileNamePrefix="field_ocn_import_", &
     !  timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -1180,12 +1304,14 @@ module ocn_comp_nuopc_mod
     !  return  ! bail out
 #else
     ! write out the Fields in the importState
-    call NUOPC_Write(importState, filePrefix="field_ocn_import_", &
-      timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if(write_diagnostics) then
+      call NUOPC_Write(importState, fileNamePrefix="field_ocn_import_", &
+        timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
 #endif
     
 #ifdef HYCOM_IN_CESM
@@ -1212,9 +1338,22 @@ module ocn_comp_nuopc_mod
 
     !TODO: don't need the additional initialization step once data-dependency
     !TODO: is taken care of during initialize.
+    !In Regional-Nest, HYCOM begins to get NMMB input on 2nd time step.
+    !There is no input from NMMB on HYCOM 1st time step due to run sequence
+    !setup. HYCOM is scheduled to advance first.
     initFlag = .false.
-    if (is%wrap%slice==1 .and. (.not. restFlag)) initFlag = .true.
-    
+    if (is%wrap%slice .eq. 1 .and. (.not. restFlag)) initFlag = .true.
+#ifdef DEBUG_FLUX    
+    print *, 'HYCOM ModelAdvance: slice = ', is%wrap%slice, ' restFlag = ', &
+      restFlag, ' initFlag = ', initFlag
+    print *, 'cpl_lwflx = ', cpl_lwflx
+    print *, 'cpl_swflx = ', cpl_swflx
+    print *, 'cpl_latflx = ', cpl_latflx
+    print *, 'cpl_sensflx = ', cpl_sensflx
+    print *, 'cpl_taux = ', cpl_taux
+    print *, 'cpl_tauy = ', cpl_tauy
+    print *, 'cpl_precip = ', cpl_precip
+#endif
     
     ! Import data to HYCOM native structures through glue fields.
     call HYCOM_GlueFieldsDataImport(is%wrap%glue, initFlag, rc=rc)
@@ -1222,7 +1361,6 @@ module ocn_comp_nuopc_mod
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
-    
     
     !call ESMF_VMLogMemInfo('MEMORY Usage BEFORE HYCOM_RUN', rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -1294,14 +1432,14 @@ module ocn_comp_nuopc_mod
     !  line=__LINE__, &
     !  file=__FILE__)) &
 
-    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, filePrefix="fieldbundle_ocn_export_", &
+    !call HYCOM_WriteFieldBundle(is%wrap%glue%grid, is%wrap%glue%exportFields, fileNamePrefix="fieldbundle_ocn_export_", &
     !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
     !  file=__FILE__)) &
     !  return  ! bail out
 
-    !call RedistAndWriteField(is%wrap%glue%grid, exportState, filePrefix="field_ocn_export_", &
+    !call RedistAndWriteField(is%wrap%glue%grid, exportState, fileNamePrefix="field_ocn_export_", &
     !  timeslice=is%wrap%slice, relaxedFlag=.true., rc=rc)
     !if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
     !  line=__LINE__, &
@@ -1309,12 +1447,14 @@ module ocn_comp_nuopc_mod
     !  return  ! bail out
 #else
     ! write out the Fields in the exportState
-    call NUOPC_Write(exportState, filePrefix="field_ocn_export_", &
-      timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
-    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
-      line=__LINE__, &
-      file=__FILE__)) &
-      return  ! bail out
+    if(write_diagnostics) then
+      call NUOPC_Write(exportState, fileNamePrefix="field_ocn_export_", &
+        timeslice=is%wrap%slice, relaxedFlag=.true., overwrite=.true., rc=rc)
+      if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+        line=__LINE__, &
+        file=__FILE__)) &
+        return  ! bail out
+    endif
 #endif
     
     ! advance the time slice counter
@@ -1562,12 +1702,12 @@ module ocn_comp_nuopc_mod
 
   end subroutine
 
-  subroutine HYCOM_WriteFieldBundle(grid, fieldbundle, fieldNameList, filePrefix, overwrite, &
+  subroutine HYCOM_WriteFieldBundle(grid, fieldbundle, fieldNameList, fileNamePrefix, overwrite, &
     status, timeslice, relaxedflag, rc)
     type(ESMF_Grid),            intent(in)            :: grid
     type(ESMF_FieldBundle),     intent(in)            :: fieldbundle
     character(len=*),           intent(in),  optional :: fieldNameList(:)
-    character(len=*),           intent(in),  optional :: filePrefix
+    character(len=*),           intent(in),  optional :: fileNamePrefix
     logical,                    intent(in),  optional :: overwrite
     type(ESMF_FileStatus_Flag), intent(in),  optional :: status
     integer,                    intent(in),  optional :: timeslice
@@ -1611,8 +1751,8 @@ module ocn_comp_nuopc_mod
         file=FILENAME)) &
         return  ! bail out
       ! -> output to file
-      if (present(filePrefix)) then
-        write (fileName,"(A)") filePrefix//trim(fieldNameList_loc(i))//".nc"
+      if (present(fileNamePrefix)) then
+        write (fileName,"(A)") fileNamePrefix//trim(fieldNameList_loc(i))//".nc"
       else
         write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
       endif
@@ -1644,12 +1784,12 @@ module ocn_comp_nuopc_mod
 
   end subroutine
 
-  subroutine RedistAndWriteField(grid, state, fieldNameList, filePrefix, overwrite, &
+  subroutine RedistAndWriteField(grid, state, fieldNameList, fileNamePrefix, overwrite, &
     status, timeslice, relaxedflag, rc)
     type(ESMF_Grid),            intent(in)            :: grid
     type(ESMF_State),           intent(in)            :: state
     character(len=*),           intent(in),  optional :: fieldNameList(:)
-    character(len=*),           intent(in),  optional :: filePrefix
+    character(len=*),           intent(in),  optional :: fileNamePrefix
     logical,                    intent(in),  optional :: overwrite
     type(ESMF_FileStatus_Flag), intent(in),  optional :: status
     integer,                    intent(in),  optional :: timeslice
@@ -1708,8 +1848,8 @@ module ocn_comp_nuopc_mod
           file=FILENAME)) &
           return  ! bail out
         ! -> output to file
-        if (present(filePrefix)) then
-          write (fileName,"(A)") filePrefix//trim(fieldNameList_loc(i))//".nc"
+        if (present(fileNamePrefix)) then
+          write (fileName,"(A)") fileNamePrefix//trim(fieldNameList_loc(i))//".nc"
         else
           write (fileName,"(A)") trim(fieldNameList_loc(i))//".nc"
         endif
@@ -2670,11 +2810,11 @@ module ocn_comp_nuopc_mod
     hycom2cesm_table(4)%cesm_stdname  = "So_v"
     hycom2cesm_table(4)%unit          = "m/s"
 
-    hycom2cesm_table(5)%hycom_stdname = "eastward_sea_surface_slope"
+    hycom2cesm_table(5)%hycom_stdname = "sea_surface_slope_zonal"
     hycom2cesm_table(5)%cesm_stdname  = "So_dhdx"
     hycom2cesm_table(5)%unit          = ""
 
-    hycom2cesm_table(6)%hycom_stdname = "northward_sea_surface_slope"
+    hycom2cesm_table(6)%hycom_stdname = "sea_surface_slope_merid"
     hycom2cesm_table(6)%cesm_stdname  = "So_dhdy"
     hycom2cesm_table(6)%unit          = ""
 
@@ -3350,11 +3490,11 @@ module ocn_comp_nuopc_mod
         return  ! bail out
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
-      "eastward_sea_surface_slope")) then
+      "sea_surface_slope_zonal")) then
       call esmfshr_FieldDictionaryAddEntry( &
-        standardName="eastward_sea_surface_slope", &
+        standardName="sea_surface_slope_zonal", &
         canonicalUnits="", &
-        defaultLongName="eastward sea surface slope", &
+        defaultLongName="zonal sea surface slope", &
         defaultShortName="dhdx", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -3363,11 +3503,11 @@ module ocn_comp_nuopc_mod
         return  ! bail out
     endif 
     if (.not. NUOPC_FieldDictionaryHasEntry( &
-      "northward_sea_surface_slope")) then
+      "sea_surface_slope_merid")) then
       call esmfshr_FieldDictionaryAddEntry( &
-        standardName="northward_sea_surface_slope", &
+        standardName="sea_surface_slope_merid", &
         canonicalUnits="", &
-        defaultLongName="northward sea surface slope", &
+        defaultLongName="meridional sea surface slope", &
         defaultShortName="dhdy", &
         rc=rc)
       if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &

@@ -35,8 +35,9 @@ c
             if (SEA_P) then
               if     (ishlf(i,j).eq.1) then  !standard ocean point
 #ifdef NUOPC
-                if ( cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
-     &                          .and. cpl_precip    ) then
+                  if ( cpl_swflx  .and.
+     &               ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)                  
+     &                              .and. cpl_precip    ) then
 
                     sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
                     surflx(i,j) = surflx(i,j) + flxice(i,j)       !cell average
@@ -80,8 +81,9 @@ c
             if (SEA_P) then
                 
 #ifdef NUOPC
-                if ( cpl_swflx  .and. cpl_lwmdnflx .and. cpl_lwmupflx
-     &                          .and. cpl_precip     ) then
+                  if ( cpl_swflx  .and.
+     &               ((cpl_lwmdnflx .and. cpl_lwmupflx) .or. cpl_lwflx)                  
+     &                              .and. cpl_precip    ) then
 
                     sstflx(i,j) = (1.0-covice(i,j))*sstflx(i,j)   !relax over ocean
                     surflx(i,j) = surflx(i,j) + flxice(i,j)       !cell average
@@ -614,7 +616,9 @@ c
         call psmooth_ice(salflx, 0,0, ishlf, util1)  !uses covice
       endif
 c
+#ifdef HYCOM_IN_CESM
 !!Alex Remove the horizontal mean of sssflx
+!!-> Make HYCOM behave more like POP
 !$OMP   PARALLEL DO PRIVATE(j,i)
 !$OMP&           SCHEDULE(STATIC,jblk)
       do j=1,jj
@@ -648,6 +652,7 @@ c
 !$OMP   END PARALLEL DO
 
 !!Alex
+#endif
 
         if (nstep.eq.nstep1+1 .or. diagno) then
         if (nstep.eq.nstep1+1) then
@@ -949,12 +954,19 @@ c --- salinity relaxation coefficient
 c
 c --- temperature relaxation coefficient
 !!Alex      rmut=1./(30.0*86400.0)  !1/30 days
+
+!!Alex merge flux
+      logical :: merge_flux
+      real, parameter :: cpl_regional_badvalue = -99999999.
+
 c
 c --- ------------------------------------------------------
 c --- thermal forcing of ocean surface (positive into ocean)
 c --- ------------------------------------------------------
 c
       do i=1,ii
+!!Alex merge flux
+      merge_flux=.false. 
       if (SEA_P) then
       if     (flxflg.gt.0) then
 c ---   wind = wind, or wind-ocean, speed (m/s)
@@ -988,22 +1000,52 @@ c ---          Qsw includes the atmos. model's surface albedo,
 c ---          i.e. it already allows for sea-ice&snow where it is observed.
         if     (natm.eq.2) then
 #ifdef NUOPC
-            if(cpl_swflx) then 
+            if(cpl_swflx.and.imp_rmask(i,j).eq.1.) then 
               swfl=imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
+#ifdef DEBUG_FLUX
+              if (mnproc.eq.1) then
+                 print*,'cpl_swfl .eq.T in thermf'
+              endif
+              if (i.eq.i0+itest .and. j.eq.j0+jtest) then
+                 print*,'dtime,swflx (T)=',dtime,swfl
+              endif
+#endif
+  
             else
               swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
+#ifdef DEBUG_FLUX
+              if (mnproc.eq.1) then
+                 print*,'cpl_swfl .eq.F in thermf'
+              endif
+              if (i.eq.i0+itest .and. j.eq.j0+jtest) then
+                 print*,'dtime,swflx (F)=',dtime,swfl
+              endif
+#endif
             endif
+!!Alex merge flux
+!            if (swfl.eq.cpl_regional_badvalue) then
+!               swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
+!               merge_flux=.true.
+!            endif
+
 #else 
               swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
 #endif
         else
 #ifdef NUOPC
-            if(cpl_swflx) then 
+            if(cpl_swflx.and.imp_rmask(i,j).eq.1.) then 
               swfl=imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
             else
               swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
      &            +swflx (i,j,l2)*w2+swflx (i,j,l3)*w3
             endif
+!!Alex merge flux
+!            if (swfl.eq.cpl_regional_badvalue) then
+!              swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
+!     &            +swflx (i,j,l2)*w2+swflx (i,j,l3)*w3
+!              merge_flux=.true.
+!            endif
+            
 #else 
           swfl=swflx (i,j,l0)*w0+swflx (i,j,l1)*w1
      &        +swflx (i,j,l2)*w2+swflx (i,j,l3)*w3
@@ -1027,7 +1069,7 @@ c ---     daily to diurnal shortwave correction to swfl and radfl.
      &                 xhr *(1.0-xlat)*diurnl(ihr+1,ilat  ) +
      &                 xhr *     xlat *diurnl(ihr+1,ilat+1)
 #ifdef NUOPC
-           if(cpl_swflx) THEN
+           if(cpl_swflx.and.imp_rmask(i,j).eq.1.) THEN
                radfl=(imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3)
      &              *(swscl-1.0)
                swfl =(imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3)
@@ -1061,10 +1103,43 @@ c ---   existing radfl is the diurnal Qsw correction only
            if(cpl_swflx .and. cpl_lwmdnflx .and. cpl_lwmupflx) then
                radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
      &               +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
-     &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
+     &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3
+#ifdef DEBUG_FLUX
+              if (mnproc.eq.1) then
+            print*,'cpl_swfl,cpl_lwmdnflx,cpl_lwmupflx .eq.T in thermf'
+              endif
+              if (i.eq.i0+itest .and. j.eq.j0+jtest) then
+                     print*,'dtime,radfl(3T)=',dtime,radfl
+              endif
+#endif
+           elseif (cpl_swflx .and. cpl_lwflx
+     &             .and.imp_rmask(i,j).eq.1.) then
+               radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
+     &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
+#ifdef DEBUG_FLUX
+              if (mnproc.eq.1) then
+                 print*,'cpl_swfl,cpl_lwflx .eq.T in thermf'
+              endif
+                 if (i.eq.i0+itest .and. j.eq.j0+jtest) then
+                     print*,'dtime,radfl (2T)=',dtime,radfl
+                 endif
+              
+#endif
            else
                radfl=radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1)
+#ifdef DEBUG_FLUX
+              if (mnproc.eq.1) then
+                 print*,'cpl_* .eq.F in thermf'
+              endif   
+              if (i.eq.i0+itest .and. j.eq.j0+jtest) then
+                     print*,'dtime,radfl (1T)=',dtime,radfl
+              endif
+#endif
            endif
+!!Alex merge flux
+!           if (merge_flux) then
+!            radfl = radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1)
+!           endif
 #else
           radfl=radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1)
 #endif
@@ -1074,10 +1149,21 @@ c ---   existing radfl is the diurnal Qsw correction only
                radfl= imp_swflx (i,j,1)*cpl_w2+imp_swflx (i,j,2)*cpl_w3
      &               +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
      &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
+           elseif (cpl_swflx .and. cpl_lwflx
+     &             .and.imp_rmask(i,j).eq.1.) then
+               radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
+     &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
            else
                radfl=radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
      &                     +  radflx(i,j,l2)*w2+radflx(i,j,l3)*w3)
            endif
+
+!!Alex merge flux
+!           if (merge_flux ) then
+!                radfl = radfl+ (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
+!     &                       + radflx(i,j,l2)*w2+radflx(i,j,l3)*w3)
+!           endif
+
 #else
 
           radfl=radfl + (radflx(i,j,l0)*w0+radflx(i,j,l1)*w1
@@ -1092,9 +1178,17 @@ c ---     input radflx is Qlwdn, convert to Qlw + Qsw
      &               +imp_lwdflx(i,j,1)*cpl_w2+imp_lwdflx(i,j,2)*cpl_w3 
 !!Alex     &               - sb_cst*(temp(i,j,1,n)+tzero)**4
      &               +imp_lwuflx(i,j,1)*cpl_w2+imp_lwuflx(i,j,2)*cpl_w3 
+           elseif (cpl_swflx .and. cpl_lwflx
+     &             .and.imp_rmask(i,j).eq.1.) then
+               radfl= imp_swflx(i,j,1)*cpl_w2+imp_swflx(i,j,2)*cpl_w3
+     &               +imp_lwflx(i,j,1)*cpl_w2+imp_lwflx(i,j,2)*cpl_w3                
            else
                radfl = radfl - sb_cst*(temp(i,j,1,n)+tzero)**4 + swfl
-           endif 
+           endif
+!!Alex merge flux
+!           if (merge_flux ) then
+!                radfl = radfl - sb_cst*(temp(i,j,1,n)+tzero)**4 + swfl
+!           endif 
 #else
            radfl = radfl - sb_cst*(temp(i,j,1,n)+tzero)**4 + swfl
 #endif
@@ -1139,13 +1233,21 @@ c ---     over-ocean longwave correction to radfl (Qsw+Qlw).
           endif
           !correction is blackbody radiation from tdif at tsur
 #ifdef NUOPC
-          if(.not.(cpl_swflx.and.cpl_lwmdnflx.and.cpl_lwmupflx)) then
+          if(.not.(cpl_swflx.and.
+     &           ((cpl_lwmdnflx.and.cpl_lwmupflx) .or. cpl_lwflx).and.
+     &           imp_rmask(i,j).eq.1.)) then
              radfl = radfl - (4.506+0.0554*tsur) * tdif
              !count the correction as a relaxation term
              sstflx(i,j) = - (4.506+0.0554*tsur) * tdif
           else
              sstflx(i,j) = 0.0
           endif
+!!Alex merge flux
+!           if (merge_flux ) then
+!                radfl = radfl - (4.506+0.0554*tsur) * tdif
+!             !count the correction as a relaxation term
+!             sstflx(i,j) = - (4.506+0.0554*tsur) * tdif
+!           endif
 #else
           radfl = radfl - (4.506+0.0554*tsur) * tdif
           !count the correction as a relaxation term
@@ -1159,22 +1261,38 @@ c ---     prcp = precipitation (m/sec; positive into ocean)
 c ---     note that if empflg==3, this is actually P-E
           if     (natm.eq.2) then
 #ifdef NUOPC
-            if(cpl_precip) then
+            if(cpl_precip .and. imp_rmask(i,j).eq.1.) then
+!               print *, 'imp:', i,j,imp_precip(i,j,1), cpl_w2, 
+!     & imp_precip(i,j,2), cpl_w3, precip(i,j,l0),w0,precip(i,j,l1),w1
                prcp=imp_precip(i,j,1)*cpl_w2+imp_precip(i,j,2)*cpl_w3
             else
                prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
             endif
+!!Alex merge flux
+!           if (imp_precip(i,j,1) .eq. cpl_regional_badvalue .or.
+!     &         imp_precip(i,j,2) .eq. cpl_regional_badvalue) then
+!             prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
+!           endif
 #else
             prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
 #endif
           else
 #ifdef NUOPC
-            if(cpl_precip) then
+            if(cpl_precip .and. imp_rmask(i,j).eq.1.) then
+!               print *, 'imp2:', i,j,imp_precip(i,j,1), cpl_w2, 
+!     & imp_precip(i,j,2), cpl_w3, precip(i,j,l0),w0,precip(i,j,l1),w1,
+!     & precip(i,j,l2),w2,precip(i,j,l3),w3
                prcp=imp_precip(i,j,1)*cpl_w2+imp_precip(i,j,2)*cpl_w3
             else
                prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
      &             +precip(i,j,l2)*w2+precip(i,j,l3)*w3
            endif
+!!Alex merge flux
+!           if (imp_precip(i,j,1) .eq. cpl_regional_badvalue .or.
+!     &         imp_precip(i,j,2) .eq. cpl_regional_badvalue) then
+!             prcp=  precip(i,j,l0)*w0+precip(i,j,l1)*w1
+!     &             +precip(i,j,l2)*w2+precip(i,j,l3)*w3
+!           endif
 #else
             prcp=precip(i,j,l0)*w0+precip(i,j,l1)*w1
      &          +precip(i,j,l2)*w2+precip(i,j,l3)*w3
@@ -1334,23 +1452,32 @@ c ---   snsibl = sensible heat flux  into atmos from ocean.
         endif
 c ---   Latent Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx .and. imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=ctl*airdns*evaplh*wind*
      &           max(0.,0.97*qsatur(temp(i,j,1,n))-vpmx)
         endif 
+!!Alex merge flux
+!        if (merge_flux ) then
+!            evap=ctl*airdns*evaplh*wind*
+!     &           max(0.,0.97*qsatur(temp(i,j,1,n))-vpmx)
+!        endif
 #else
         evap=ctl*airdns*evaplh*wind*
      &       max(0.,0.97*qsatur(temp(i,j,1,n))-vpmx)
 #endif
 c ---   Sensible Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
         endif
+!!Alex merge flux
+!        if (merge_flux ) then
+!            snsibl=csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
+!        endif 
 #else
         snsibl=csh*airdns*csubp*wind*(temp(i,j,1,n)-airt)
 #endif
@@ -1383,22 +1510,30 @@ c ---   surflx = thermal energy flux (W/m^2) into ocean
         endif
 c ---   Latent Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx.and.imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
         endif
+!!Alex merge flux
+!        if (merge_flux) then
+!            evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
+!        endif
 #else
         evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
 #endif
 
 c ---   Sensible Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=ssen*csh*wind* tdif
         endif
+!!Alex merge flux
+!        if (merge_flux) then
+!            snsibl=ssen*csh*wind* tdif
+!        endif
 #else
         snsibl=ssen*csh*wind* tdif
 #endif
@@ -1494,21 +1629,29 @@ c ---   surflx = thermal energy flux (W/m^2) into ocean
         endif
 c ---   Latent Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx.and.imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
         endif
+!!Alex merge flux
+!        if (merge_flux) then
+!            evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
+!        endif
 #else
         evap=slat*clh*wind*(0.97*qsatur(temp(i,j,1,n))-vpmx)
 #endif 
 c ---   Sensible Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=ssen*csh*wind* tdif
         endif
+!!Alex merge flux
+!        if (merge_flux ) then
+!            snsibl=ssen*csh*wind* tdif
+!        endif
 #else
         snsibl=ssen*csh*wind* tdif
 #endif
@@ -1608,11 +1751,15 @@ c ---   evap = evaporation (W/m^2) into atmos from ocean.
         endif
 c ---   Latent Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx.and.imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=slat*clh*wind*(qsatur6(temp(i,j,1,n),pair,sssf)-vpmx)
         endif
+!!Alex merge flux
+!        if ( merge_flux ) then
+!            evap=slat*clh*wind*(qsatur6(temp(i,j,1,n),pair,sssf)-vpmx)
+!        endif
 #else
         evap=slat*clh*wind*(qsatur6(temp(i,j,1,n),pair,sssf)-vpmx)
 #endif
@@ -1621,11 +1768,16 @@ c ---   snsibl = sensible heat flux  (W/m^2) into atmos from ocean.
 c ---   surflx = thermal energy flux (W/m^2) into ocean
 c ---   Sensible Heat flux (W/m2) 
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=ssen*csh*wind* tdif         !wind=samo
         endif
+!!Alex merge flux
+!        if ( merge_flux ) then
+!            snsibl=ssen*csh*wind* tdif         !wind=samo
+!        endif
+
 #else
         snsibl=ssen*csh*wind* tdif         !wind=samo
 #endif
@@ -1723,22 +1875,31 @@ c ---  Latent Heat flux
           evape = slat*ce10*wind*(qsatur5(esst,qrair)-vpmx)
         endif
 #ifdef NUOPC
-        if(cpl_latflx) then
+        if(cpl_latflx.and.imp_rmask(i,j).eq.1.) then
             evap=imp_latflx(i,j,1)*cpl_w2+imp_latflx(i,j,2)*cpl_w3
         else 
             evap=slat*ce10*wind*(qsatur5(temp(i,j,1,n),qrair)-vpmx)
         endif
+!!Alex merge flux
+!        if (merge_flux ) then
+!            evap=slat*ce10*wind*(qsatur5(temp(i,j,1,n),qrair)-vpmx)
+!        endif
+
 #else
         evap=slat*ce10*wind*(qsatur5(temp(i,j,1,n),qrair)-vpmx)
 #endif
 c --- Sensible Heat flux
         ssen   = cpcore*rair
 #ifdef NUOPC
-        if(cpl_sensflx) then
+        if(cpl_sensflx.and.imp_rmask(i,j).eq.1.) then
             snsibl=imp_sensflx(i,j,1)*cpl_w2+imp_sensflx(i,j,2)*cpl_w3
         else 
             snsibl=ssen*ch10*wind*(temp(i,j,1,n)-airt)
         endif
+!!Alex merge flux
+!        if (merge_flux ) then
+!            snsibl=ssen*ch10*wind*(temp(i,j,1,n)-airt)
+!        endif
 #else
         snsibl=ssen*ch10*wind*(temp(i,j,1,n)-airt)
 #endif
@@ -1783,7 +1944,8 @@ c ---   in shallow water this is (dpmixl(i,j,n)/p(i,j,kk+1)  )/rmut
         else  !synoptic sst
           if     (natm.eq.2) then
 #ifdef NUOPC
-            if(cpl_seatmp .and. sstflg.ne.3) then
+              if(cpl_seatmp .and. sstflg.ne.3
+     &                      .and. imp_rmask(i,j).eq.1) then
               sstdif = ( imp_seatmp(i,j,1)*cpl_w2
      &                  +imp_seatmp(i,j,2)*cpl_w3) - temp(i,j,1,n)
             else
@@ -1796,7 +1958,8 @@ c ---   in shallow water this is (dpmixl(i,j,n)/p(i,j,kk+1)  )/rmut
 #endif
           else
 #ifdef NUOPC
-            if(cpl_seatmp .and. sstflg.ne.3) then
+              if(cpl_seatmp .and. sstflg.ne.3
+     &                      .and. imp_rmask(i,j).eq.1) then
               sstdif = ( imp_seatmp(i,j,1)*cpl_w2
      &                  +imp_seatmp(i,j,2)*cpl_w3) - temp(i,j,1,n)
             else
@@ -1837,7 +2000,7 @@ c --- allow for rivers as a precipitation bogas
 #ifdef NUOPC
         
 c --- rivers (ocean/ice contribution ; pcp_fact taken care of in cpl) 
-        if(cpl_orivers.and.cpl_irivers) then
+        if(cpl_orivers.and.cpl_irivers.and.imp_rmask(i,j).eq.1) then
             rivflx(i,j) = -
      &                  ((imp_orivers(i,j,1)+imp_irivers(i,j,1))*cpl_w2
      &                  +(imp_orivers(i,j,2)+imp_irivers(i,j,2))*cpl_w3)
