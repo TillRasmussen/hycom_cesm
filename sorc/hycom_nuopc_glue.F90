@@ -980,7 +980,7 @@ module hycom_nuopc_glue
         cpl_surtmp = .not.initFlag
         impPtr2 => imp_surtmp
         twoLevel = .true.
-      elseif (fieldStdName == "sea_ice_area_fraction") then
+      elseif (fieldStdName == "ice_fraction") then
         cpl_sic = .true.
         impPtr => sic_import
         twoLevel = .false.
@@ -1000,7 +1000,7 @@ module hycom_nuopc_glue
         cpl_sifh = .true.
         impPtr => sifh_import
         twoLevel = .false.
-      elseif (fieldStdName == "downward_sea_ice_basal_salt_flux") then
+      elseif (fieldStdName == "mean_salt_rate") then
         cpl_sifs = .true.
         impPtr => sifs_import
         twoLevel = .false.
@@ -1469,7 +1469,7 @@ module hycom_nuopc_glue
          farrayPtr(i,j) = farrayPtr(i,j) + 273.15d0            ! [C] -> [K]
         enddo
         enddo
-      elseif (fieldStdName == "upward_sea_ice_basal_available_heat_flux") then
+      elseif (fieldStdName == "freezing_melting_potential") then
       ! get coupling frequency in time steps
         cplfrq = nint( ocn_cpl_frq*(86400.0/baclin) )
         do j=1,jja

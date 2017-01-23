@@ -293,12 +293,12 @@ module hycom
       "sea_surface_temperature                ",    & ! from ATM
       "water_flux_into_sea_water              ",    & ! from ATM
       "frozen_water_flux_into_sea_water       ",    & ! from ATM
-      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
+      "ice_fraction                           ",    & ! from SEA-ICE
       "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
       "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
       "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
-      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
+!      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
+      "mean_salt_rate                         ",    & ! from SEA-ICE
       "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
       "sea_ice_temperature                    ",    & ! from SEA-ICE
       "sea_ice_thickness                      ",    & ! from SEA-ICE
@@ -316,7 +316,7 @@ module hycom
       StandardNames=(/ &
       "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
-      "upward_sea_ice_basal_available_heat_flux ",    &
+      "freezing_melting_potential               ",    &
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
@@ -599,12 +599,12 @@ module hycom
       "sea_surface_temperature                ",    & ! from ATM
       "water_flux_into_sea_water              ",    & ! from ATM
       "frozen_water_flux_into_sea_water       ",    & ! from ATM
-      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
+      "ice_fraction                           ",    & ! from SEA-ICE
       "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
       "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
       "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
-      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
+!      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
+      "mean_salt_rate                         ",    & ! from SEA-ICE
       "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
       "sea_ice_temperature                    ",    & ! from SEA-ICE
       "sea_ice_thickness                      ",    & ! from SEA-ICE
@@ -622,7 +622,7 @@ module hycom
       StandardNames=(/ &
       "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
-      "upward_sea_ice_basal_available_heat_flux ",    &
+      "freezing_melting_potential               ",    &
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
