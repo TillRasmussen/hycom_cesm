@@ -7,6 +7,7 @@
 !!
 !! @section Overview Overview
 !!
+!! **The HYCOM cap has been tested with versions 2.2.35 and 2.2.98 of HYCOM.**
 !!
 !! This document describes the HYCOM "cap", which is a small software layer that is 
 !! required when the [HYCOM ocean model] (https://hycom.org/) 
