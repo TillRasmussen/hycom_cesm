@@ -474,31 +474,31 @@ module ocn_comp_nuopc_mod
       StandardNames=(/ &
       "surface_downward_eastward_stress       ",    & ! from ATM
       "surface_downward_northward_stress      ",    & ! from ATM
-!      "wind_speed_height10m                   ",    & ! from ATM
-!      "friction_speed                         ",    & ! from ATM
+      "wind_speed_height10m                   ",    & ! from ATM
+      "friction_speed                         ",    & ! from ATM
       "mean_net_sw_flx                        ",    & ! from ATM
       "mean_net_lw_flx                        ",    & ! from ATM
-!      "mean_down_lw_flx                       ",    & ! from ATM
-!      "mean_up_lw_flx                         ",    & ! from ATM
+      "mean_down_lw_flx                       ",    & ! from ATM
+      "mean_up_lw_flx                         ",    & ! from ATM
       "mean_lat_flx                           ",    & ! from ATM
       "mean_sens_flx                          ",    & ! from ATM
-!      "inst_temp_height2m                     ",    & ! from ATM
-      "mean_prec_rate                         "    & ! from ATM
-!      "inst_spec_humid_height2m               ",    & ! from ATM
-!      "sea_surface_temperature                ",    & ! from ATM
-!      "water_flux_into_sea_water              ",    & ! from ATM
-!      "frozen_water_flux_into_sea_water       ",    & ! from ATM
-!      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
-!      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-!      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-!      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
+      "inst_temp_height2m                     ",    & ! from ATM
+      "mean_prec_rate                         ",    & ! from ATM
+      "inst_spec_humid_height2m               ",    & ! from ATM
+      "sea_surface_temperature                ",    & ! from ATM
+      "water_flux_into_sea_water              ",    & ! from ATM
+      "frozen_water_flux_into_sea_water       ",    & ! from ATM
+      "ice_fraction                           ",    & ! from SEA-ICE
+      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
 !      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-!      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
-!      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
-!      "sea_ice_temperature                    ",    & ! from SEA-ICE
-!      "sea_ice_thickness                      ",    & ! from SEA-ICE
-!      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-!      "sea_ice_y_velocity                     "
+      "mean_salt_rate                         ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
+      "sea_ice_temperature                    ",    & ! from SEA-ICE
+      "sea_ice_thickness                      ",    & ! from SEA-ICE
+      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+      "sea_ice_y_velocity                     "     & ! from SEA-ICE
       /),  & ! from SEA-ICE
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -511,7 +511,7 @@ module ocn_comp_nuopc_mod
       StandardNames=(/ &
       "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
-      "upward_sea_ice_basal_available_heat_flux ",    &
+      "freezing_melting_potential               ",    &
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
@@ -789,31 +789,31 @@ module ocn_comp_nuopc_mod
       StandardNames=(/ &
       "surface_downward_eastward_stress       ",    & ! from ATM
       "surface_downward_northward_stress      ",    & ! from ATM
-!      "wind_speed_height10m                   ",    & ! from ATM
-!      "friction_speed                         ",    & ! from ATM
+      "wind_speed_height10m                   ",    & ! from ATM
+      "friction_speed                         ",    & ! from ATM
       "mean_net_sw_flx                        ",    & ! from ATM
       "mean_net_lw_flx                        ",    & ! from ATM
-!      "mean_down_lw_flx                       ",    & ! from ATM
-!      "mean_up_lw_flx                         ",    & ! from ATM
+      "mean_down_lw_flx                       ",    & ! from ATM
+      "mean_up_lw_flx                         ",    & ! from ATM
       "mean_lat_flx                           ",    & ! from ATM
       "mean_sens_flx                          ",    & ! from ATM
-!      "inst_temp_height2m                     ",    & ! from ATM
-      "mean_prec_rate                         "    & ! from ATM
-!      "inst_spec_humid_height2m               ",    & ! from ATM
-!      "sea_surface_temperature                ",    & ! from ATM
-!      "water_flux_into_sea_water              ",    & ! from ATM
-!      "frozen_water_flux_into_sea_water       ",    & ! from ATM
-!      "sea_ice_area_fraction                  ",    & ! from SEA-ICE
-!      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-!      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
-!      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
+      "inst_temp_height2m                     ",    & ! from ATM
+      "mean_prec_rate                         ",    & ! from ATM
+      "inst_spec_humid_height2m               ",    & ! from ATM
+      "sea_surface_temperature                ",    & ! from ATM
+      "water_flux_into_sea_water              ",    & ! from ATM
+      "frozen_water_flux_into_sea_water       ",    & ! from ATM
+      "ice_fraction                           ",    & ! from SEA-ICE
+      "downward_x_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+      "downward_y_stress_at_sea_ice_base      ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_solar_heat_flux ",    & ! from SEA-ICE
 !      "upward_sea_ice_basal_heat_flux         ",    & ! from SEA-ICE
-!      "downward_sea_ice_basal_salt_flux       ",    & ! from SEA-ICE
-!      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
-!      "sea_ice_temperature                    ",    & ! from SEA-ICE
-!      "sea_ice_thickness                      ",    & ! from SEA-ICE
-!      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
-!      "sea_ice_y_velocity                     "
+      "mean_salt_rate                         ",    & ! from SEA-ICE
+      "downward_sea_ice_basal_water_flux      ",    & ! from SEA-ICE
+      "sea_ice_temperature                    ",    & ! from SEA-ICE
+      "sea_ice_thickness                      ",    & ! from SEA-ICE
+      "sea_ice_x_velocity                     ",    & ! from SEA-ICE
+      "sea_ice_y_velocity                     "     & ! from SEA-ICE
       /),  & ! from SEA-ICE
       rc=rc)
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
@@ -826,7 +826,7 @@ module ocn_comp_nuopc_mod
       StandardNames=(/ &
       "ocean_mask                               ",    &
       "sea_surface_temperature                  ",    &
-      "upward_sea_ice_basal_available_heat_flux ",    &
+      "freezing_melting_potential               ",    &
       "sea_lev                                  ",    &
       "mixed_layer_depth                        ",    &
       "s_surf                                   ",    &
