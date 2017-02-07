@@ -144,6 +144,41 @@
 !! 
 !! @subsubsection VectorRotations Vector Rotations
 !!
+!! Vector rotations are applied to incoming wind stresses (from regular lat-lon to tripolar grid) and
+!! outgoing ocean currents (from tripolar to regular lat-lon). The rotation angles are provided in the
+!! native HYCOM array `pang`.
+!!
+!! The rotation of wind stress from regular lat-lon to tripolar happens in `HYCOM_GlueFieldsImport()`:
+!! \f[
+!! \begin{bmatrix}
+!! \tau_x' \\
+!! \tau_y'
+!! \end{bmatrix} =
+!! \begin{bmatrix}
+!!  cos \theta    &  sin \theta \\
+!!  -sin \theta   &  cos \theta \\ 
+!! \end{bmatrix} *
+!! \begin{bmatrix}
+!! \tau_x \\
+!! \tau_y
+!! \end{bmatrix}
+!! \f]
+!!
+!! The rotation of ocean current from tripolar to regular lat-lon happens in `HYCOM_Run()` in the file mod_hycom.F:
+!! \f[
+!! \begin{bmatrix}
+!! u' \\
+!! v'
+!! \end{bmatrix} =
+!! \begin{bmatrix}
+!!  cos \theta   & -sin - \theta \\
+!!  -sin - \theta  & cos \theta
+!! \end{bmatrix} *
+!! \begin{bmatrix}
+!! u \\
+!! v
+!! \end{bmatrix}
+!! \f]
 !!
 !! @subsection Finalization Finalization
 !!
