@@ -80,7 +80,7 @@
 !! HYCOM cap.  The "Phase" column says whether the subroutine is called during the
 !! initialization, run, or finalize part of the coupled system run. 
 !!
-!! Phase    | CICE Cap Subroutine                                                |  Description
+!! Phase    | HYCOM Cap Subroutine                                               |  Description
 !! ---------|--------------------------------------------------------------------|-------------------------------------------------------------
 !! Init     | [InitializeP0] (@ref hycom::initializep0)                          | Sets the Initialize Phase Definition (IPD) version to use
 !! Init     | [InitializeAdvertise] (@ref hycom::initializeadvertise)            | Advertises standard names of import and export fields
@@ -93,18 +93,62 @@
 !!
 !! @subsection DomainCreation Domain Creation
 !!
+!! The ESMF representation of the HYCOM tripolar grid is created in the subroutine [HYCOM_GlueInitialize]
+!! (@ref hycom_nuopc_glue::hycom_glueinitialize), which is called during the [InitializeRealize]
+!! (@ref hycom::initializerealize) NUOPC phase.
 !!
+!! The grid is created in several steps:
+!!  - a set of local decomposition blocks is determined from HYCOM internals:
+!!    (number of blocks = ijpr, min block indices = (i0+1, j0+1), max block indices
+!!    = (i0+ii, j0+jja))
+!!  - the local block decomposition information is distributed to all PETs using
+!!    a call to `ESMF_VMAllGather`
+!!  - an `ESMF_DistGrid` is created over the global index space. If the "Regional" attribute
+!!    is set to "true", then no periodic boundaries are set. Otherwise, for a global
+!!    grid, connections are set
+!!    up so that the index space is periodic in the first dimension and has a
+!!    fold at the top for the bipole. In either case, the decompostion blocks
+!!    are passed into the call to `ESMF_DistGridCreate`
+!!  - the following internal arrays are wrapped as `ESMF_Array`s, with appropriate
+!!    halo widths set to `nbdy`: `plon`, `plat` (center coordinates), `ip` (mask), `scp2` (area)
+!!  - an `ESMF_Grid` is then created by passing in the above `ESMF_DistGrid`
+!!  - center coordinates are set using the `plot` and `plat` arrays
+!!  - corner coordinates are set using the `ulon` and `ulat` arrays
+!! 
 !! @subsection Initialization Initialization
 !!
+!! The call to the native `HYCOM_Init()` subroutine occurs in the [InitializeRealize]
+!! (@ref hycom::initializerealize) NUOPC phase. The main parameters passed are the
+!! start time and stop time (the incoming ESMF clock is translated into seconds), and
+!! the MPI communicator, which is retrieved via a call to `ESMF_VMGet().` If the
+!! "Restart" attribute is not "true" then the start time is negated, which indicates
+!! to HYCOM that it is a cold start initialization.
 !!
 !! @subsection Run Run
 !!
+!! The NUOPC phase responsible for advancing the model is [ModelAdvance]
+!! (@ref hycom::modeladvance). Before calling into the native advance subroutine,
+!! a call is made to `HYCOM_GlueFieldsDataImport()` which copies coupling
+!! fields from the import state into HYCOM native arrays. Some incoming fields
+!! have two time levels that are copied over and some unit conversions are also
+!! applied (see [Import Fields table] (@ref ImportFields) for details on
+!! which fields are impacted.)
 !!
+!! After import fields have been copied to native arrays, a call is made to
+!! `HYCOM_Run()` passing in an end time parameter based on the incoming ESMF
+!! clock. This is called is a loop until `end_of_run` or `end_of_run_cpl`
+!! is true (these are set internally by HYCOM).
+!!
+!! After the run, a call is made to `HYCOM_GlueFieldsDataExport()` which
+!! copies internal fields to ESMF fields in the export state.
+!! 
 !! @subsubsection VectorRotations Vector Rotations
 !!
 !!
 !! @subsection Finalization Finalization
 !!
+!! The [Finalize] (@ref hycom::finalize) NUOPC phase deallocates internal
+!! state memory. There is no call to any native HYCOM finalization subroutine.
 !!
 !! @section ModelFields Model Fields
 !!
@@ -115,38 +159,67 @@
 !!
 !! Standard Name                     | Units      | Model Variable  | Description                      | Notes
 !! ----------------------------------|------------|-----------------|----------------------------------|--------------------------------------
-!! mean_lat_flx                      | W m-2      | evap            | latent heat flux                 | imported to intermediate array imp_latflx
+!! downward_sea_ice_basal_solar_heat_flux | W m-2 | fswice          | solar heat flux thru ice to ocean| imported to intermediate array siqs_import
+!! downward_sea_ice_basal_water_flux | kg m-2 s-1 | sflice          | ice net water flux               | imported to intermediate array sifw_import
+!! downward_x_stress_at_sea_ice_base | Pa         | si_tx           | sea ice x stress                 | imported to intermediate array sitx_import
+!! downward_y_stress_at_sea_ice_base | Pa         | si_ty           | sea ice y stress                 | imported to intermediate array sity_import
+!! friction_speed                    | m s-1      | ustar           | friction speed                   | imported to intermediate array imp_ustara
+!! frozen_water_flux_into_sea_water  | kg m-2 s-1 | riv_input       | ice runoff                       | imported to intermediate array imp_irivers; unit conversion kg m-2 s-1 -> m s-1
+!! ice_fraction                      | 1          | covice,si_c     | sea ice concentration            | imported to intermediate array sic_import |
+!! inst_spec_humid_height2m          | 1          | vpmx            | specific humidity                | imported to intermediate array imp_vapmix
+!! inst_temp_height2m                | K          | airt            | air temperature                  | imported to intermediate array imp_airtmp; unit conversion K -> C
+!! mean_down_lw_flux                 | W m-2      | radfl           | longwave downward flux           | imported to intermediate array imp_lwdflx
+!! mean_lat_flx                      | W m-2      | evap            | latent heat flux                 | imported to intermediate array imp_latflx; sign reversed to comply with HYCOM convention
 !! mean_net_lw_flx                   | W m-2      | radfl           | longwave net flux                | imported to intermediate array imp_lwflx
 !! mean_net_sw_flx                   | W m-2      | swfl, radfl     | shortwave net flux               | imported to intermediate array imp_swflx
-!! mean_prec_rate                    | m s-1      | prcp            | precipitation                    | imported to intermediate array imp_precip
-!! mean_sens_flx                     | W m-2      | snsibl          | sensible heat flux               | imported to intermediate array imp_sensflx
-!! surface_downward_eastward_stress  | Pa         | surtx, surty    | eastward stress                  | imported to imp_taue and rotated to internal grid (imp_taux and imp_tauy)
-!! surface_downward_northward_stress | Pa         | surtx, surty    | northward stress                 | imported to imp_taun rotate to internal grid (imp_taux and imp_tauy)
-!! 
+!! mean_prec_rate                    | kg m-2 s-1 | prcp            | precipitation                    | imported to intermediate array imp_precip; unit conversion kg m-2 s-1 -> m s-1
+!! mean_salt_rate                    |            | flxice          | ice freezing/melting salt flux   | imported to intermediate array sifs_import |
+!! mean_sens_flx                     | W m-2      | snsibl          | sensible heat flux               | imported to intermediate array imp_sensflx; sign reversed to comply with HYCOM convention
+!! mean_up_lw_flux                   | W m-2      | radfl           | longwave upward flux             | imported to intermediate array imp_lwuflx
+!! sea_ice_temperature               | K          | temice, si_t    | sea ice temperature              | imported to intermediate array sit_import
+!! sea_ice_thickness                 | m          | thkice          | sea ice thickness                | imported to intermediate array sih_import
+!! sea_ice_x_velocity                | m s-1      | si_u            | sea ice x velocity               | imported to intermediate array siu_import
+!! sea_ice_y_velocity                | m s-1      | si_v            | sea ice y velocity               | imported to intermediate array siv_import
+!! sea_surface_temperature           | K          | tdif            | sea surface temperature          | imported to intermediate array imp_surtmp; unit conversion K -> C
+!! surface_downward_eastward_stress  | Pa         | surtx, surty    | eastward stress                  | imported to imp_taue and [rotated] (@ref VectorRotations) to internal grid (imp_taux and imp_tauy)
+!! surface_downward_northward_stress | Pa         | surtx, surty    | northward stress                 | imported to imp_taun and [rotated] (@ref VectorRotations) to internal grid (imp_taux and imp_tauy)
+!! water_flux_into_sea_water         | kg m-2 s-1 | riv_input       | ocean runoff                     | imported to intermediate array imp_orivers; unit conversion kg m-2 s-1 -> m s-1
+!! wind_speed_height10m              | m s-1      | wind            | wind speed                       | imported to intermediate array imp_wndspd
 !!
 !!
 !! @subsection ExportField Export Fields
 !!
 !! Standard Name                     | Units      | Model Variable  | Description                     | Notes
 !! ----------------------------------|------------|-----------------|---------------------------------|--------------------------------------
-!! mixed_layer_depth                 | m          | dpbl            | turbulent boundary layer depth  | dpbl converted from Pa to meters
-!! ocean_current_merid               | m s-1      | vmxl            | northward v velocity            | |
-!! ocean_current_zonal               | m s-1      | umxl            | eastward u velocity             | |
+!! freezing_melting_potential        | W m-2      | frzh            | freezing potential flux         | custom computation in cap
+!! mixed_layer_depth                 | m          | dpbl            | turbulent boundary layer depth  | unit conversion Pa -> m
 !! ocean_mask                        |            | ip              | mask                            | sea points when ip != 0             |
+!! ocn_current_merid                 | m s-1      | vmxl            | northward v velocity            | |
+!! ocn_current_zonal                 | m s-1      | umxl            | eastward u velocity             | |
 !! s_surf                            |            | sml             | average salinity over coupling interval | |
 !! sea_lev                           | m          | sshm            | average sea surface height over coupling interval | sshm converted to meters | 
-!! sea_surface_slope_merid           | m          | dhde            | eastward slope                  | vector rotation applied to dhdx and dhdy
-!! sea_surface_slope_zonal           | m          | dhdn            | northward slope                 | vector rotation applied to dhdx and dhdy
-!! sea_surface_temperature           | K          | temp            | temperature                     | temp converted from C to K
+!! sea_surface_slope_merid           | m          | dhde            | eastward slope                  | [vector rotation] (@ref VectorRotations) applied to dhdx and dhdy
+!! sea_surface_slope_zonal           | m          | dhdn            | northward slope                 | [vector rotation] (@ref VectorRotations)  applied to dhdx and dhdy
+!! sea_surface_temperature           | K          | temp            | temperature                     | unit conversion C -> K
 !! upward_sea_ice_basal_available_heat_flux | W m-2 | (multiple)    |                                 | computed in cap from surface layer thickness, temperature, and salinity
 !!
 !!
 !!      
 !! @subsection MemoryManagement Memory Management
 !!
+!! During the [InitializeRealize] (@ref hycom::initializerealize) phase, ESMF allocates
+!! its own memory for the import and export fields.  There are memory-to-memory copies
+!! required to move this data to and from native HYCOM arrays.
 !!
 !! @subsection IO I/O
 !!
+!! The cap is capable of writing out diagnostic files for each of the import
+!! and export coupling fields. To enable this feature, the "DumpFields" attribute
+!! must be set to "true".  In this case, prior to the internal call to `HYCOM_Run()`
+!! NetCDF files named `field_ocn_import_<fieldname>.nc` will be written, and after
+!! the call to `HYCOM_Run()`, files named `field_ocn_export_<fieldname>.nc` will
+!! be written.  These files are time series and will contain one slice of data
+!! for each time cap advance subroutine is called.
 !!
 !! @section BuildingAndInstalling Building and Installing
 !!
@@ -156,7 +229,12 @@
 !! 
 !! @section RuntimeConfiguration Runtime Configuration
 !! 
-!! 
+!! The following runtime options are set with ESMF Attributes:
+!! - `Restart` - when set to "true", HYCOM will be asked ot read atmospheric forcing data during its initialization
+!! - `Atm_init` - ?
+!! - `DumpFields` - when set to "true", diagnostic NetCDF files will be written during the advance phase, one per import/export field
+!! - `Regional` - when set to "true", HYCOM is set up in regional mode with a regional grid
+!!
 !! @section Repository
 !! The HYCOM NUOPC cap is maintained in a GitHub repository:
 !! https://github.com/feiliuesmf/hycom_cesm
