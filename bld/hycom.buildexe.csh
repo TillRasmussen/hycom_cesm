@@ -2,6 +2,7 @@
 
 set objdir = $OBJROOT/ocn/obj
 set cfgdir = $OBJROOT/ocn/config
+set my_path = $CASEROOT/SourceMods/src.hycom
 mkdir -p $cfgdir
 mkdir -p $objdir
 if ( -d $CODEROOT/ocn/hycom/sorc ) then
@@ -19,7 +20,16 @@ else
   exit 1
 endif
 
-if ($OCN_GRID == "gh72") then
+if (-d $my_path ) then
+    cp -fp $my_path/*.F90 $objdir/.
+    cp -fp $my_path/*.F   $objdir/.
+    cp -fp $my_path/*.f   $objdir/.
+    cp -fp $my_path/*.h   $objdir/.
+    cp -fp $my_path/*.c   $objdir/.
+    cp -fp $my_path/Makefile   $objdir/.
+endif
+
+if ($OCN_GRID == "gh72"  || $OCN_GRID == "tx0.1v2" || $OCN_GRID == "gh08") then
   gmake ARCH=Aintelrelo TYPE=nuopc USER_DEFS="-DHYCOM_IN_CESM" nuopc
   if ($status) then
      echo "error executing gmake ARCH=Aintelrelo TYPE=nuopc USER_DEFS=-DHYCOM_IN_CESM nuopc"

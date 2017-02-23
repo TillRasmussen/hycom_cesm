@@ -55,6 +55,20 @@ if ($MACH == "yellowstone") then
         echo "error copying hycom input data file, abort"
         exit 2
       endif
+  else if ($OCN_GRID == "tx0.1v2") then
+      if (-e /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_t12/) then
+        ln -s /glade/p/work/abozec/hycom/HYCOM_CESM/INPUT_t12/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
+  else if ($OCN_GRID == "gh08") then
+      if (-e /glade/scratch/abozec/INPUT_glbb0.08/) then
+        ln -s /glade/scratch/abozec/INPUT_glbb0.08/* .
+      else
+        echo "error copying hycom input data file, abort"
+        exit 2
+      endif
   endif
 ## NAVY Machines
 else  if ($MACH == "shepard" || $MACH == "gordon") then
