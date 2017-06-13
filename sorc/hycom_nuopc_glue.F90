@@ -94,6 +94,7 @@ module hycom_nuopc_glue
     type(ESMF_DistGridConnection), allocatable :: connectionList(:)
     type(ESMF_DistGrid)   :: dg
     type(ESMF_Array)      :: array_plon, array_plat, array_msk, array_area
+    type(ESMF_Array)      :: array_qlon, array_qlat
     
     real(kind=ESMF_KIND_R8) :: dump_lat(1500,1100)
     real(kind=ESMF_KIND_R8) :: dump_lon(1500,1100)
@@ -230,6 +231,28 @@ module hycom_nuopc_glue
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
+
+    ! dress up "plon" array, considering HYCOM memory layout with halo + padding
+    array_qlon = ESMF_ArrayCreate(dg, farray=qlon, &
+      indexflag=ESMF_INDEX_DELOCAL, &
+      computationalLWidth=(/nbdy,nbdy/), computationalUWidth=(/nbdy,nbdy/), &
+      totalLWidth=(/nbdy,nbdy/), & ! lower corner pinned to memory alloc, float upper
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
+      
+    ! dress up "plat" array, considering HYCOM memory layout with halo + padding
+    array_qlat = ESMF_ArrayCreate(dg, farray=qlat, &
+      indexflag=ESMF_INDEX_DELOCAL, &
+      computationalLWidth=(/nbdy,nbdy/), computationalUWidth=(/nbdy,nbdy/), &
+      totalLWidth=(/nbdy,nbdy/), & ! lower corner pinned to memory alloc, float upper
+      rc=rc)
+    if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
+      line=__LINE__, &
+      file=__FILE__)) &
+      return  ! bail out
       
     ! dress up "mask" array, considering HYCOM memory layout with halo + padding
     array_msk = ESMF_ArrayCreate(dg, farray=ip, &
@@ -275,14 +298,14 @@ module hycom_nuopc_glue
       return  ! bail out
     ! set the corner stagger latitude coordinate Array
     call ESMF_GridSetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
-      coordDim=1, array=array_plon, rc=rc)    
+      coordDim=1, array=array_qlon, rc=rc)    
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
       return  ! bail out
     ! set the center stagger latitude coordinate Array
     call ESMF_GridSetCoord(glue%grid, staggerLoc=ESMF_STAGGERLOC_CORNER, &
-      coordDim=2, array=array_plat, rc=rc)    
+      coordDim=2, array=array_qlat, rc=rc)    
     if (ESMF_LogFoundError(rcToCheck=rc, msg=ESMF_LOGERR_PASSTHRU, &
       line=__LINE__, &
       file=__FILE__)) &
