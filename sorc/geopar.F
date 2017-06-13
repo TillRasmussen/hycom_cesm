@@ -74,7 +74,9 @@ c
 c
       call zaiopf(trim(flnmgrd)//'.a','old', 9)
 c
-      do k= 1,16
+!!Alex      do k= 1,16
+      do k= 1,18
+
         call zagetc(cline,ios, uoff+9)
         if     (ios.ne.0) then
           if     (mnproc.eq.1) then
@@ -95,26 +97,30 @@ c
           call zaiord(plon, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.2) then
           call zaiord(plat, ip,.false., hmina,hmaxa, 9)
-          do i= 1,2  !skip qlon,qlat
-            call zagetc(cline,ios, uoff+9)
-            if     (ios.ne.0) then
-              if     (mnproc.eq.1) then
-                write(lp,'(/ a,i4,i9 /)')
-     &            'geopar: I/O error from zagetc, iunit,ios = ',
-     &            uoff+9,ios
-              endif !1st tile
-              call xcstop('(geopar)')
-                     stop '(geopar)'
-            endif
-            call zaiosk(9)
-          enddo
+!          do i= 1,2  !skip qlon,qlat
+!            call zagetc(cline,ios, uoff+9)
+!            if     (ios.ne.0) then
+!              if     (mnproc.eq.1) then
+!                write(lp,'(/ a,i4,i9 /)')
+!     &            'geopar: I/O error from zagetc, iunit,ios = ',
+!     &            uoff+9,ios
+!              endif !1st tile
+!              call xcstop('(geopar)')
+!                     stop '(geopar)'
+!            endif
+!            call zaiosk(9)
+!          enddo
         elseif (k.eq.3) then
-          call zaiord(ulon, ip,.false., hmina,hmaxa, 9)
+          call zaiord(qlon, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.4) then
-          call zaiord(ulat, ip,.false., hmina,hmaxa, 9)
+          call zaiord(qlat, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.5) then
-          call zaiord(vlon, ip,.false., hmina,hmaxa, 9)
+          call zaiord(ulon, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.6) then
+          call zaiord(ulat, ip,.false., hmina,hmaxa, 9)
+        elseif (k.eq.7) then
+          call zaiord(vlon, ip,.false., hmina,hmaxa, 9)
+        elseif (k.eq.8) then
           call zaiord(vlat, ip,.false., hmina,hmaxa, 9)
 !          call zagetc(cline,ios, uoff+9)
 !          if     (ios.ne.0) then
@@ -127,23 +133,23 @@ c
 !          endif
 !c         skip pang
 !          call zaiosk(9)
-        elseif (k.eq.7) then
-            call zaiord(pang, ip,.false., hmina,hmaxa, 9) !!Alex get pang for CESM 
-        elseif (k.eq.8) then
-          call zaiord(scpx, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.9) then
-          call zaiord(scpy, ip,.false., hmina,hmaxa, 9)
+            call zaiord(pang, ip,.false., hmina,hmaxa, 9) !!Alex get pang for CESM 
         elseif (k.eq.10) then
-          call zaiord(scqx, iq,.false., hmina,hmaxa, 9)
+          call zaiord(scpx, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.11) then
-          call zaiord(scqy, iq,.false., hmina,hmaxa, 9)
+          call zaiord(scpy, ip,.false., hmina,hmaxa, 9)
         elseif (k.eq.12) then
-          call zaiord(scux, iu,.false., hmina,hmaxa, 9)
+          call zaiord(scqx, iq,.false., hmina,hmaxa, 9)
         elseif (k.eq.13) then
-          call zaiord(scuy, iu,.false., hmina,hmaxa, 9)
+          call zaiord(scqy, iq,.false., hmina,hmaxa, 9)
         elseif (k.eq.14) then
-          call zaiord(scvx, iv,.false., hmina,hmaxa, 9)
+          call zaiord(scux, iu,.false., hmina,hmaxa, 9)
         elseif (k.eq.15) then
+          call zaiord(scuy, iu,.false., hmina,hmaxa, 9)
+        elseif (k.eq.16) then
+          call zaiord(scvx, iv,.false., hmina,hmaxa, 9)
+        elseif (k.eq.17) then
           call zaiord(scvy, iv,.false., hmina,hmaxa, 9)
         else
           call zaiord(corio,iq,.false., hmina,hmaxa, 9)
@@ -239,6 +245,8 @@ c
       vland = 1.0
       call xctilr(plon,  1,1, nbdy,nbdy, halo_ps)
       call xctilr(plat,  1,1, nbdy,nbdy, halo_ps)
+      call xctilr(qlon,  1,1, nbdy,nbdy, halo_ps) !!Alex
+      call xctilr(qlat,  1,1, nbdy,nbdy, halo_ps) !!Alex
       call xctilr(pang,  1,1, nbdy,nbdy, halo_ps) !!Alex
       call xctilr(scpx,  1,1, nbdy,nbdy, halo_ps)
       call xctilr(scpy,  1,1, nbdy,nbdy, halo_ps)
