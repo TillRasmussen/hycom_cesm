@@ -232,7 +232,7 @@ module hycom_nuopc_glue
       file=__FILE__)) &
       return  ! bail out
 
-    ! dress up "plon" array, considering HYCOM memory layout with halo + padding
+    ! dress up "qlon" array, considering HYCOM memory layout with halo + padding
     array_qlon = ESMF_ArrayCreate(dg, farray=qlon, &
       indexflag=ESMF_INDEX_DELOCAL, &
       computationalLWidth=(/nbdy,nbdy/), computationalUWidth=(/nbdy,nbdy/), &
@@ -243,7 +243,7 @@ module hycom_nuopc_glue
       file=__FILE__)) &
       return  ! bail out
       
-    ! dress up "plat" array, considering HYCOM memory layout with halo + padding
+    ! dress up "qlat" array, considering HYCOM memory layout with halo + padding
     array_qlat = ESMF_ArrayCreate(dg, farray=qlat, &
       indexflag=ESMF_INDEX_DELOCAL, &
       computationalLWidth=(/nbdy,nbdy/), computationalUWidth=(/nbdy,nbdy/), &
